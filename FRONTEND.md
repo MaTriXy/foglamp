@@ -51,6 +51,11 @@ packages/ui/src/
 - **Always** disable the submit button with `form.Subscribe` reading `state.canSubmit && !state.isSubmitting`.
 - **Never** add `react-hook-form`. Never roll a hand-managed form with `useState` for inputs.
 
+## Inputs with icons, prefix or suffix — `InputGroup`
+
+- **Always** use `<InputGroup>` from `@boilerplate/ui/components/input-group` when an input needs an icon, prefix, suffix, or any inline addon (button, kbd hint, unit label, …). Compose with `<InputGroupInput>` / `<InputGroupTextarea>` for the control and `<InputGroupAddon align="inline-start | inline-end | block-start | block-end">` for the surrounding content (`<InputGroupText>` for plain text/icons, `<InputGroupButton>` for actionable addons).
+- **Never** wrap a bare `<Input>` in a `div` with absolute-positioned icons or hand-rolled padding to fake a prefix/suffix. The primitive handles focus ring, alignment, padding, and `aria-invalid` propagation for free.
+
 ## State
 
 - **Default** to `useState` for component-local state and TanStack Query for server state.
