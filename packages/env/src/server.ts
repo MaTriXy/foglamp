@@ -11,6 +11,9 @@ const serverSchema = {
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM_EMAIL: z.string().optional(),
 
+  // Injected by the host (Cloud Run, Railway, Fly.io, …); 3000 for local dev.
+  PORT: z.coerce.number().default(3000),
+
   // # If using QStash
   // QSTASH_URL: z.string().min(1),
   // QSTASH_TOKEN: z.string().min(1),

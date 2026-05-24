@@ -3,13 +3,12 @@ import { createContext } from "@boilerplate/api/context";
 import { appRouter } from "@boilerplate/api/routers/index";
 import { auth } from "@boilerplate/auth";
 import { env, getTrustedAppOrigins } from "@boilerplate/env/server";
-import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { evlog } from "./evlog";
+import { evlog, type AppEnv } from "./evlog";
 
-const app = new Hono<EvlogVariables>();
+const app = new Hono<AppEnv>();
 const trustedAppOrigins = getTrustedAppOrigins(
   env.CORS_ORIGIN,
   env.CORS_EXTRA_ORIGINS
@@ -42,4 +41,9 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-export default app;
+// Bun serves a default export with `{ port, fetch }`. The host (Cloud Run,
+// Railway, Fly.io, …) injects PORT; falls back to 3000 for local dev.
+export default {
+  port: env.PORT,
+  fetch: app.fetch,
+};

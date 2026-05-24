@@ -1,0 +1,24 @@
+# Reinstalled / rebuilt inside the image
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.turbo
+
+# VCS & local tooling
+.git
+.gitignore
+.agents
+.claude
+
+# Secrets — never bake into the image (set them on the platform instead)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Cruft
+**/*.log
+**/.DS_Store
+Dockerfile
+.dockerignore
+README.md

@@ -36,6 +36,14 @@ export function createAuth() {
     emailAndPassword: {
       enabled: false,
     },
+    session: {
+      // Signed short-lived cookie so getSession avoids a DB round-trip on
+      // most requests. Revocation lags by at most maxAge.
+      cookieCache: {
+        enabled: true,
+        maxAge: 5 * 60,
+      },
+    },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {

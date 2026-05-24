@@ -124,6 +124,7 @@ How to make new UI feel native to this codebase, not just "shadcn with a coat of
 ## Icons — `@tabler/icons-react`
 
 - **Always** import icons from `@tabler/icons-react` (e.g. `IconLoader2`, `IconChevronDown`).
+- **Always** prefer the filled variant when one exists (`IconPhotoFilled` over `IconPhoto`, `IconCircleCheckFilled` over `IconCircleCheck`). Filled icons read better at the small sizes we use and are the project's default look. Fall back to the outline variant only when no `*Filled` exists (e.g. `IconLoader2`, `IconChevronDown`) or the user explicitly asks for outline.
 - **Always** size icons with Tailwind: `size-3.5` is the default. Use `size-3` for compact contexts (badges, dense table cells) and `size-4` for medium emphasis (page headers, primary actions).
 - **Never** add `mr-2` (or any margin) to an icon inside a `<Button>`. The button already spaces children with `gap-`\*.
 - **Never** mix icon libraries. No `lucide-react`, `react-icons`, etc.
