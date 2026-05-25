@@ -1,9 +1,9 @@
 import { trpcServer } from "@hono/trpc-server";
-import { startAlertEvaluator } from "@watchtower/api/alertCron";
-import { createContext } from "@watchtower/api/context";
-import { appRouter } from "@watchtower/api/routers/index";
-import { auth } from "@watchtower/auth";
-import { env, getTrustedAppOrigins } from "@watchtower/env/server";
+import { startAlertEvaluator } from "@foglamp/api/alertCron";
+import { createContext } from "@foglamp/api/context";
+import { appRouter } from "@foglamp/api/routers/index";
+import { auth } from "@foglamp/auth";
+import { env, getTrustedAppOrigins } from "@foglamp/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 

@@ -14,9 +14,9 @@ import {
   clickHouseConfigFromEnv,
   createClickHouseClient,
   runMigrations,
-} from "@watchtower/clickhouse";
-import { db } from "@watchtower/db";
-import { env } from "@watchtower/env/server";
+} from "@foglamp/clickhouse";
+import { db } from "@foglamp/db";
+import { env } from "@foglamp/env/server";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -30,10 +30,10 @@ console.log("✓ Postgres migrations applied");
 console.log("▶ ClickHouse: applying DDL migrations + retention…");
 const ch = createClickHouseClient(await clickHouseConfigFromEnv());
 const applied = await runMigrations(ch);
-await applySpansRetention(ch, env.WATCHTOWER_SPANS_RETENTION_DAYS);
+await applySpansRetention(ch, env.FOGLAMP_SPANS_RETENTION_DAYS);
 await ch.close();
 console.log(
-  `✓ ClickHouse ready (${applied.length ? `applied ${applied.join(", ")}` : "already up to date"}; retention ${env.WATCHTOWER_SPANS_RETENTION_DAYS}d)`,
+  `✓ ClickHouse ready (${applied.length ? `applied ${applied.join(", ")}` : "already up to date"}; retention ${env.FOGLAMP_SPANS_RETENTION_DAYS}d)`,
 );
 
 console.log("▶ Seeding…");

@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.0",
-    "@watchtower/api": "workspace:*",
-    "@watchtower/auth": "workspace:*",
-    "@watchtower/db": "workspace:*",
-    "@watchtower/env": "workspace:*",
+    "@foglamp/api": "workspace:*",
+    "@foglamp/auth": "workspace:*",
+    "@foglamp/db": "workspace:*",
+    "@foglamp/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
@@ -27,7 +27,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.5",
     "typescript": "^5"

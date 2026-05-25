@@ -2,13 +2,13 @@
 
 import { IconRobot } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@watchtower/ui/components/badge";
+import { Badge } from "@foglamp/ui/components/badge";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 

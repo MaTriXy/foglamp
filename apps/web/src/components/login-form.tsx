@@ -1,9 +1,9 @@
 "use client";
 
-import { env } from "@watchtower/env/web";
-import { Button } from "@watchtower/ui/components/button";
-import { Input } from "@watchtower/ui/components/input";
-import { Label } from "@watchtower/ui/components/label";
+import { env } from "@foglamp/env/web";
+import { Button } from "@foglamp/ui/components/button";
+import { Input } from "@foglamp/ui/components/input";
+import { Label } from "@foglamp/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { toast } from "sonner";

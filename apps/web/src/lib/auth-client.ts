@@ -1,4 +1,4 @@
-import { env } from "@watchtower/env/web";
+import { env } from "@foglamp/env/web";
 import { createAuthClient } from "better-auth/react";
 import { magicLinkClient, organizationClient } from "better-auth/client/plugins";
 

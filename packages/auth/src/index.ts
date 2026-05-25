@@ -1,6 +1,6 @@
-import { createDb } from "@watchtower/db";
-import * as schema from "@watchtower/db/schema/auth";
-import { env, getTrustedAppOrigins } from "@watchtower/env/server";
+import { createDb } from "@foglamp/db";
+import * as schema from "@foglamp/db/schema/auth";
+import { env, getTrustedAppOrigins } from "@foglamp/env/server";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { magicLink, organization } from "better-auth/plugins";

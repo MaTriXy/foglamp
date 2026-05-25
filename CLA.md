@@ -1,12 +1,12 @@
-# Watchtower Contributor License Agreement
+# Foglamp Contributor License Agreement
 
 > **Note:** This is a template adapted from the Apache Individual CLA, extended
 > with a relicensing grant so the project can be offered under both the Elastic
 > License 2.0 and separate commercial licenses. **Have it reviewed by legal
 > counsel before relying on it.** Replace "the Maintainer" with the legal entity
-> or individual that owns the Watchtower copyright.
+> or individual that owns the Foglamp copyright.
 
-Thank you for your interest in contributing to Watchtower ("the Project"),
+Thank you for your interest in contributing to Foglamp ("the Project"),
 maintained by **the Maintainer**. This Contributor License Agreement ("Agreement")
 documents the rights granted by contributors. It protects you as a contributor as
 well as the Maintainer and its users; it does not change your right to use your own

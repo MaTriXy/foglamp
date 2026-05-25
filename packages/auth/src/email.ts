@@ -1,8 +1,8 @@
-import { env } from "@watchtower/env/server";
+import { env } from "@foglamp/env/server";
 import { createLogger } from "evlog";
 import { Resend } from "resend";
 
-const DEFAULT_FROM = "Watchtower <onboarding@watchtower.dev>";
+const DEFAULT_FROM = "Foglamp <onboarding@foglamp.dev>";
 
 const log = createLogger();
 
@@ -25,7 +25,7 @@ export async function sendMagicLinkEmail({
   const { error } = await resend.emails.send({
     from,
     to: [to],
-    subject: "Your Watchtower sign-in link",
+    subject: "Your Foglamp sign-in link",
     html: renderHtml(url),
     text: renderText(url),
   });
@@ -108,7 +108,7 @@ function renderAlertHtml(p: {
     </table>
     <p style="margin: 24px 0;">
       <a href="${p.url}" style="background: #111; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-size: 14px;">
-        Open in Watchtower
+        Open in Foglamp
       </a>
     </p>
   </body>
@@ -133,14 +133,14 @@ Condition: ${p.conditionLabel}
 Value:     ${p.value}
 Window:    ${p.windowLabel}
 
-Open in Watchtower: ${p.url}`;
+Open in Foglamp: ${p.url}`;
 }
 
 function renderHtml(url: string) {
   return `<!doctype html>
 <html>
   <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111;">
-    <h1 style="font-size: 18px; margin-bottom: 16px;">Sign in to Watchtower</h1>
+    <h1 style="font-size: 18px; margin-bottom: 16px;">Sign in to Foglamp</h1>
     <p style="font-size: 14px; line-height: 1.5;">
       Click the button below to access your account. This link expires in 15 minutes.
     </p>
@@ -157,7 +157,7 @@ function renderHtml(url: string) {
 }
 
 function renderText(url: string) {
-  return `Sign in to Watchtower
+  return `Sign in to Foglamp
 
 Click the link below to access your account. This link expires in 15 minutes.
 

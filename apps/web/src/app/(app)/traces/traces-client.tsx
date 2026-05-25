@@ -2,7 +2,7 @@
 
 import { IconListTree } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@watchtower/ui/components/badge";
+import { Badge } from "@foglamp/ui/components/badge";
 import {
   Table,
   TableBody,
@@ -10,7 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 import { useRouter } from "next/navigation";
 
 import {

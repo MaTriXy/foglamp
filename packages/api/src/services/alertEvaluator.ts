@@ -1,12 +1,12 @@
-import { sendAlertEmail, type AlertEmailKind } from "@watchtower/auth/email";
-import { queryAlertWindow } from "@watchtower/clickhouse";
+import { sendAlertEmail, type AlertEmailKind } from "@foglamp/auth/email";
+import { queryAlertWindow } from "@foglamp/clickhouse";
 import {
   alertEvent,
   alertRule,
   alertState,
-} from "@watchtower/db/schema/alert";
-import { project } from "@watchtower/db/schema/project";
-import { env } from "@watchtower/env/server";
+} from "@foglamp/db/schema/alert";
+import { project } from "@foglamp/db/schema/project";
+import { env } from "@foglamp/env/server";
 import { eq } from "drizzle-orm";
 
 import { num, toClickHouseDateTime } from "../lib/util";

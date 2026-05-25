@@ -1,4 +1,4 @@
-// The eight cost dimensions Watchtower prices, mirrored across the OpenRouter
+// The eight cost dimensions Foglamp prices, mirrored across the OpenRouter
 // pricing payload, the Postgres custom_pricing override, and the ClickHouse
 // cost columns. (OpenRouter's `audio` dimension is intentionally out of scope —
 // the wire usage contract carries no audio token counts.)

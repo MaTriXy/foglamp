@@ -3,9 +3,9 @@
 // pipeline directly: a wire payload → buildSpanRows (cost-at-ingest) → the
 // WriteBuffer → ClickHouse → MV rollups. Proves cost math, id denormalization,
 // metadata merge, and the flush path. Run manually during Phase 5 verification.
-import { createClickHouseClient, listTraces, getTraceSpans } from "@watchtower/clickhouse";
-import type { IngestPayload } from "@watchtower/contracts";
-import { type ModelPrice, type PricingTable } from "@watchtower/cost";
+import { createClickHouseClient, listTraces, getTraceSpans } from "@foglamp/clickhouse";
+import type { IngestPayload } from "@foglamp/contracts";
+import { type ModelPrice, type PricingTable } from "@foglamp/cost";
 
 import { WriteBuffer } from "../src/buffer";
 import { matchCustomPrice } from "../src/customPricing";
@@ -14,8 +14,8 @@ import { buildSpanRows } from "../src/transform";
 const client = createClickHouseClient({
   url: "http://localhost:18123",
   username: "default",
-  password: "watchtower",
-  database: "watchtower",
+  password: "foglamp",
+  database: "foglamp",
 });
 
 function assert(cond: unknown, msg: string) {

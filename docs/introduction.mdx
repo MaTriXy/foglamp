@@ -1,0 +1,73 @@
+---
+title: Introduction
+description: "The missing observability layer for the Vercel AI SDK."
+---
+
+Foglamp gives you unified observability for agents built on the
+[Vercel AI SDK](https://ai-sdk.dev) — cost, latency, token usage, distributed
+traces, and full prompt/response logs — with two lines of code.
+
+It is **TypeScript-only** and built for **AI SDK v7**. You instrument your app
+with `foglamp`, and traces stream to a backend you can run yourself
+or use as a hosted service.
+
+<Note>
+  Foglamp targets **AI SDK v7** (currently in beta). The SDK hooks into v7's
+  first-class telemetry interface — see the [Quickstart](/quickstart) for
+  version requirements.
+</Note>
+
+## Why Foglamp
+
+Generative apps fail in ways traditional APM never had to model: a single user
+action fans out into multiple model calls, tool executions, and retries, each
+with its own cost and latency. Foglamp is built around that shape.
+
+<CardGroup cols={2}>
+  <Card title="Cost at ingest" icon="dollar-sign">
+    Every span is priced as it arrives, broken down by input, output, reasoning,
+    and cached tokens. Unknown models surface as `—`, never a misleading `$0`.
+  </Card>
+  <Card title="Distributed traces" icon="diagram-project">
+    One top-level `generateText`/`streamText` call is a trace; its steps and tool
+    calls are spans. Group them into agents, workflows, and runs.
+  </Card>
+  <Card title="Latency & TTFT" icon="gauge">
+    p50/p95/p99 latency and time-to-first-token, read straight from the SDK's
+    own performance metrics rather than guessed.
+  </Card>
+  <Card title="Self-host or hosted" icon="server">
+    Run the whole stack with `docker compose up`, or point the SDK at a managed
+    endpoint. Same code either way.
+  </Card>
+</CardGroup>
+
+## How it fits together
+
+```
+your app ──foglamp──▶ ingest API ──▶ ClickHouse ──▶ dashboard
+```
+
+- **SDK** — a telemetry integration that batches spans and flushes them
+  fire-and-forget. Silent no-op when no API key is set; never throws, never adds
+  latency to your model calls.
+- **Ingest API** — authenticates the API key, prices each span, and writes to
+  ClickHouse.
+- **Dashboard** — traces, workflows, agents, cost-over-time, and alerts.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and see your first trace in minutes.
+  </Card>
+  <Card title="Data model" icon="sitemap" href="/concepts/data-model">
+    Understand traces, spans, workflows, runs, and sessions.
+  </Card>
+  <Card title="SDK reference" icon="code" href="/sdk/overview">
+    Every configuration option and integration method.
+  </Card>
+  <Card title="Self-hosting" icon="docker" href="/self-hosting/overview">
+    Run the full stack on your own infrastructure.
+  </Card>
+</CardGroup>

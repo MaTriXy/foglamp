@@ -1,4 +1,4 @@
-// Public configuration + context types for the Watchtower SDK. Kept dependency-
+// Public configuration + context types for the Foglamp SDK. Kept dependency-
 // free (only the bundled wire contract) so the published package has zero
 // workspace runtime deps and `ai` stays a peer dependency.
 
@@ -16,12 +16,12 @@ export type WaitUntil = (promise: Promise<unknown>) => void;
  */
 export type MetadataInput = Record<string, string | number | boolean>;
 
-/** Options for `watchtower(config)`. Every field is optional. */
-export interface WatchtowerConfig {
-  /** API key. Defaults to `process.env.WATCHTOWER_API_KEY`. Unset ⇒ no-op. */
+/** Options for `foglamp(config)`. Every field is optional. */
+export interface FoglampConfig {
+  /** API key. Defaults to `process.env.FOGLAMP_API_KEY`. Unset ⇒ no-op. */
   apiKey?: string;
   /**
-   * Ingest endpoint. Defaults to `process.env.WATCHTOWER_INGEST_URL`, then the
+   * Ingest endpoint. Defaults to `process.env.FOGLAMP_INGEST_URL`, then the
    * hosted endpoint. Self-hosters point this at their own `apps/ingest`.
    */
   endpoint?: string;

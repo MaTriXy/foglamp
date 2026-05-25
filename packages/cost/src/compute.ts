@@ -1,4 +1,4 @@
-import type { Usage } from "@watchtower/contracts";
+import type { Usage } from "@foglamp/contracts";
 
 import { formatScaled, scaledCost } from "./decimal";
 import { EMPTY_BREAKDOWN, type CostBreakdown, type ModelPrice } from "./dimensions";

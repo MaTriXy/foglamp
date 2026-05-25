@@ -8,13 +8,13 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@watchtower/ui/components/chart";
+} from "@foglamp/ui/components/chart";
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
 

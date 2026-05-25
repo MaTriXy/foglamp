@@ -1,9 +1,9 @@
-import type * as Contract from "@watchtower/contracts";
+import type * as Contract from "@foglamp/contracts";
 
 import type * as Wire from "./wire";
 
 // Compile-time guarantee that the SDK's plain wire types (src/wire.ts) stay
-// structurally identical to the @watchtower/contracts v1 schemas. This file is
+// structurally identical to the @foglamp/contracts v1 schemas. This file is
 // type-only — it emits no runtime code and is NOT part of the published bundle
 // (tsdown bundles src/index.ts, which never imports this). It exists solely so
 // that a change to the wire contract fails `check-types` here until src/wire.ts

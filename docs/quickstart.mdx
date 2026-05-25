@@ -1,0 +1,125 @@
+---
+title: Quickstart
+description: "Instrument a Vercel AI SDK app and see your first trace."
+---
+
+## Requirements
+
+<Note>
+  Foglamp requires **AI SDK v7** (currently in beta). The SDK is built against
+  v7's first-class telemetry interface and does not support v5/v6.
+</Note>
+
+- `ai@7` installed in your project
+- A Foglamp API key (`fl_…`) — created in the dashboard, or printed by the
+  seed script when [self-hosting](/self-hosting/overview)
+- An ingest endpoint URL — `https://ingest.foglamp.dev/ingest` for hosted, or
+  your own when self-hosting
+
+## 1. Install
+
+<CodeGroup>
+
+```bash npm
+npm i foglamp
+```
+
+```bash pnpm
+pnpm add foglamp
+```
+
+```bash bun
+bun add foglamp
+```
+
+```bash yarn
+yarn add foglamp
+```
+
+</CodeGroup>
+
+## 2. Configure
+
+Set your key and endpoint in the environment:
+
+```bash .env
+FOGLAMP_API_KEY=fl_your_key_here
+# Hosted default is used if unset. When self-hosting, point at your ingest API:
+FOGLAMP_INGEST_URL=http://localhost:4000/ingest
+```
+
+<Info>
+  If `FOGLAMP_API_KEY` is not set, the SDK is a silent no-op — your app runs
+  exactly as before, with no spans recorded and nothing thrown. This makes it
+  safe to leave instrumentation in place across every environment.
+</Info>
+
+## 3. Instrument
+
+You have two ways to wire Foglamp in. Pick whichever fits your app.
+
+<Tabs>
+  <Tab title="Per-call (recommended)">
+    Attach the integration to individual `generateText`/`streamText` calls. This
+    is fully typed and lets you label each call with an agent, workflow, and run.
+
+    ```ts
+    import { foglamp } from "foglamp";
+    import { generateText } from "ai";
+    import { openai } from "@ai-sdk/openai";
+
+    const wt = foglamp();
+
+    const result = await generateText({
+      model: openai("gpt-4o"),
+      prompt: "Summarize the latest deploy.",
+      experimental_telemetry: {
+        isEnabled: true,
+        integrations: [
+          wt.integration({
+            agentName: "summarizer",
+            workflowName: "deploy-digest",
+            workflowRunId: run.id,
+          }),
+        ],
+      },
+    });
+    ```
+  </Tab>
+  <Tab title="Global">
+    Register the integration once and instrument every call in the app. Reads
+    `functionId` as the agent name and reserved keys from `telemetry.metadata`.
+
+    ```ts
+    import { foglamp } from "foglamp";
+    import { registerTelemetry } from "ai";
+
+    registerTelemetry(foglamp());
+    ```
+  </Tab>
+</Tabs>
+
+## 4. Flush
+
+In long-running servers (Node, Bun) the SDK flushes on an interval
+automatically. In serverless runtimes you must ensure the batch is sent before
+the function returns — see [Runtimes & flushing](/sdk/runtimes).
+
+```ts
+await wt.flush();
+```
+
+## 5. See it in the dashboard
+
+Run your app, then open the dashboard. Your call appears under **Traces**, with
+its spans, token usage, computed cost, and latency. Group related calls with a
+shared `workflowRunId` to see them on the **Workflows** timeline.
+
+<CardGroup cols={2}>
+  <Card title="SDK reference" icon="code" href="/sdk/overview">
+    All configuration options and integration fields.
+  </Card>
+  <Card title="Data model" icon="sitemap" href="/concepts/data-model">
+    How traces, spans, workflows, and runs relate.
+  </Card>
+</CardGroup>

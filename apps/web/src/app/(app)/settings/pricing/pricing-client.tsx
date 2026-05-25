@@ -2,8 +2,8 @@
 
 import { IconCoin, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@watchtower/ui/components/badge";
-import { Button } from "@watchtower/ui/components/button";
+import { Badge } from "@foglamp/ui/components/badge";
+import { Button } from "@foglamp/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@watchtower/ui/components/dialog";
-import { Field, FieldLabel } from "@watchtower/ui/components/field";
-import { Input } from "@watchtower/ui/components/input";
+} from "@foglamp/ui/components/dialog";
+import { Field, FieldLabel } from "@foglamp/ui/components/field";
+import { Input } from "@foglamp/ui/components/input";
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 import { useState } from "react";
 import { toast } from "sonner";
 

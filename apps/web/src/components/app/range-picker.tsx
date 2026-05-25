@@ -3,7 +3,7 @@
 import {
   NativeSelect,
   NativeSelectOption,
-} from "@watchtower/ui/components/native-select";
+} from "@foglamp/ui/components/native-select";
 
 import { RANGE_PRESETS, type RangeKey } from "@/lib/range";
 

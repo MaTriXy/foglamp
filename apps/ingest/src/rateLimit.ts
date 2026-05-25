@@ -1,4 +1,4 @@
-import { env } from "@watchtower/env/server";
+import { env } from "@foglamp/env/server";
 
 // Per-key token-bucket rate limiter. In-memory and therefore per-instance and
 // approximate — without a shared store (Redis), N replicas allow up to N× the

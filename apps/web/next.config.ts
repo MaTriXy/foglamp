@@ -1,4 +1,4 @@
-import "@watchtower/env/web";
+import "@foglamp/env/web";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {

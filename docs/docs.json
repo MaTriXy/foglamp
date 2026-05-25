@@ -1,0 +1,87 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Foglamp",
+  "description": "The missing observability layer for the Vercel AI SDK.",
+  "colors": {
+    "primary": "#171717",
+    "light": "#FFFFFF",
+    "dark": "#171717"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Core concepts",
+            "pages": ["concepts/data-model"]
+          },
+          {
+            "group": "SDK",
+            "pages": [
+              "sdk/overview",
+              "sdk/configuration",
+              "sdk/runtimes"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Self-hosting",
+        "groups": [
+          {
+            "group": "Self-hosting",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "API reference",
+            "pages": ["api-reference/introduction"]
+          },
+          {
+            "group": "Ingest",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "POST /ingest",
+              "GET /health"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/foglamp-labs/foglamp"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/foglamp-labs/foglamp"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/foglamp-labs/foglamp"
+    }
+  }
+}

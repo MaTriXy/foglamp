@@ -16,8 +16,8 @@ import {
 const client = createClickHouseClient({
   url: "http://localhost:18123",
   username: "default",
-  password: "watchtower",
-  database: "watchtower",
+  password: "foglamp",
+  database: "foglamp",
 });
 
 function assert(cond: unknown, msg: string) {

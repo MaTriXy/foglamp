@@ -1,5 +1,5 @@
 {
-  "name": "watchtower",
+  "name": "foglamp",
   "license": "Elastic-2.0",
   "private": true,
   "workspaces": {
@@ -37,19 +37,19 @@
     "check-types": "turbo check-types",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
-    "db:push": "turbo -F @watchtower/db db:push",
-    "db:studio": "turbo -F @watchtower/db db:studio",
-    "db:generate": "turbo -F @watchtower/db db:generate",
-    "db:migrate": "turbo -F @watchtower/db db:migrate",
+    "db:push": "turbo -F @foglamp/db db:push",
+    "db:studio": "turbo -F @foglamp/db db:studio",
+    "db:generate": "turbo -F @foglamp/db db:generate",
+    "db:migrate": "turbo -F @foglamp/db db:migrate",
     "db:seed": "turbo -F server db:seed"
   },
   "dependencies": {
-    "@watchtower/env": "workspace:*",
+    "@foglamp/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/bun": "catalog:",
     "turbo": "^2.8.12",
     "typescript": "^5"

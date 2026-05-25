@@ -1,5 +1,5 @@
 {
-  "name": "@watchtower/auth",
+  "name": "@foglamp/auth",
   "license": "Elastic-2.0",
   "type": "module",
   "exports": {
@@ -12,8 +12,8 @@
   },
   "scripts": {},
   "dependencies": {
-    "@watchtower/db": "workspace:*",
-    "@watchtower/env": "workspace:*",
+    "@foglamp/db": "workspace:*",
+    "@foglamp/env": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "evlog": "^2.13.0",
@@ -21,7 +21,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "typescript": "^5"
   }
 }

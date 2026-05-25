@@ -2,8 +2,8 @@ import {
   listTracesByWorkflowRun,
   listWorkflowRuns,
   listWorkflows,
-} from "@watchtower/clickhouse";
-import { workflowRunName } from "@watchtower/db/schema/workflowRun";
+} from "@foglamp/clickhouse";
+import { workflowRunName } from "@foglamp/db/schema/workflowRun";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { decimalOrNull, num } from "../lib/util";

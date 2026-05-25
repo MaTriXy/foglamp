@@ -1,14 +1,14 @@
-import type { SpanRow } from "@watchtower/clickhouse";
-import type { IngestPayload } from "@watchtower/contracts";
+import type { SpanRow } from "@foglamp/clickhouse";
+import type { IngestPayload } from "@foglamp/contracts";
 import {
   EMPTY_BREAKDOWN,
   type PricingTable,
   priceSpan,
-} from "@watchtower/cost";
+} from "@foglamp/cost";
 
 import { matchCustomPrice } from "./customPricing";
 
-type Rule = { pattern: string; price: import("@watchtower/cost").CustomPrice };
+type Rule = { pattern: string; price: import("@foglamp/cost").CustomPrice };
 
 // Only model-bearing spans are priced. The `agent` root span and `tool` spans
 // carry no model cost; pricing them too would double-count against the llm

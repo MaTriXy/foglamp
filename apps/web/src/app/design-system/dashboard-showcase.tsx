@@ -23,22 +23,22 @@ import {
 } from "@tabler/icons-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
-import { Avatar, AvatarFallback } from "@watchtower/ui/components/avatar";
-import { Badge } from "@watchtower/ui/components/badge";
-import { Button } from "@watchtower/ui/components/button";
+import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
+import { Badge } from "@foglamp/ui/components/badge";
+import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@watchtower/ui/components/chart";
+} from "@foglamp/ui/components/chart";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,12 +46,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@watchtower/ui/components/dropdown-menu";
+} from "@foglamp/ui/components/dropdown-menu";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@watchtower/ui/components/input-group";
+} from "@foglamp/ui/components/input-group";
 import {
   Sidebar,
   SidebarContent,
@@ -67,7 +67,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-} from "@watchtower/ui/components/sidebar";
+} from "@foglamp/ui/components/sidebar";
 import {
   Table,
   TableBody,
@@ -75,7 +75,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 
 type Org = { id: string; name: string; plan: string };
 

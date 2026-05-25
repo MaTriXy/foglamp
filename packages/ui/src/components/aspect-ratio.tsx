@@ -1,4 +1,4 @@
-import { cn } from "@watchtower/ui/lib/utils";
+import { cn } from "@foglamp/ui/lib/utils";
 
 function AspectRatio({
   ratio,

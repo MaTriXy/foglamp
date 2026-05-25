@@ -34,7 +34,7 @@ export function createClickHouseClient(
 
 /** Build a client config from the validated server env. */
 export async function clickHouseConfigFromEnv(): Promise<ClickHouseConfig> {
-  const { env } = await import("@watchtower/env/server");
+  const { env } = await import("@foglamp/env/server");
   return {
     url: env.CLICKHOUSE_URL,
     username: env.CLICKHOUSE_USER,

@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import {
   Empty,
   EmptyContent,
@@ -15,8 +15,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@watchtower/ui/components/empty";
-import { Skeleton } from "@watchtower/ui/components/skeleton";
+} from "@foglamp/ui/components/empty";
+import { Skeleton } from "@foglamp/ui/components/skeleton";
 
 export function PageHeader({
   title,

@@ -11,11 +11,11 @@
     "start": "bun run dist/main.mjs"
   },
   "dependencies": {
-    "@watchtower/clickhouse": "workspace:*",
-    "@watchtower/contracts": "workspace:*",
-    "@watchtower/cost": "workspace:*",
-    "@watchtower/db": "workspace:*",
-    "@watchtower/env": "workspace:*",
+    "@foglamp/clickhouse": "workspace:*",
+    "@foglamp/contracts": "workspace:*",
+    "@foglamp/cost": "workspace:*",
+    "@foglamp/db": "workspace:*",
+    "@foglamp/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
     "evlog": "^2.13.0",
@@ -23,7 +23,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.5",
     "typescript": "^5"

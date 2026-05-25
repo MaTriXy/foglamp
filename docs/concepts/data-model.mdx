@@ -1,0 +1,96 @@
+---
+title: Data model
+description: "Traces, spans, workflows, runs, agents, and sessions."
+---
+
+Foglamp's model maps directly onto how the Vercel AI SDK executes. Five
+concepts cover everything you see in the dashboard.
+
+## Trace
+
+A **trace** is one top-level model call — a single `generateText` or
+`streamText` invocation. It carries the call's identity (agent, workflow, run,
+session), free-form metadata, and a list of spans.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `traceId` | string | 1–128 chars, unique per call |
+| `agentName` | string? | up to 256 chars |
+| `workflowName` | string? | up to 256 chars |
+| `workflowRunId` | string? | up to 128 chars — groups traces into one run |
+| `sessionId` | string? | up to 128 chars |
+| `metadata` | map | string → string |
+| `spans` | span[] | 1–2000 spans |
+
+## Span
+
+A **span** is a unit of work inside a trace — a model step, a tool call, an
+embedding, or anything else. Spans carry timing, status, model identity, token
+usage, and optional input/output.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `spanId` | string | 1–128 chars |
+| `parentSpanId` | string? | builds the waterfall |
+| `spanType` | enum | `agent`, `llm`, `tool`, `embedding`, `other` |
+| `name` | string | up to 512 chars |
+| `startTime` / `endTime` | int | epoch milliseconds; `endTime ≥ startTime` |
+| `status` | enum | `ok` (default) or `error` |
+| `errorMessage` | string? | up to 8192 chars |
+| `provider` | string? | e.g. `openai` |
+| `modelId` | string? | e.g. `gpt-4o` |
+| `usage` | object? | token dimensions, see below |
+| `ttftMs` | int? | time to first token |
+| `input` / `output` | string? | up to 1,000,000 chars each |
+| `metadata` | map? | string → string |
+
+### Usage
+
+Every usage dimension is an optional non-negative integer. Each is priced
+independently at ingest.
+
+| Field | Meaning |
+| --- | --- |
+| `inputTokens` | prompt tokens |
+| `outputTokens` | completion tokens |
+| `totalTokens` | total reported by the provider |
+| `reasoningTokens` | reasoning/thinking tokens |
+| `cachedInputTokens` | prompt tokens served from cache |
+| `cacheWriteInputTokens` | tokens written to cache |
+| `imageCount` | images generated |
+| `webSearchCount` | web search calls |
+| `requestCount` | provider requests |
+
+## Workflow & run
+
+A **workflow** is a named, repeatable process (e.g. `deploy-digest`). A
+**workflow run** is one execution of it, identified by `workflowRunId`. Every
+trace sharing a `workflowRunId` belongs to the same run, and the dashboard
+stitches them into a single timeline.
+
+Run names are editable in the dashboard — a friendly label is stored against the
+`workflowRunId` so a run reads as "Nightly digest · May 24" instead of a UUID.
+
+## Agent
+
+An **agent** is a named actor (`agentName`) responsible for a call. Agents give
+you per-agent rollups — cost, latency, error rate — across every trace they
+produced, independent of which workflow they ran in.
+
+## Session
+
+A **session** (`sessionId`) ties together traces that belong to one
+conversation or user interaction, cutting across workflows and agents. Use it to
+follow a single end-user thread end to end.
+
+## How it streams
+
+```
+generateText() ─────────────▶ trace
+  ├─ step (model call) ──────▶ llm span   (tokens, cost, ttft)
+  ├─ tool call ──────────────▶ tool span
+  └─ step (model call) ──────▶ llm span
+```
+
+The SDK opens a span per step and tool execution, reads the SDK's own
+performance metrics for TTFT, and closes the trace when the call ends.

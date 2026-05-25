@@ -15,7 +15,7 @@ import {
   IconSettings,
   IconTimeline,
 } from "@tabler/icons-react";
-import { Avatar, AvatarFallback } from "@watchtower/ui/components/avatar";
+import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
 
 import { getGoogleFavicon } from "@/lib/favicon";
 import {
@@ -25,7 +25,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@watchtower/ui/components/dropdown-menu";
+} from "@foglamp/ui/components/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -40,7 +40,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-} from "@watchtower/ui/components/sidebar";
+} from "@foglamp/ui/components/sidebar";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 

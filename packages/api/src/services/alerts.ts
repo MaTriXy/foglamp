@@ -5,7 +5,7 @@ import {
   alertState,
   type AlertChannel,
   type AlertFilters,
-} from "@watchtower/db/schema/alert";
+} from "@foglamp/db/schema/alert";
 import { desc, eq } from "drizzle-orm";
 
 import { decimalOrNull } from "../lib/util";

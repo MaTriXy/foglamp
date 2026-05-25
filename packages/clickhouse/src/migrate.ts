@@ -52,7 +52,7 @@ export async function runMigrations(client: ClickHouseClient): Promise<string[]>
 
 /**
  * Set the spans retention window via ALTER … MODIFY TTL (mutable, online).
- * Called on boot with WATCHTOWER_SPANS_RETENTION_DAYS. A value <= 0 removes
+ * Called on boot with FOGLAMP_SPANS_RETENTION_DAYS. A value <= 0 removes
  * the TTL (keep forever).
  */
 export async function applySpansRetention(

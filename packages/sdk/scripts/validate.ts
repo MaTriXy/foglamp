@@ -3,9 +3,9 @@
 // the produced IngestPayload: trace/span shape, id correlation, usage mapping,
 // TTFT capture, metadata coercion, context binding, and the disabled no-op.
 // Run manually during Phase 6 verification: `bun run scripts/validate.ts`.
-import { ingestPayloadSchema, type IngestPayload } from "@watchtower/contracts";
+import { ingestPayloadSchema, type IngestPayload } from "@foglamp/contracts";
 
-import { watchtower } from "../src/index";
+import { foglamp } from "../src/index";
 
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(`ASSERT FAILED: ${msg}`);
@@ -40,8 +40,8 @@ const base = Date.now();
 // --- Happy path: generateText, 2 steps, 1 tool, streamed first chunk --------
 console.log("Telemetry lifecycle → IngestPayload:");
 const cap = makeCapture();
-const wt = watchtower({
-  apiKey: "wt_test_key",
+const wt = foglamp({
+  apiKey: "fl_test_key",
   endpoint: "http://capture.local/ingest",
   fetch: cap.fetchImpl,
   flushIntervalMs: 10_000, // we flush explicitly
@@ -82,12 +82,12 @@ integration.onStepFinish({
 });
 integration.onToolExecutionStart({
   callId: CALL,
-  toolCall: { toolCallId: "tc_1", toolName: "search", input: { q: "watchtower" } },
+  toolCall: { toolCallId: "tc_1", toolName: "search", input: { q: "foglamp" } },
 });
 integration.onToolExecutionEnd({
   callId: CALL,
   durationMs: 40,
-  toolCall: { toolCallId: "tc_1", toolName: "search", input: { q: "watchtower" } },
+  toolCall: { toolCallId: "tc_1", toolName: "search", input: { q: "foglamp" } },
   toolOutput: { type: "tool-result", output: { hits: 3 } },
 });
 integration.onStepFinish({
@@ -107,7 +107,7 @@ const payload = cap.bodies[0]!;
 
 // The payload must satisfy the real contract schema the ingest service uses.
 const parsed = ingestPayloadSchema.safeParse(payload);
-assert(parsed.success, `payload validates against @watchtower/contracts${parsed.success ? "" : `: ${JSON.stringify(parsed.error.issues.slice(0, 3))}`}`);
+assert(parsed.success, `payload validates against @foglamp/contracts${parsed.success ? "" : `: ${JSON.stringify(parsed.error.issues.slice(0, 3))}`}`);
 
 assert(payload.version === "v1", "wire version is v1");
 assert(payload.traces.length === 1, "one trace");
@@ -142,7 +142,7 @@ assert(step0.metadata?.finishReason === "tool-calls", "finishReason recorded on 
 assert(tool.name === "search", "tool span named after tool");
 assert(tool.parentSpanId === `${CALL}:root`, "tool parented to root");
 assert(tool.status === "ok", "successful tool → ok");
-assert(tool.input === '{"q":"watchtower"}', "tool input serialized");
+assert(tool.input === '{"q":"foglamp"}', "tool input serialized");
 assert(tool.output === '{"hits":3}', "tool output serialized");
 assert(root.startTime <= step0.startTime && step1.endTime <= root.endTime, "root span envelopes child spans");
 assert(base - 5_000 < root.startTime, "timestamps are epoch ms");
@@ -150,7 +150,7 @@ assert(base - 5_000 < root.startTime, "timestamps are epoch ms");
 // --- recordInputs / recordOutputs disabled ---------------------------------
 console.log("recordInputs/recordOutputs = false:");
 const cap2 = makeCapture();
-const wt2 = watchtower({ apiKey: "k", fetch: cap2.fetchImpl, recordInputs: false, recordOutputs: false });
+const wt2 = foglamp({ apiKey: "k", fetch: cap2.fetchImpl, recordInputs: false, recordOutputs: false });
 const i2 = wt2.integration({ agentName: "a" }) as unknown as Hooks;
 i2.onStart({ callId: "c2", operationId: "ai.generateText", provider: "openai", modelId: "gpt-4o", messages: [{ role: "user", content: "secret" }] });
 i2.onStepFinish({ callId: "c2", stepNumber: 0, model: { provider: "openai", modelId: "gpt-4o" }, usage: { inputTokens: 5 }, text: "secret answer", finishReason: "stop" });
@@ -164,7 +164,7 @@ assert(t2.spans.find((s) => s.spanType === "llm")?.usage?.inputTokens === 5, "us
 // --- onError closes the open trace -----------------------------------------
 console.log("onError path:");
 const cap3 = makeCapture();
-const wt3 = watchtower({ apiKey: "k", fetch: cap3.fetchImpl });
+const wt3 = foglamp({ apiKey: "k", fetch: cap3.fetchImpl });
 const i3 = wt3.integration({ agentName: "boom" }) as unknown as Hooks;
 i3.onStart({ callId: "c3", operationId: "ai.generateText", provider: "openai", modelId: "gpt-4o", messages: [] });
 i3.onError(new Error("model exploded"));
@@ -175,11 +175,11 @@ assert(t3!.spans[0]!.status === "error", "root span marked error");
 assert(t3!.spans[0]!.errorMessage === "model exploded", "error message captured");
 
 // --- Disabled no-op (no API key) -------------------------------------------
-console.log("disabled (no WATCHTOWER_API_KEY):");
-const prev = process.env.WATCHTOWER_API_KEY;
-delete process.env.WATCHTOWER_API_KEY;
+console.log("disabled (no FOGLAMP_API_KEY):");
+const prev = process.env.FOGLAMP_API_KEY;
+delete process.env.FOGLAMP_API_KEY;
 const cap4 = makeCapture();
-const wt4 = watchtower({ fetch: cap4.fetchImpl });
+const wt4 = foglamp({ fetch: cap4.fetchImpl });
 const i4 = wt4.integration({ agentName: "x" }) as unknown as Hooks;
 i4.onStart({ callId: "c4", operationId: "ai.generateText", provider: "openai", modelId: "gpt-4o", messages: [] });
 i4.onStepFinish({ callId: "c4", stepNumber: 0, model: { provider: "openai", modelId: "gpt-4o" }, usage: {}, text: "x", finishReason: "stop" });
@@ -187,6 +187,6 @@ i4.onFinish({ callId: "c4", text: "x" });
 await wt4.flush();
 assert(cap4.calls === 0, "no network calls when disabled");
 assert(wt4.pending === 0, "nothing buffered when disabled");
-if (prev !== undefined) process.env.WATCHTOWER_API_KEY = prev;
+if (prev !== undefined) process.env.FOGLAMP_API_KEY = prev;
 
 console.log("\nALL SDK CHECKS PASSED ✅");

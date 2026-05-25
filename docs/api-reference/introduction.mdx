@@ -1,0 +1,64 @@
+---
+title: API reference
+description: "The Foglamp ingest API."
+---
+
+The **ingest API** (`apps/ingest`) is the write path: it receives batches of
+traces from the SDK, prices each span, and persists them. Most users never call
+it directly — `foglamp` does — but it's a plain HTTP+JSON API you can
+target from any language.
+
+## Base URL
+
+| Deployment | Base URL |
+| --- | --- |
+| Self-hosted | `http://localhost:4000` |
+| Hosted | `https://ingest.foglamp.dev` |
+
+The interactive playground below defaults to the self-hosted URL.
+
+## Authentication
+
+Authenticate every request with a Foglamp API key (`fl_…`). Two equivalent
+forms are accepted:
+
+<CodeGroup>
+
+```bash Authorization header
+curl https://ingest.foglamp.dev/ingest \
+  -H "Authorization: Bearer fl_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{ "version": "v1", "traces": [ … ] }'
+```
+
+```bash x-api-key header
+curl https://ingest.foglamp.dev/ingest \
+  -H "x-api-key: fl_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{ "version": "v1", "traces": [ … ] }'
+```
+
+</CodeGroup>
+
+Keys are stored as SHA-256 hashes — only the prefix is ever shown again after
+creation. A revoked key is rejected immediately.
+
+## Responses
+
+| Status | Meaning |
+| --- | --- |
+| `202 Accepted` | Batch buffered. Body: `{ "accepted": <rowCount> }`. |
+| `400 Bad Request` | Invalid JSON, or payload failed schema validation (`issues` array). |
+| `401 Unauthorized` | Missing, invalid, or revoked API key. |
+| `429 Too Many Requests` | Per-key rate limit exceeded. Includes `Retry-After`. |
+
+Ingest is **fire-and-forget**: a `202` means the batch was accepted into the
+write buffer, which flushes to ClickHouse on an interval. The SDK retries
+transparently, so direct callers should treat `202` as success.
+
+## Payload shape
+
+The body is a versioned batch — `version: "v1"` plus a `traces` array (1–1000
+traces, each with 1–2000 spans). See the
+[data model](/concepts/data-model) for field semantics, or the **Ingest**
+endpoints in the sidebar for the full schema and a live playground.

@@ -1,20 +1,20 @@
-// @watchtower-ai/sdk — two-line observability for the Vercel AI SDK (v7).
+// foglamp — two-line observability for the Vercel AI SDK (v7).
 //
 // Global (instruments every generateText/streamText in the app):
 //
 //   import { registerTelemetry } from "ai";
-//   import { watchtower } from "@watchtower-ai/sdk";
-//   registerTelemetry(watchtower());
+//   import { foglamp } from "foglamp";
+//   registerTelemetry(foglamp());
 //
 // Per-call (typed, wins over global; attaches first-class context):
 //
-//   const wt = watchtower();
+//   const wt = foglamp();
 //   await generateText({
 //     model, prompt,
 //     telemetry: { integrations: [wt.integration({ agentName: "support" })] },
 //   });
 //
-// Silent no-op when WATCHTOWER_API_KEY is unset; never throws, never adds
+// Silent no-op when FOGLAMP_API_KEY is unset; never throws, never adds
 // latency. On Vercel/Lambda it flushes per-call via waitUntil; elsewhere it
 // batches on a timer — call `await wt.flush()` before a short-lived process
 // exits, or `wt.shutdown()` to stop and drain.
@@ -22,14 +22,14 @@
 import { Collector } from "./collector";
 import { resolveConfig } from "./config";
 import { Transport } from "./transport";
-import type { WatchtowerConfig } from "./types";
+import type { FoglampConfig } from "./types";
 
 /**
- * Create a Watchtower collector. The returned object is both an AI SDK
+ * Create a Foglamp collector. The returned object is both an AI SDK
  * `Telemetry` integration (pass to `registerTelemetry`) and a factory for
  * per-call, context-bound integrations via `.integration(ctx)`.
  */
-export function watchtower(config: WatchtowerConfig = {}): Collector {
+export function foglamp(config: FoglampConfig = {}): Collector {
   const resolved = resolveConfig(config);
   const transport = new Transport(resolved);
   return new Collector(transport, resolved);
@@ -40,6 +40,6 @@ export type {
   IntegrationContext,
   MetadataInput,
   WaitUntil,
-  WatchtowerConfig,
+  FoglampConfig,
 } from "./types";
 export type { IngestPayload, Metadata, Span, SpanType, Trace, Usage } from "./wire";

@@ -1,0 +1,82 @@
+---
+title: Runtimes & flushing
+description: "Make sure spans leave the process in every runtime."
+---
+
+Foglamp batches spans in memory and flushes them fire-and-forget. In a
+long-running server that is invisible; in serverless environments the process
+can freeze or terminate before a batch is sent. The rule:
+
+<Note>
+  **Anything you don't flush before the runtime suspends is lost.** The buffer is
+  volatile by design — it never blocks your model calls.
+</Note>
+
+The collector auto-detects its runtime and picks a flush strategy. You can
+always override with `wt.flush()` or by passing a `waitUntil` hook.
+
+## Long-running (Node, Bun)
+
+Nothing to do. The collector flushes every `flushIntervalMs` (default 5s) and on
+early batch limits. For clean shutdown, drain the buffer on exit:
+
+```ts
+process.on("SIGTERM", () => wt.shutdown());
+process.on("SIGINT", () => wt.shutdown());
+```
+
+## Vercel functions
+
+The collector auto-detects Vercel and uses `waitUntil` to keep the function
+alive until the flush completes. If detection doesn't fire, pass it explicitly:
+
+```ts
+import { waitUntil } from "@vercel/functions";
+
+const wt = foglamp({ waitUntil });
+```
+
+## Cloudflare Workers
+
+Workers don't expose a global `waitUntil`; it lives on the request `ctx`. Thread
+it through so the flush survives the response:
+
+```ts
+export default {
+  async fetch(req, env, ctx) {
+    const wt = foglamp({ waitUntil: ctx.waitUntil.bind(ctx) });
+
+    const result = await generateText({
+      model: openai("gpt-4o"),
+      prompt: "…",
+      experimental_telemetry: { isEnabled: true, integrations: [wt.integration()] },
+    });
+
+    return Response.json(result);
+  },
+};
+```
+
+## AWS Lambda
+
+Lambda freezes the execution environment the moment your handler returns, so a
+background flush may never run. **Await the flush before returning** — do not
+rely on `process.on("beforeExit")`, which won't fire.
+
+```ts
+export const handler = async (event) => {
+  const result = await generateText({ /* … */ });
+  await wt.flush();
+  return result;
+};
+```
+
+## Manual flush anywhere
+
+`wt.flush()` works in every runtime and resolves when the request completes.
+It's safe to call when the collector is disabled (it resolves immediately), so
+you can leave it in unconditionally.
+
+```ts
+await wt.flush();
+```

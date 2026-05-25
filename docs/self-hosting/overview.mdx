@@ -1,0 +1,85 @@
+---
+title: Self-hosting
+description: "Run the full Foglamp stack on your own infrastructure."
+---
+
+Foglamp is built to run anywhere Docker runs. The same code powers the hosted
+service and your self-hosted deployment — there is no separate "community
+edition" with features stripped out.
+
+## Architecture
+
+```
+                    ┌──────────────┐
+   your apps ──────▶│ apps/ingest  │──┐
+   (SDK)            │  :4000       │  │  writes
+                    └──────────────┘  ▼
+                                  ┌────────────┐
+                                  │ ClickHouse │  spans + rollups
+                                  └────────────┘
+                                  ┌────────────┐
+                                  │ Postgres   │  orgs, projects, keys, alerts
+                                  └────────────┘
+                    ┌──────────────┐  ▲
+   dashboard ──────▶│ apps/server  │──┘  reads + auth + alert cron
+   (browser)        │  :3000       │
+                    └──────┬───────┘
+                    ┌──────▼───────┐
+                    │ apps/web     │  Next.js dashboard
+                    │  :3001       │
+                    └──────────────┘
+```
+
+| Service | Port | Role |
+| --- | --- | --- |
+| `apps/ingest` | 4000 | API-key-authed span intake; prices and writes spans. Scales independently. |
+| `apps/server` | 3000 | tRPC dashboard API, auth, and the alert evaluator cron. |
+| `apps/web` | 3001 | Next.js dashboard UI. |
+| ClickHouse | 8123 | Span store and materialized rollups. |
+| Postgres | 5432 | Orgs, projects, API keys, alerts, custom pricing. |
+
+There is no Redis or external queue — the ingest write buffer is in-memory and
+flushes to ClickHouse on an interval and on graceful shutdown.
+
+## Quickstart
+
+```bash
+git clone https://github.com/foglamp-labs/foglamp.git
+cd foglamp
+docker compose up --build
+```
+
+On boot the stack runs Drizzle migrations, applies the ClickHouse DDL, sets span
+retention, and runs the idempotent seed script. The seed prints an **admin login
+and an API key once** — copy them.
+
+<Note>
+  There are **no static default credentials**. If `ADMIN_EMAIL` / `ADMIN_PASSWORD`
+  are unset, the seed generates a random password and prints it a single time.
+</Note>
+
+Then open the dashboard at `http://localhost:3001` and log in with the seeded
+email + password. Email (magic-link) and Google OAuth are optional — login works
+out of the box without them.
+
+## Pointing the SDK at your deployment
+
+Set the ingest URL in your instrumented app:
+
+```bash
+FOGLAMP_API_KEY=fl_seeded_key_here
+FOGLAMP_INGEST_URL=http://your-host:4000/ingest
+```
+
+## Operations
+
+- **Retention** — `FOGLAMP_SPANS_RETENTION_DAYS` (default 30) is applied via
+  `ALTER TABLE … MODIFY TTL` on boot. Change it and restart to adjust.
+- **Pricing** — model prices come from the OpenRouter models API, cached and
+  refreshed every 24h. For air-gapped hosts, supply a local JSON file with
+  `FOGLAMP_PRICING_FILE`.
+- **Email** — set `RESEND_API_KEY` to enable magic-link login and alert
+  notifications. Without it, the platform still works via password login.
+
+See [Configuration](/self-hosting/configuration) for the full environment
+variable reference.

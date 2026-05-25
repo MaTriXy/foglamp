@@ -1,4 +1,4 @@
-import { Button } from "@watchtower/ui/components/button";
+import { Button } from "@foglamp/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,8 +7,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@watchtower/ui/components/dropdown-menu";
-import { Skeleton } from "@watchtower/ui/components/skeleton";
+} from "@foglamp/ui/components/dropdown-menu";
+import { Skeleton } from "@foglamp/ui/components/skeleton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 

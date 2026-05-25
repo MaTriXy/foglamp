@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 
 // --- API keys --------------------------------------------------------------
-// Format `wt_…`; only the sha256 hash is stored (must match the ingest resolver
+// Format `fl_…`; only the sha256 hash is stored (must match the ingest resolver
 // in apps/ingest/src/apiKey.ts). `keyPrefix` is a short non-secret fragment.
 
 export function generateApiKey(): string {
-  return `wt_${randomBytes(32).toString("base64url")}`;
+  return `fl_${randomBytes(32).toString("base64url")}`;
 }
 
 export function hashApiKey(key: string): string {

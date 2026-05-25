@@ -1,5 +1,5 @@
-import { db } from "@watchtower/db";
-import { env } from "@watchtower/env/server";
+import { db } from "@foglamp/db";
+import { env } from "@foglamp/env/server";
 import { createLogger } from "evlog";
 
 import { ch } from "./clickhouse";

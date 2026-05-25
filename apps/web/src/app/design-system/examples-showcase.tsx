@@ -12,40 +12,40 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
-import { Avatar, AvatarFallback } from "@watchtower/ui/components/avatar";
-import { Badge } from "@watchtower/ui/components/badge";
-import { Button } from "@watchtower/ui/components/button";
+import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
+import { Badge } from "@foglamp/ui/components/badge";
+import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import {
   Field,
   FieldDescription,
   FieldLabel,
-} from "@watchtower/ui/components/field";
-import { Input } from "@watchtower/ui/components/input";
+} from "@foglamp/ui/components/field";
+import { Input } from "@foglamp/ui/components/input";
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemMedia,
   ItemTitle,
-} from "@watchtower/ui/components/item";
-import { Progress } from "@watchtower/ui/components/progress";
+} from "@foglamp/ui/components/item";
+import { Progress } from "@foglamp/ui/components/progress";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@watchtower/ui/components/select";
-import { Separator } from "@watchtower/ui/components/separator";
-import { Slider } from "@watchtower/ui/components/slider";
-import { Textarea } from "@watchtower/ui/components/textarea";
+} from "@foglamp/ui/components/select";
+import { Separator } from "@foglamp/ui/components/separator";
+import { Slider } from "@foglamp/ui/components/slider";
+import { Textarea } from "@foglamp/ui/components/textarea";
 
 const months = [
   { label: "Dec", value: 60 },

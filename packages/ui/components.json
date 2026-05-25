@@ -12,11 +12,11 @@
   },
   "iconLibrary": "tabler",
   "aliases": {
-    "components": "@watchtower/ui/components",
-    "utils": "@watchtower/ui/lib/utils",
-    "hooks": "@watchtower/ui/hooks",
-    "lib": "@watchtower/ui/lib",
-    "ui": "@watchtower/ui/components"
+    "components": "@foglamp/ui/components",
+    "utils": "@foglamp/ui/lib/utils",
+    "hooks": "@foglamp/ui/hooks",
+    "lib": "@foglamp/ui/lib",
+    "ui": "@foglamp/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

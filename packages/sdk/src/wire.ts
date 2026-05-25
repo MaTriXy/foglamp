@@ -1,4 +1,4 @@
-// Plain, dependency-free mirror of the @watchtower/contracts v1 wire shapes.
+// Plain, dependency-free mirror of the @foglamp/contracts v1 wire shapes.
 //
 // The SDK only *produces* ingest payloads (it never validates them), so it
 // carries these as plain TypeScript types rather than importing the zod-derived

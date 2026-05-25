@@ -1,8 +1,8 @@
-// @watchtower/cost — OpenRouter pricing fetch/cache, model-id normalization,
+// @foglamp/cost — OpenRouter pricing fetch/cache, model-id normalization,
 // and exact per-dimension cost calculation. Pure & side-effect-free except for
 // the in-memory pricing cache in pricing.ts.
 
-import type { Usage } from "@watchtower/contracts";
+import type { Usage } from "@foglamp/contracts";
 
 import { computeCost } from "./compute";
 import type { CostBreakdown, PricingSource } from "./dimensions";

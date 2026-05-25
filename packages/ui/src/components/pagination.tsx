@@ -1,7 +1,7 @@
 import * as React from "react";
 
-import { cn } from "@watchtower/ui/lib/utils";
-import { Button } from "@watchtower/ui/components/button";
+import { cn } from "@foglamp/ui/lib/utils";
+import { Button } from "@foglamp/ui/components/button";
 import {
   IconChevronLeft,
   IconChevronRight,

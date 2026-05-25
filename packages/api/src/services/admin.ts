@@ -10,8 +10,8 @@ import {
   getPricingTable,
   type PricingTable,
   priceSpan,
-} from "@watchtower/cost";
-import { insertSpans, type SpanRow } from "@watchtower/clickhouse";
+} from "@foglamp/cost";
+import { insertSpans, type SpanRow } from "@foglamp/clickhouse";
 import { uuidv7 } from "uuidv7";
 
 import type { Ch } from "../types";
@@ -189,8 +189,8 @@ function makeTrace(
       workflow_run_id: opts.workflowRunId ?? "",
       session_id: opts.sessionId ?? "",
       metadata: meta,
-      input: JSON.stringify([{ role: "user", content: "What is Watchtower?" }]),
-      output: stepErr ? "" : "Watchtower is an observability platform for AI agents.",
+      input: JSON.stringify([{ role: "user", content: "What is Foglamp?" }]),
+      output: stepErr ? "" : "Foglamp is an observability platform for AI agents.",
     });
     stepIndex += 1;
 
@@ -216,7 +216,7 @@ function makeTrace(
         workflow_run_id: opts.workflowRunId ?? "",
         session_id: opts.sessionId ?? "",
         metadata: meta,
-        input: JSON.stringify({ query: "watchtower ai observability" }),
+        input: JSON.stringify({ query: "foglamp ai observability" }),
         output: JSON.stringify({ results: 5 }),
       });
     }

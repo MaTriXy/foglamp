@@ -1,4 +1,4 @@
-import { getTraceSpans, listTraces } from "@watchtower/clickhouse";
+import { getTraceSpans, listTraces } from "@foglamp/clickhouse";
 
 import { decimalOrNull, num } from "../lib/util";
 import type { Ch, Db } from "../types";

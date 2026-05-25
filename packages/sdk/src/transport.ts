@@ -150,7 +150,7 @@ export class Transport {
       });
       if (!res.ok) {
         this.config.onError(
-          new Error(`watchtower ingest responded ${res.status} ${res.statusText}`),
+          new Error(`foglamp ingest responded ${res.status} ${res.statusText}`),
         );
       }
     } catch (error) {

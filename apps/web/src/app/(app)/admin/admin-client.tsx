@@ -10,16 +10,16 @@ import {
   IconTool,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@watchtower/ui/components/button";
+import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
-import { Input } from "@watchtower/ui/components/input";
-import { ScrollArea } from "@watchtower/ui/components/scroll-area";
+} from "@foglamp/ui/components/card";
+import { Input } from "@foglamp/ui/components/input";
+import { ScrollArea } from "@foglamp/ui/components/scroll-area";
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 

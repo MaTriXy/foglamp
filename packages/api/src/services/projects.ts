@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { apiKey } from "@watchtower/db/schema/apiKey";
-import { project } from "@watchtower/db/schema/project";
+import { apiKey } from "@foglamp/db/schema/apiKey";
+import { project } from "@foglamp/db/schema/project";
 import { and, desc, eq } from "drizzle-orm";
 
 import { generateApiKey, hashApiKey, keyPrefix, slugify } from "../lib/util";

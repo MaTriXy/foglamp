@@ -25,7 +25,7 @@ type ProjectContextValue = {
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
 
-const STORAGE_KEY = "watchtower.projectId";
+const STORAGE_KEY = "foglamp.projectId";
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const { data, isLoading } = useQuery(trpc.projects.list.queryOptions());

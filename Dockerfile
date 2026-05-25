@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-target image for the Watchtower self-host stack (see docker-compose.yml).
+# Multi-target image for the Foglamp self-host stack (see docker-compose.yml).
 # Targets:
 #   server  — read-heavy Hono/tRPC dashboard API + alert evaluator (tsdown bundle)
 #   ingest  — write-heavy span ingestion API (tsdown bundle)
 #   migrate — one-shot: Postgres migrate + ClickHouse DDL + seed, then exit
 #   web     — Next.js dashboard (next start)
 #
-# Build a single target:  docker build --target server -t watchtower-server .
+# Build a single target:  docker build --target server -t foglamp-server .
 # Or let compose build them all:  docker compose build
 
 ARG BUN_VERSION=1.2.19
@@ -20,7 +20,7 @@ COPY . .
 RUN bun install --frozen-lockfile
 
 # ---------- server ----------
-# tsdown inlines the @watchtower/* workspace packages; external npm deps
+# tsdown inlines the @foglamp/* workspace packages; external npm deps
 # (hono, better-auth, @trpc/server, pg, …) stay in node_modules.
 FROM base AS server-build
 RUN bun run --filter server build

@@ -1,4 +1,4 @@
-# Watchtower self-host stack — from zero to instrumented with one command:
+# Foglamp self-host stack — from zero to instrumented with one command:
 #
 #   docker compose up --build
 #
@@ -20,16 +20,16 @@
 # network; the published ports are what the host browser / SDK use.
 x-app-env: &app-env
   NODE_ENV: production
-  DATABASE_URL: postgres://watchtower:watchtower@postgres:5432/watchtower
+  DATABASE_URL: postgres://foglamp:foglamp@postgres:5432/foglamp
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev_only_secret_change_me_0123456789abcd}
   BETTER_AUTH_URL: http://localhost:3000
   CORS_ORIGIN: http://localhost:3001
   CLICKHOUSE_URL: http://clickhouse:8123
   CLICKHOUSE_USER: default
   CLICKHOUSE_PASSWORD: ""
-  CLICKHOUSE_DATABASE: watchtower
+  CLICKHOUSE_DATABASE: foglamp
   OPENROUTER_MODELS_URL: https://openrouter.ai/api/v1/models
-  WATCHTOWER_SPANS_RETENTION_DAYS: ${WATCHTOWER_SPANS_RETENTION_DAYS:-30}
+  FOGLAMP_SPANS_RETENTION_DAYS: ${FOGLAMP_SPANS_RETENTION_DAYS:-30}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
   RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-}
@@ -39,13 +39,13 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: watchtower
-      POSTGRES_PASSWORD: watchtower
-      POSTGRES_DB: watchtower
+      POSTGRES_USER: foglamp
+      POSTGRES_PASSWORD: foglamp
+      POSTGRES_DB: foglamp
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U watchtower -d watchtower"]
+      test: ["CMD-SHELL", "pg_isready -U foglamp -d foglamp"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -53,7 +53,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
     environment:
-      CLICKHOUSE_DB: watchtower
+      CLICKHOUSE_DB: foglamp
       # Without a USER/PASSWORD set on the server, the image locks the `default`
       # user to localhost only — which breaks the app tiers connecting over the
       # compose network (AUTHENTICATION_FAILED). SKIP_USER_SETUP keeps `default`

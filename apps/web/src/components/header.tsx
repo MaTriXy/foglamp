@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 
-import { Button } from "@watchtower/ui/components/button";
+import { Button } from "@foglamp/ui/components/button";
 import { ThemeSwitcher } from "./theme-switcher";
 import UserMenu from "./user-menu";
 

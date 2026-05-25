@@ -1,17 +1,17 @@
-import type { ResolvedConfig, WatchtowerConfig } from "./types";
+import type { ResolvedConfig, FoglampConfig } from "./types";
 
 // Resolve user config + environment into a fully-defaulted internal config.
 
-const DEFAULT_ENDPOINT = "https://ingest.watchtower.dev/ingest";
+const DEFAULT_ENDPOINT = "https://ingest.foglamp.dev/ingest";
 // The wire contract caps each input/output blob at 1MB; never exceed it.
 const CONTRACT_MAX_PAYLOAD = 1_000_000;
 
-export function resolveConfig(config: WatchtowerConfig): ResolvedConfig {
+export function resolveConfig(config: FoglampConfig): ResolvedConfig {
   const env: Record<string, string | undefined> =
     typeof process !== "undefined" && process.env ? process.env : {};
 
-  const apiKey = config.apiKey ?? env.WATCHTOWER_API_KEY;
-  const endpoint = config.endpoint ?? env.WATCHTOWER_INGEST_URL ?? DEFAULT_ENDPOINT;
+  const apiKey = config.apiKey ?? env.FOGLAMP_API_KEY;
+  const endpoint = config.endpoint ?? env.FOGLAMP_INGEST_URL ?? DEFAULT_ENDPOINT;
   const debug = config.debug ?? false;
 
   const fetchImpl =
@@ -30,13 +30,13 @@ export function resolveConfig(config: WatchtowerConfig): ResolvedConfig {
   const onError =
     config.onError ??
     ((error: unknown) => {
-      if (debug) console.error("[watchtower]", error);
+      if (debug) console.error("[foglamp]", error);
     });
 
   const enabled = Boolean(apiKey) && typeof fetchImpl === "function";
 
   if (!apiKey && debug) {
-    console.warn("[watchtower] WATCHTOWER_API_KEY not set — telemetry disabled (no-op).");
+    console.warn("[foglamp] FOGLAMP_API_KEY not set — telemetry disabled (no-op).");
   }
 
   return {

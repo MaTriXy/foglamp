@@ -8,8 +8,8 @@ import {
   type Locale,
 } from "react-day-picker";
 
-import { cn } from "@watchtower/ui/lib/utils";
-import { Button, buttonVariants } from "@watchtower/ui/components/button";
+import { cn } from "@foglamp/ui/lib/utils";
+import { Button, buttonVariants } from "@foglamp/ui/components/button";
 import {
   IconChevronLeft,
   IconChevronRight,

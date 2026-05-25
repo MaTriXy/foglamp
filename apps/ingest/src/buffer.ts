@@ -1,4 +1,4 @@
-import { type ClickHouseClient, insertSpans, type SpanRow } from "@watchtower/clickhouse";
+import { type ClickHouseClient, insertSpans, type SpanRow } from "@foglamp/clickhouse";
 
 // In-memory write buffer. Spans are accumulated from accepted requests and
 // flushed to ClickHouse in bulk on an interval or once a row cap is reached,

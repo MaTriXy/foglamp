@@ -1,5 +1,5 @@
 {
-  "name": "@watchtower/db",
+  "name": "@foglamp/db",
   "license": "Elastic-2.0",
   "type": "module",
   "exports": {
@@ -17,7 +17,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@watchtower/env": "workspace:*",
+    "@foglamp/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.17.1",
@@ -25,7 +25,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/pg": "^8.16.0",
     "drizzle-kit": "^0.31.8",
     "typescript": "^5"

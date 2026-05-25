@@ -3,14 +3,14 @@
 import * as React from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 
-import { cn } from "@watchtower/ui/lib/utils";
-import { Button } from "@watchtower/ui/components/button";
+import { cn } from "@foglamp/ui/lib/utils";
+import { Button } from "@foglamp/ui/components/button";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@watchtower/ui/components/input-group";
+} from "@foglamp/ui/components/input-group";
 import { IconChevronDown, IconX, IconCheck } from "@tabler/icons-react";
 
 const Combobox = ComboboxPrimitive.Root;

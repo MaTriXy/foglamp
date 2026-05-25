@@ -1,6 +1,6 @@
-import { type CustomPrice, modelIdCandidates } from "@watchtower/cost";
-import { db } from "@watchtower/db";
-import { customPricing } from "@watchtower/db/schema/pricing";
+import { type CustomPrice, modelIdCandidates } from "@foglamp/cost";
+import { db } from "@foglamp/db";
+import { customPricing } from "@foglamp/db/schema/pricing";
 import { eq } from "drizzle-orm";
 
 // Per-project price overrides (Postgres `custom_pricing`). These take precedence

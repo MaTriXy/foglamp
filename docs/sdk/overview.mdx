@@ -1,0 +1,99 @@
+---
+title: SDK overview
+description: "The foglamp() collector and its integration methods."
+---
+
+The `foglamp` package exposes a single factory, `foglamp()`, which
+returns a **collector**. The collector batches spans and flushes them to your
+ingest endpoint, and produces telemetry integrations you attach to AI SDK calls.
+
+```ts
+import { foglamp } from "foglamp";
+
+const wt = foglamp();
+```
+
+<Note>
+  The SDK requires **AI SDK v7** and declares `ai@7` as a peer dependency. It
+  ships zero runtime dependencies of its own and never forces a particular
+  version of `zod` on your project.
+</Note>
+
+## `foglamp(config?)`
+
+Creates a collector. All configuration is optional; sensible defaults apply and
+missing credentials disable the collector silently. See
+[Configuration](/sdk/configuration) for the full option table.
+
+```ts
+const wt = foglamp({
+  apiKey: process.env.FOGLAMP_API_KEY,
+  endpoint: process.env.FOGLAMP_INGEST_URL,
+  flushIntervalMs: 5000,
+});
+```
+
+If `apiKey` is unset (and not in the environment), the collector is **disabled**:
+integrations become no-ops, nothing is sent, and nothing is thrown.
+
+## Collector methods
+
+### `wt.integration(context?)`
+
+Returns a telemetry integration to pass into a call's
+`experimental_telemetry.integrations` array. The optional context labels every
+span the call produces.
+
+```ts
+wt.integration({
+  agentName: "summarizer",
+  workflowName: "deploy-digest",
+  workflowRunId: run.id,
+  sessionId: user.threadId,
+  metadata: { environment: "production", region: "us-east-1" },
+});
+```
+
+| Context field | Type | Notes |
+| --- | --- | --- |
+| `agentName` | string | the actor responsible for the call |
+| `workflowName` | string | the named process |
+| `workflowRunId` | string | groups traces into one run |
+| `sessionId` | string | ties traces to one conversation |
+| `metadata` | `Record<string, string \| number \| boolean>` | free-form labels |
+
+### `wt.flush()`
+
+Sends any buffered spans immediately and resolves when the request completes.
+Call this before a serverless function returns, or on shutdown. Safe to call
+when the collector is disabled (resolves immediately).
+
+```ts
+await wt.flush();
+```
+
+### `wt.shutdown()`
+
+Stops the flush timer and performs a final flush. Use on graceful process
+shutdown in long-running servers.
+
+```ts
+process.on("SIGTERM", () => wt.shutdown());
+```
+
+## Registration paths
+
+<CardGroup cols={2}>
+  <Card title="Per-call" icon="crosshairs">
+    Pass `wt.integration(...)` into a single call's telemetry. Fully typed, and
+    wins over any global registration.
+  </Card>
+  <Card title="Global" icon="globe">
+    `registerTelemetry(foglamp())` instruments every call. Reads `functionId`
+    as `agentName` and reserved keys from `telemetry.metadata`.
+  </Card>
+</CardGroup>
+
+Next: tune batching and capture in [Configuration](/sdk/configuration), and make
+sure spans actually leave serverless functions in
+[Runtimes & flushing](/sdk/runtimes).

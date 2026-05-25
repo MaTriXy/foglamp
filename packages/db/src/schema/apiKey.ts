@@ -4,7 +4,7 @@ import { uuidv7 } from "uuidv7";
 
 import { project } from "./project";
 
-// API keys are `wt_…`. Only the sha256 hash is stored; the plaintext is shown
+// API keys are `fl_…`. Only the sha256 hash is stored; the plaintext is shown
 // once at creation. `keyPrefix` is a short non-secret display fragment.
 export const apiKey = pgTable(
   "api_key",

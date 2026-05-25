@@ -1,5 +1,5 @@
 {
-  "extends": "@watchtower/config/tsconfig.base.json",
+  "extends": "@foglamp/config/tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,

@@ -2,7 +2,7 @@ import {
   queryMetricsTimeseries,
   queryModelBreakdown,
   queryProjectSummary,
-} from "@watchtower/clickhouse";
+} from "@foglamp/clickhouse";
 
 import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
 import type { Ch, Db } from "../types";

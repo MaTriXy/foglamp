@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { customPricing } from "@watchtower/db/schema/pricing";
+import { customPricing } from "@foglamp/db/schema/pricing";
 import { and, desc, eq } from "drizzle-orm";
 
 import { decimalOrNull } from "../lib/util";

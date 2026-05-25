@@ -1,5 +1,5 @@
-import { createClickHouseClient } from "@watchtower/clickhouse";
-import { env } from "@watchtower/env/server";
+import { createClickHouseClient } from "@foglamp/clickhouse";
+import { env } from "@foglamp/env/server";
 
 // Single ClickHouse client shared across the dashboard API (reads only). The
 // ingest service owns writes; the dashboard never inserts. Built from the same

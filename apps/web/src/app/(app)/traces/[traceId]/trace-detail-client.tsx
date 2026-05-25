@@ -2,14 +2,14 @@
 
 import { IconArrowLeft, IconListTree } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@watchtower/ui/components/badge";
-import { Button } from "@watchtower/ui/components/button";
+import { Badge } from "@foglamp/ui/components/badge";
+import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
+} from "@foglamp/ui/components/card";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 

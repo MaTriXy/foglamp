@@ -66,9 +66,9 @@ export function parsePricingResponse(body: unknown): PricingTable {
 async function loadPricing(): Promise<PricingTable> {
   // Imported lazily so the pure pricing/cost helpers stay importable without
   // a validated server env (e.g. in unit tests).
-  const { env } = await import("@watchtower/env/server");
-  if (env.WATCHTOWER_PRICING_FILE) {
-    const raw = await readFile(env.WATCHTOWER_PRICING_FILE, "utf8");
+  const { env } = await import("@foglamp/env/server");
+  if (env.FOGLAMP_PRICING_FILE) {
+    const raw = await readFile(env.FOGLAMP_PRICING_FILE, "utf8");
     return parsePricingResponse(JSON.parse(raw));
   }
   const res = await fetch(env.OPENROUTER_MODELS_URL, {
@@ -103,7 +103,7 @@ function refresh(): Promise<PricingTable> {
       return table;
     })
     .catch((err) => {
-      console.warn("[watchtower/cost] pricing refresh failed:", err);
+      console.warn("[foglamp/cost] pricing refresh failed:", err);
       return cache?.table ?? new Map<string, ModelPrice>();
     })
     .finally(() => {

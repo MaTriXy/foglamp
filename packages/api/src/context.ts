@@ -1,5 +1,5 @@
-import { auth } from "@watchtower/auth";
-import { db } from "@watchtower/db";
+import { auth } from "@foglamp/auth";
+import { db } from "@foglamp/db";
 import { createLogger, type RequestLogger } from "evlog";
 import type { Context as HonoContext } from "hono";
 

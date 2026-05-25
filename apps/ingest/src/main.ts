@@ -3,10 +3,10 @@ import {
   clickHouseConfigFromEnv,
   createClickHouseClient,
   runMigrations,
-} from "@watchtower/clickhouse";
-import { ingestPayloadSchema } from "@watchtower/contracts";
-import { getPricingTable } from "@watchtower/cost";
-import { env } from "@watchtower/env/server";
+} from "@foglamp/clickhouse";
+import { ingestPayloadSchema } from "@foglamp/contracts";
+import { getPricingTable } from "@foglamp/cost";
+import { env } from "@foglamp/env/server";
 import { createLogger } from "evlog";
 import { Hono } from "hono";
 
@@ -27,11 +27,11 @@ const boot = createLogger({ service: "ingest", phase: "boot" });
 // --- Boot: ClickHouse client, schema, retention, pricing warmup -----------
 const client = createClickHouseClient(await clickHouseConfigFromEnv());
 const applied = await runMigrations(client);
-await applySpansRetention(client, env.WATCHTOWER_SPANS_RETENTION_DAYS);
+await applySpansRetention(client, env.FOGLAMP_SPANS_RETENTION_DAYS);
 // Prime the pricing cache so the first requests don't all race the fetch. Never
 // throws; an empty table just means early spans land with null cost.
 void getPricingTable();
-boot.emit({ migrationsApplied: applied, retentionDays: env.WATCHTOWER_SPANS_RETENTION_DAYS });
+boot.emit({ migrationsApplied: applied, retentionDays: env.FOGLAMP_SPANS_RETENTION_DAYS });
 
 const buffer = new WriteBuffer(client, {
   intervalMs: env.INGEST_FLUSH_INTERVAL_MS,
@@ -69,7 +69,7 @@ function bearerKey(header: string | undefined): string | null {
 app.post("/ingest", async (c) => {
   const log = c.get("log");
 
-  // 1. Authenticate. Accept `Authorization: Bearer wt_…` or `x-api-key`.
+  // 1. Authenticate. Accept `Authorization: Bearer fl_…` or `x-api-key`.
   const key =
     bearerKey(c.req.header("authorization")) ?? c.req.header("x-api-key") ?? null;
   if (!key) return c.json({ error: "missing API key" }, 401);
@@ -124,7 +124,7 @@ app.post("/v1/traces", (c) =>
   c.json({ error: "OTLP ingest not yet implemented; use POST /ingest" }, 501),
 );
 
-app.get("/", (c) => c.text("watchtower ingest"));
+app.get("/", (c) => c.text("foglamp ingest"));
 
 // --- Graceful shutdown: flush the volatile buffer before exiting ----------
 let shuttingDown = false;

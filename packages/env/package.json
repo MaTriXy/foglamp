@@ -1,5 +1,5 @@
 {
-  "name": "@watchtower/env",
+  "name": "@foglamp/env",
   "license": "Elastic-2.0",
   "version": "0.0.0",
   "private": true,
@@ -15,7 +15,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "^5"
   }

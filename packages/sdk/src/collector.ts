@@ -6,7 +6,7 @@ import type { IntegrationContext, ResolvedConfig } from "./types";
 import { mapUsage } from "./usage";
 import type { Metadata, Span, Trace } from "./wire";
 
-// Maps the AI SDK v7 `Telemetry` lifecycle onto Watchtower's trace/span model:
+// Maps the AI SDK v7 `Telemetry` lifecycle onto Foglamp's trace/span model:
 //   trace  = one top-level generateText/streamText call (keyed by `callId`)
 //   agent  = the root span for that call            → `${callId}:root`
 //   llm    = one model step (from `onStepFinish`)   → `${callId}:step:${n}`

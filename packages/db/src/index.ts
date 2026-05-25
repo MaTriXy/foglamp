@@ -1,4 +1,4 @@
-import { env } from "@watchtower/env/server";
+import { env } from "@foglamp/env/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";

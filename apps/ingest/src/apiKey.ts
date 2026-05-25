@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { db } from "@watchtower/db";
-import { apiKey } from "@watchtower/db/schema/apiKey";
-import { env } from "@watchtower/env/server";
+import { db } from "@foglamp/db";
+import { apiKey } from "@foglamp/db/schema/apiKey";
+import { env } from "@foglamp/env/server";
 import { eq } from "drizzle-orm";
 
-// API-key resolution on the ingest hot path. Keys are `wt_…`; only their sha256
+// API-key resolution on the ingest hot path. Keys are `fl_…`; only their sha256
 // hash is stored in Postgres, so we hash the presented key and look it up by
 // `key_hash` (indexed). Results are cached in-memory with a short TTL to keep
 // the common case off the database; revocation is honored within that TTL.

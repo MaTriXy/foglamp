@@ -1,11 +1,11 @@
 {
-  "extends": "@watchtower/config/tsconfig.base.json",
+  "extends": "@foglamp/config/tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
-      "@watchtower/ui/*": ["./src/*"]
+      "@foglamp/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

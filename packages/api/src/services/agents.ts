@@ -2,7 +2,7 @@ import {
   getTraceSpans,
   listTraces,
   queryAgentBreakdown,
-} from "@watchtower/clickhouse";
+} from "@foglamp/clickhouse";
 
 import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
 import type { Ch, Db } from "../types";

@@ -1,4 +1,4 @@
-# Watchtower
+# Foglamp
 
 **The missing observability layer for the Vercel AI SDK.**
 
@@ -6,16 +6,16 @@ Two lines of code and an API key give you unified observability for your AI
 agents — **costs, latency, token usage, distributed traces, and prompt/response
 logs** — across every `generateText` / `streamText` call in your app.
 
-Watchtower is **source-available** and self-hostable. Bring your own ClickHouse +
+Foglamp is **source-available** and self-hostable. Bring your own ClickHouse +
 Postgres with `docker compose up`, or point the SDK at the hosted endpoint. (See
 [License](#license) — free to self-host, including commercially; offering it as a
 hosted service to others needs a commercial license.)
 
 ```ts
 import { registerTelemetry } from "ai";
-import { watchtower } from "@watchtower-ai/sdk";
+import { foglamp } from "foglamp";
 
-registerTelemetry(watchtower()); // that's it — every AI SDK call is now traced
+registerTelemetry(foglamp()); // that's it — every AI SDK call is now traced
 ```
 
 ---
@@ -24,7 +24,7 @@ registerTelemetry(watchtower()); // that's it — every AI SDK call is now trace
 
 The Vercel AI SDK gives you `generateText`, `streamText`, tools, and multi-step
 agents — but no first-class answer to *"what did that agent cost, how slow was
-it, and what did it actually send the model?"* Watchtower fills that gap:
+it, and what did it actually send the model?"* Foglamp fills that gap:
 
 - **Cost** — computed at ingest from OpenRouter pricing, per token dimension
   (prompt, completion, cached, reasoning, images, web search, …). Unknown model
@@ -51,15 +51,15 @@ follow-up; see [Deferred](#deferred).)
 ### 1. Install the SDK
 
 ```bash
-npm i @watchtower-ai/sdk     # ai@7 is a peer dependency
+npm i foglamp     # ai@7 is a peer dependency
 ```
 
 ### 2. Set your API key
 
 ```bash
-export WATCHTOWER_API_KEY=wt_…
+export FOGLAMP_API_KEY=fl_…
 # Self-hosting? Also point the SDK at your own ingest endpoint:
-export WATCHTOWER_INGEST_URL=http://localhost:4000/ingest
+export FOGLAMP_INGEST_URL=http://localhost:4000/ingest
 ```
 
 Get the key from the dashboard (**Settings → API keys**), or — when
@@ -71,23 +71,23 @@ self-hosting — from the `migrate` service logs on first `docker compose up`.
 
 ```ts
 import { registerTelemetry } from "ai";
-import { watchtower } from "@watchtower-ai/sdk";
+import { foglamp } from "foglamp";
 
-registerTelemetry(watchtower());
+registerTelemetry(foglamp());
 ```
 
 **Per-call** — typed, wins over the global integration, and attaches
 first-class context:
 
 ```ts
-import { watchtower } from "@watchtower-ai/sdk";
+import { foglamp } from "foglamp";
 import { generateText } from "ai";
 
-const wt = watchtower();
+const wt = foglamp();
 
 const { text } = await generateText({
   model,
-  prompt: "What is Watchtower?",
+  prompt: "What is Foglamp?",
   telemetry: {
     integrations: [
       wt.integration({
@@ -102,7 +102,7 @@ const { text } = await generateText({
 });
 ```
 
-If `WATCHTOWER_API_KEY` is unset, the SDK is a **silent no-op** — it never
+If `FOGLAMP_API_KEY` is unset, the SDK is a **silent no-op** — it never
 throws and never adds latency. A complete, offline-runnable example lives in
 [`examples/basic`](./examples/basic).
 
@@ -110,15 +110,15 @@ throws and never adds latency. A complete, offline-runnable example lives in
 
 ## SDK reference
 
-### `watchtower(config?) → Collector`
+### `foglamp(config?) → Collector`
 
 Creates a collector that is both an AI SDK `Telemetry` integration (pass to
 `registerTelemetry`) and a factory for per-call integrations.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `apiKey` | `process.env.WATCHTOWER_API_KEY` | API key. Unset ⇒ no-op. |
-| `endpoint` | `process.env.WATCHTOWER_INGEST_URL` → hosted | Ingest URL. Self-hosters point this at their `apps/ingest`. |
+| `apiKey` | `process.env.FOGLAMP_API_KEY` | API key. Unset ⇒ no-op. |
+| `endpoint` | `process.env.FOGLAMP_INGEST_URL` → hosted | Ingest URL. Self-hosters point this at their `apps/ingest`. |
 | `flushIntervalMs` | `5000` | Flush cadence for long-running runtimes. |
 | `maxBatchTraces` | `50` | Flush early once this many traces are buffered. |
 | `maxBatchSpans` | `500` | Flush early once this many spans are buffered. |
@@ -188,7 +188,7 @@ Then:
 - Open the dashboard at **http://localhost:3001**.
 - Log in with the admin credentials printed once by the `migrate` service
   (search its logs for *"Save these now"*).
-- Point your SDK at `WATCHTOWER_INGEST_URL=http://localhost:4000/ingest` with
+- Point your SDK at `FOGLAMP_INGEST_URL=http://localhost:4000/ingest` with
   the seeded API key.
 
 **Email is optional.** Leave `RESEND_API_KEY` unset and you still log in via the
@@ -211,10 +211,10 @@ Backend (`apps/server`, `apps/ingest`) — see [`apps/server/.env.example`](./ap
 | `BETTER_AUTH_SECRET` | — | Auth signing secret (≥ 32 chars). |
 | `BETTER_AUTH_URL` | — | Public URL of the server. |
 | `CORS_ORIGIN` | — | Web app origin (also the alert email deep-link base). |
-| `CLICKHOUSE_URL` / `_USER` / `_PASSWORD` / `_DATABASE` | `localhost:8123` / `default` / — / `watchtower` | ClickHouse connection. |
+| `CLICKHOUSE_URL` / `_USER` / `_PASSWORD` / `_DATABASE` | `localhost:8123` / `default` / — / `foglamp` | ClickHouse connection. |
 | `OPENROUTER_MODELS_URL` | OpenRouter models API | Pricing source (cached, 24h refresh). |
-| `WATCHTOWER_PRICING_FILE` | — | Local pricing JSON for air-gapped deploys. |
-| `WATCHTOWER_SPANS_RETENTION_DAYS` | `30` | Spans TTL; applied via `ALTER … MODIFY TTL` on boot. |
+| `FOGLAMP_PRICING_FILE` | — | Local pricing JSON for air-gapped deploys. |
+| `FOGLAMP_SPANS_RETENTION_DAYS` | `30` | Spans TTL; applied via `ALTER … MODIFY TTL` on boot. |
 | `INGEST_PORT` / `INGEST_FLUSH_INTERVAL_MS` / `INGEST_FLUSH_MAX_ROWS` / `INGEST_RATE_LIMIT_RPS` | `4000` / `1000` / `1000` / `100` | Ingest tuning. |
 | `API_KEY_CACHE_TTL_MS` | `60000` | In-memory API-key cache TTL. |
 | `ALERT_EVAL_INTERVAL_MS` / `ALERT_RENOTIFY_MS` | `60000` / `3600000` | Alert evaluator cadence + re-notify cooldown. |
@@ -234,15 +234,15 @@ SDK:
 
 | Var | Purpose |
 | --- | --- |
-| `WATCHTOWER_API_KEY` | Project API key. Unset ⇒ SDK is a no-op. |
-| `WATCHTOWER_INGEST_URL` | Ingest endpoint. Defaults to the hosted endpoint. |
+| `FOGLAMP_API_KEY` | Project API key. Unset ⇒ SDK is a no-op. |
+| `FOGLAMP_INGEST_URL` | Ingest endpoint. Defaults to the hosted endpoint. |
 
 ---
 
 ## Architecture
 
 ```
-@watchtower-ai/sdk  ──POST /ingest──▶  apps/ingest  ──bulk insert──▶  ClickHouse
+foglamp  ──POST /ingest──▶  apps/ingest  ──bulk insert──▶  ClickHouse
  (Telemetry impl)                   (auth, rate-limit,            (spans + MVs:
                                      cost-at-ingest, buffer)       trace / run /
                                                                    per-minute)
@@ -267,7 +267,7 @@ Bun workspaces + Turborepo.
 | `apps/ingest` | Hono span-ingestion API (API-key auth, cost-at-ingest, write buffer). |
 | `apps/server` | Hono + tRPC dashboard API, better-auth, alert evaluator. |
 | `apps/web` | Next.js dashboard. |
-| `packages/sdk` | Published `@watchtower-ai/sdk` — zero workspace runtime deps, `ai@7` peer. |
+| `packages/sdk` | Published `foglamp` — zero workspace runtime deps, `ai@7` peer. |
 | `packages/contracts` | Zod wire contract shared by SDK ↔ ingest ↔ API. |
 | `packages/cost` | OpenRouter pricing fetch + model normalization + cost computation. |
 | `packages/clickhouse` | Client, DDL migrations + runner, query builders, bulk insert. |
@@ -298,10 +298,10 @@ bun run db:migrate         # apply Postgres migrations
 
 ## Contributing
 
-Contributions welcome — especially **model aliases** in `@watchtower/cost` (so
+Contributions welcome — especially **model aliases** in `@foglamp/cost` (so
 more providers/models resolve to a price) and provider coverage. Please:
 
-1. Keep `@watchtower-ai/sdk` dependency-free at runtime (zero workspace deps,
+1. Keep `foglamp` dependency-free at runtime (zero workspace deps,
    `ai` stays a peer dep, don't force consumers to install `zod`).
 2. Run `bun run check-types` before opening a PR.
 3. Remember the storage invariants: API keys are stored as sha256 hashes only;
@@ -317,7 +317,7 @@ intentionally out of this build.
 
 ## License
 
-Watchtower uses a split license:
+Foglamp uses a split license:
 
 - **The platform** — `apps/*` (ingest, server, web) and the server-side packages
   (`api`, `db`, `auth`, `clickhouse`, `cost`, `env`, `ui`) — is licensed under the
@@ -325,10 +325,11 @@ Watchtower uses a split license:
   modify, and self-host it — **including for commercial/internal use** — but you
   **may not offer it to third parties as a hosted or managed service** without a
   commercial license. Contact us for commercial/hosting licensing.
-- **The SDK** — [`@watchtower-ai/sdk`](./packages/sdk) and the bundled
-  [`@watchtower/contracts`](./packages/contracts) — is licensed under
-  [**Apache-2.0**](./packages/sdk/LICENSE) so you can embed the client anywhere
-  with no restrictions, including in commercial and hosted products.
+- **The SDK** — [`foglamp`](./packages/sdk) — is licensed under
+  [**MIT**](./packages/sdk/LICENSE), and the bundled wire contract
+  [`@foglamp/contracts`](./packages/contracts) under
+  [**Apache-2.0**](./packages/contracts/LICENSE) — so you can embed the client
+  anywhere with no restrictions, including in commercial and hosted products.
 
 ELv2 is *source-available*, not OSI "open source." Each package's `license` field
 reflects which license applies.
@@ -337,5 +338,5 @@ reflects which license applies.
 
 Contributions require signing the [Contributor License Agreement](./CLA.md). It's
 automated — the CLA Assistant bot will prompt you on your first PR. The CLA lets
-the project offer Watchtower under both ELv2 and commercial licenses; you retain
+the project offer Foglamp under both ELv2 and commercial licenses; you retain
 ownership of your contributions.

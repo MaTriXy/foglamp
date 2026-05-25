@@ -37,12 +37,12 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@watchtower/ui/components/accordion";
+} from "@foglamp/ui/components/accordion";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-} from "@watchtower/ui/components/alert";
+} from "@foglamp/ui/components/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,15 +53,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@watchtower/ui/components/alert-dialog";
-import { AspectRatio } from "@watchtower/ui/components/aspect-ratio";
+} from "@foglamp/ui/components/alert-dialog";
+import { AspectRatio } from "@foglamp/ui/components/aspect-ratio";
 import {
   Avatar,
   AvatarBadge,
   AvatarFallback,
   AvatarGroup,
-} from "@watchtower/ui/components/avatar";
-import { Badge } from "@watchtower/ui/components/badge";
+} from "@foglamp/ui/components/avatar";
+import { Badge } from "@foglamp/ui/components/badge";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -69,36 +69,36 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@watchtower/ui/components/breadcrumb";
-import { Button } from "@watchtower/ui/components/button";
-import { ButtonGroup } from "@watchtower/ui/components/button-group";
-import { Calendar } from "@watchtower/ui/components/calendar";
+} from "@foglamp/ui/components/breadcrumb";
+import { Button } from "@foglamp/ui/components/button";
+import { ButtonGroup } from "@foglamp/ui/components/button-group";
+import { Calendar } from "@foglamp/ui/components/calendar";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@watchtower/ui/components/carousel";
+} from "@foglamp/ui/components/carousel";
 import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@watchtower/ui/components/chart";
+} from "@foglamp/ui/components/chart";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@watchtower/ui/components/card";
-import { Checkbox } from "@watchtower/ui/components/checkbox";
+} from "@foglamp/ui/components/card";
+import { Checkbox } from "@foglamp/ui/components/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@watchtower/ui/components/collapsible";
+} from "@foglamp/ui/components/collapsible";
 import {
   Combobox,
   ComboboxContent,
@@ -106,7 +106,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from "@watchtower/ui/components/combobox";
+} from "@foglamp/ui/components/combobox";
 import {
   Command,
   CommandEmpty,
@@ -116,7 +116,7 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@watchtower/ui/components/command";
+} from "@foglamp/ui/components/command";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -124,7 +124,7 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
-} from "@watchtower/ui/components/context-menu";
+} from "@foglamp/ui/components/context-menu";
 import {
   Dialog,
   DialogContent,
@@ -133,7 +133,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@watchtower/ui/components/dialog";
+} from "@foglamp/ui/components/dialog";
 import {
   Drawer,
   DrawerContent,
@@ -142,7 +142,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@watchtower/ui/components/drawer";
+} from "@foglamp/ui/components/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -150,7 +150,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@watchtower/ui/components/dropdown-menu";
+} from "@foglamp/ui/components/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -158,38 +158,38 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@watchtower/ui/components/empty";
+} from "@foglamp/ui/components/empty";
 import {
   Field,
   FieldDescription,
   FieldLabel,
-} from "@watchtower/ui/components/field";
+} from "@foglamp/ui/components/field";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@watchtower/ui/components/hover-card";
-import { Input } from "@watchtower/ui/components/input";
+} from "@foglamp/ui/components/hover-card";
+import { Input } from "@foglamp/ui/components/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@watchtower/ui/components/input-group";
+} from "@foglamp/ui/components/input-group";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
-} from "@watchtower/ui/components/input-otp";
+} from "@foglamp/ui/components/input-otp";
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemMedia,
   ItemTitle,
-} from "@watchtower/ui/components/item";
-import { Kbd, KbdGroup } from "@watchtower/ui/components/kbd";
-import { Label } from "@watchtower/ui/components/label";
+} from "@foglamp/ui/components/item";
+import { Kbd, KbdGroup } from "@foglamp/ui/components/kbd";
+import { Label } from "@foglamp/ui/components/label";
 import {
   Menubar,
   MenubarContent,
@@ -198,11 +198,11 @@ import {
   MenubarSeparator,
   MenubarShortcut,
   MenubarTrigger,
-} from "@watchtower/ui/components/menubar";
+} from "@foglamp/ui/components/menubar";
 import {
   NativeSelect,
   NativeSelectOption,
-} from "@watchtower/ui/components/native-select";
+} from "@foglamp/ui/components/native-select";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -210,7 +210,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@watchtower/ui/components/navigation-menu";
+} from "@foglamp/ui/components/navigation-menu";
 import {
   Pagination,
   PaginationContent,
@@ -219,31 +219,31 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@watchtower/ui/components/pagination";
+} from "@foglamp/ui/components/pagination";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@watchtower/ui/components/popover";
-import { Progress } from "@watchtower/ui/components/progress";
+} from "@foglamp/ui/components/popover";
+import { Progress } from "@foglamp/ui/components/progress";
 import {
   RadioGroup,
   RadioGroupItem,
-} from "@watchtower/ui/components/radio-group";
+} from "@foglamp/ui/components/radio-group";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "@watchtower/ui/components/resizable";
-import { ScrollArea } from "@watchtower/ui/components/scroll-area";
+} from "@foglamp/ui/components/resizable";
+import { ScrollArea } from "@foglamp/ui/components/scroll-area";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@watchtower/ui/components/select";
-import { Separator } from "@watchtower/ui/components/separator";
+} from "@foglamp/ui/components/select";
+import { Separator } from "@foglamp/ui/components/separator";
 import {
   Sheet,
   SheetContent,
@@ -251,11 +251,11 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@watchtower/ui/components/sheet";
-import { Skeleton } from "@watchtower/ui/components/skeleton";
-import { Slider } from "@watchtower/ui/components/slider";
-import { Spinner } from "@watchtower/ui/components/spinner";
-import { Switch } from "@watchtower/ui/components/switch";
+} from "@foglamp/ui/components/sheet";
+import { Skeleton } from "@foglamp/ui/components/skeleton";
+import { Slider } from "@foglamp/ui/components/slider";
+import { Spinner } from "@foglamp/ui/components/spinner";
+import { Switch } from "@foglamp/ui/components/switch";
 import {
   Table,
   TableBody,
@@ -265,25 +265,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@watchtower/ui/components/table";
+} from "@foglamp/ui/components/table";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@watchtower/ui/components/tabs";
-import { Textarea } from "@watchtower/ui/components/textarea";
-import { Toggle } from "@watchtower/ui/components/toggle";
+} from "@foglamp/ui/components/tabs";
+import { Textarea } from "@foglamp/ui/components/textarea";
+import { Toggle } from "@foglamp/ui/components/toggle";
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from "@watchtower/ui/components/toggle-group";
+} from "@foglamp/ui/components/toggle-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@watchtower/ui/components/tooltip";
+} from "@foglamp/ui/components/tooltip";
 
 import { ComponentSection, SizeRow, VariantColumn } from "./showcase-shell";
 

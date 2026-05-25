@@ -9,27 +9,27 @@
 // Run via `bun run db:seed` (turbo) or directly: `bun run scripts/seed.ts`.
 import { createHash, randomBytes } from "node:crypto";
 
-import { auth } from "@watchtower/auth";
-import { db } from "@watchtower/db";
-import { apiKey } from "@watchtower/db/schema/apiKey";
-import { member, organization } from "@watchtower/db/schema/organization";
-import { project } from "@watchtower/db/schema/project";
-import { user } from "@watchtower/db/schema/auth";
-import { env } from "@watchtower/env/server";
+import { auth } from "@foglamp/auth";
+import { db } from "@foglamp/db";
+import { apiKey } from "@foglamp/db/schema/apiKey";
+import { member, organization } from "@foglamp/db/schema/organization";
+import { project } from "@foglamp/db/schema/project";
+import { user } from "@foglamp/db/schema/auth";
+import { env } from "@foglamp/env/server";
 import { and, eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
-const DEFAULT_ADMIN_EMAIL = "admin@watchtower.local";
-const DEFAULT_ORG_NAME = "Watchtower";
-const DEFAULT_ORG_SLUG = "watchtower";
+const DEFAULT_ADMIN_EMAIL = "admin@foglamp.local";
+const DEFAULT_ORG_NAME = "Foglamp";
+const DEFAULT_ORG_SLUG = "foglamp";
 const DEFAULT_PROJECT_NAME = "Default";
 const DEFAULT_PROJECT_SLUG = "default";
 const DEFAULT_KEY_NAME = "Default key";
 
-// `wt_` + 32 url-safe bytes. Only the sha256 hash is persisted; this must match
+// `fl_` + 32 url-safe bytes. Only the sha256 hash is persisted; this must match
 // the ingest resolver's hashing (apps/ingest/src/apiKey.ts).
 function generateApiKey() {
-  return `wt_${randomBytes(32).toString("base64url")}`;
+  return `fl_${randomBytes(32).toString("base64url")}`;
 }
 
 function hashApiKey(key: string) {
@@ -167,7 +167,7 @@ async function ensureApiKey(projectId: string) {
 }
 
 async function main() {
-  console.log("Seeding Watchtower…\n");
+  console.log("Seeding Foglamp…\n");
 
   const admin = await ensureAdminUser();
   const orgId = await ensureOrganization();

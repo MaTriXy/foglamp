@@ -20,12 +20,12 @@ const serverSchema = {
   CLICKHOUSE_URL: z.string().min(1).default("http://localhost:8123"),
   CLICKHOUSE_USER: z.string().default("default"),
   CLICKHOUSE_PASSWORD: z.string().default(""),
-  CLICKHOUSE_DATABASE: z.string().default("watchtower"),
+  CLICKHOUSE_DATABASE: z.string().default("foglamp"),
 
-  // --- Cost / pricing (@watchtower/cost) ---
+  // --- Cost / pricing (@foglamp/cost) ---
   OPENROUTER_MODELS_URL: z.url().default("https://openrouter.ai/api/v1/models"),
   // Optional local pricing JSON for air-gapped deployments.
-  WATCHTOWER_PRICING_FILE: z.string().optional(),
+  FOGLAMP_PRICING_FILE: z.string().optional(),
 
   // --- apps/ingest ---
   INGEST_PORT: z.coerce.number().default(4000),
@@ -35,7 +35,7 @@ const serverSchema = {
   API_KEY_CACHE_TTL_MS: z.coerce.number().default(60_000),
 
   // Span retention; applied via ALTER TABLE … MODIFY TTL on boot.
-  WATCHTOWER_SPANS_RETENTION_DAYS: z.coerce.number().default(30),
+  FOGLAMP_SPANS_RETENTION_DAYS: z.coerce.number().default(30),
 
   // --- Alerts (evaluator cron in apps/server) ---
   // How often the evaluator sweeps enabled rules; default every 60s.

@@ -1,5 +1,5 @@
 {
-  "name": "watchtower-example-basic",
+  "name": "foglamp-example-basic",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,11 +8,11 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "catalog:",
-    "@watchtower-ai/sdk": "workspace:*",
+    "foglamp": "workspace:*",
     "ai": "catalog:"
   },
   "devDependencies": {
-    "@watchtower/config": "workspace:*",
+    "@foglamp/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "^5"
   }

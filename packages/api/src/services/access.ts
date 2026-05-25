@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { member, organization } from "@watchtower/db/schema/organization";
-import { project } from "@watchtower/db/schema/project";
+import { member, organization } from "@foglamp/db/schema/organization";
+import { project } from "@foglamp/db/schema/project";
 import { and, eq } from "drizzle-orm";
 
 import type { Db } from "../types";

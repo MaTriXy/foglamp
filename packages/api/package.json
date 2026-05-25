@@ -1,5 +1,5 @@
 {
-	"name": "@watchtower/api",
+	"name": "@foglamp/api",
 	"license": "Elastic-2.0",
 	"type": "module",
 	"exports": {
@@ -12,12 +12,12 @@
 	},
 	"scripts": {},
 	"dependencies": {
-		"@watchtower/auth": "workspace:*",
-		"@watchtower/clickhouse": "workspace:*",
-		"@watchtower/cost": "workspace:*",
-		"@watchtower/db": "workspace:*",
+		"@foglamp/auth": "workspace:*",
+		"@foglamp/clickhouse": "workspace:*",
+		"@foglamp/cost": "workspace:*",
+		"@foglamp/db": "workspace:*",
 		"uuidv7": "^1.0.2",
-		"@watchtower/env": "workspace:*",
+		"@foglamp/env": "workspace:*",
 		"@trpc/client": "catalog:",
 		"@trpc/server": "catalog:",
 		"dotenv": "catalog:",
@@ -26,7 +26,7 @@
 		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@watchtower/config": "workspace:*",
+		"@foglamp/config": "workspace:*",
 		"hono": "catalog:",
 		"typescript": "^5"
 	}

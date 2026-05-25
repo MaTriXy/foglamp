@@ -1,12 +1,12 @@
 "use client";
 
-import { Button } from "@watchtower/ui/components/button";
+import { Button } from "@foglamp/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@watchtower/ui/components/dropdown-menu";
+} from "@foglamp/ui/components/dropdown-menu";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 

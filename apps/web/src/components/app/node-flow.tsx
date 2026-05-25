@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@watchtower/ui/components/badge";
+import { Badge } from "@foglamp/ui/components/badge";
 
 import { cn } from "@/lib/utils";
 import { formatDateTime, formatDuration } from "@/lib/format";
