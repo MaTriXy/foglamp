@@ -11,7 +11,7 @@
 // pipeline runs offline. Set OPENAI_API_KEY to hit a real model instead — the
 // instrumentation is identical either way.
 import { openai } from "@ai-sdk/openai";
-import { watchtower } from "@watchtower/sdk";
+import { watchtower } from "@watchtower-ai/sdk";
 import { generateText } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
@@ -33,7 +33,12 @@ const model = process.env.OPENAI_API_KEY
         ],
         finishReason: { unified: "stop" as const, raw: "stop" },
         usage: {
-          inputTokens: { total: 1240, noCache: 1040, cacheRead: 200, cacheWrite: 0 },
+          inputTokens: {
+            total: 1240,
+            noCache: 1040,
+            cacheRead: 200,
+            cacheWrite: 0,
+          },
           outputTokens: { total: 84, text: 84, reasoning: 0 },
         },
         warnings: [],
@@ -69,5 +74,5 @@ await wt.flush();
 console.log(
   wt.pending === 0
     ? "✓ flushed trace to Watchtower"
-    : `⚠ ${wt.pending} traces still pending`,
+    : `⚠ ${wt.pending} traces still pending`
 );

@@ -11,7 +11,7 @@ import { requireOrgAccess, requireProjectAccess } from "./access";
 export async function createProject(
   db: Db,
   userId: string,
-  input: { orgId: string; name: string },
+  input: { orgId: string; name: string; url?: string | null },
 ) {
   await requireOrgAccess(db, userId, input.orgId);
 
@@ -27,15 +27,46 @@ export async function createProject(
 
   const rows = await db
     .insert(project)
-    .values({ orgId: input.orgId, name: input.name, slug })
+    .values({ orgId: input.orgId, name: input.name, slug, url: input.url || null })
     .returning({
       id: project.id,
       name: project.name,
       slug: project.slug,
+      url: project.url,
       orgId: project.orgId,
       createdAt: project.createdAt,
     });
   return rows[0]!;
+}
+
+/** Update a project's editable fields (name, url). Re-derives nothing. */
+export async function updateProject(
+  db: Db,
+  userId: string,
+  input: { projectId: string; name?: string; url?: string | null },
+) {
+  await requireProjectAccess(db, userId, input.projectId);
+
+  const patch: { name?: string; url?: string | null } = {};
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.url !== undefined) patch.url = input.url || null;
+
+  const rows = await db
+    .update(project)
+    .set(patch)
+    .where(eq(project.id, input.projectId))
+    .returning({
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      url: project.url,
+      orgId: project.orgId,
+      createdAt: project.createdAt,
+    });
+  if (!rows[0]) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+  }
+  return rows[0];
 }
 
 /** API keys for a project (never returns the hash). */

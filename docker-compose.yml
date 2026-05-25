@@ -54,6 +54,14 @@ services:
     image: clickhouse/clickhouse-server:24.8-alpine
     environment:
       CLICKHOUSE_DB: watchtower
+      # Without a USER/PASSWORD set on the server, the image locks the `default`
+      # user to localhost only — which breaks the app tiers connecting over the
+      # compose network (AUTHENTICATION_FAILED). SKIP_USER_SETUP keeps `default`
+      # passwordless WITH network access, matching the empty CLICKHOUSE_PASSWORD
+      # the apps use. ClickHouse is not published to the host, so it's reachable
+      # only inside this network. To harden, set CLICKHOUSE_USER/PASSWORD here and
+      # in x-app-env instead, and drop this line.
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
     volumes:
       - ch_data:/var/lib/clickhouse
     ulimits:

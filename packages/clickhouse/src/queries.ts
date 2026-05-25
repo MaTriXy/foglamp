@@ -35,8 +35,19 @@ export type TraceListRow = {
 
 export function listTraces(
   client: ClickHouseClient,
-  params: { projectId: string; limit?: number; offset?: number },
+  params: {
+    projectId: string;
+    agentName?: string;
+    limit?: number;
+    offset?: number;
+  },
 ): Promise<TraceListRow[]> {
+  // agent_name lives on the raw spans → it is an `any()` rollup per trace, not a
+  // grouping key, so filter it in a HAVING over the aggregate rather than WHERE.
+  const having =
+    params.agentName !== undefined
+      ? "HAVING agent_name = {agentName:String}"
+      : "";
   return rows<TraceListRow>(
     client,
     `SELECT
@@ -57,10 +68,12 @@ export function listTraces(
      FROM trace_summary
      WHERE project_id = {projectId:String}
      GROUP BY trace_id
+     ${having}
      ORDER BY trace_start DESC
      LIMIT {limit:UInt32} OFFSET {offset:UInt32}`,
     {
       projectId: params.projectId,
+      agentName: params.agentName,
       limit: params.limit ?? 50,
       offset: params.offset ?? 0,
     },
@@ -126,8 +139,20 @@ export type WorkflowRunRow = {
 
 export function listWorkflowRuns(
   client: ClickHouseClient,
-  params: { projectId: string; limit?: number; offset?: number },
+  params: {
+    projectId: string;
+    workflowName?: string;
+    limit?: number;
+    offset?: number;
+  },
 ): Promise<WorkflowRunRow[]> {
+  // workflow_name is an `any()` rollup per run (not a grouping key), so filter
+  // it via HAVING over the aggregate. An empty string selects the "Ungrouped"
+  // bucket (runs the SDK emitted without a workflow_name).
+  const having =
+    params.workflowName !== undefined
+      ? "HAVING workflow_name = {workflowName:String}"
+      : "";
   return rows<WorkflowRunRow>(
     client,
     `SELECT
@@ -145,11 +170,61 @@ export function listWorkflowRuns(
      FROM workflow_run_summary
      WHERE project_id = {projectId:String}
      GROUP BY workflow_run_id
+     ${having}
      ORDER BY run_start DESC
      LIMIT {limit:UInt32} OFFSET {offset:UInt32}`,
     {
       projectId: params.projectId,
+      workflowName: params.workflowName,
       limit: params.limit ?? 50,
+      offset: params.offset ?? 0,
+    },
+  );
+}
+
+export type WorkflowRow = {
+  workflow_name: string;
+  run_count: string;
+  trace_count: string;
+  span_count: string;
+  error_count: string;
+  total_cost: string;
+  priced_span_count: string;
+  total_tokens: string;
+  first_run: string;
+  last_run: string;
+};
+
+/**
+ * Workflows grouped by name (the Workflows grid). `workflow_name = ''` is the
+ * "Ungrouped" bucket for runs the SDK emitted without a workflow name; the
+ * service layer labels it. Ordered by most-recent activity.
+ */
+export function listWorkflows(
+  client: ClickHouseClient,
+  params: { projectId: string; limit?: number; offset?: number },
+): Promise<WorkflowRow[]> {
+  return rows<WorkflowRow>(
+    client,
+    `SELECT
+       workflow_name,
+       uniqExact(workflow_run_id) AS run_count,
+       uniqMerge(trace_count) AS trace_count,
+       sum(span_count) AS span_count,
+       sum(error_count) AS error_count,
+       sum(total_cost) AS total_cost,
+       sum(priced_span_count) AS priced_span_count,
+       sum(total_tokens) AS total_tokens,
+       min(workflow_run_summary.run_start) AS first_run,
+       max(workflow_run_summary.run_end) AS last_run
+     FROM workflow_run_summary
+     WHERE project_id = {projectId:String}
+     GROUP BY workflow_name
+     ORDER BY last_run DESC
+     LIMIT {limit:UInt32} OFFSET {offset:UInt32}`,
+    {
+      projectId: params.projectId,
+      limit: params.limit ?? 100,
       offset: params.offset ?? 0,
     },
   );
@@ -267,7 +342,12 @@ export function queryAgentBreakdown(
     `SELECT
        agent_name,
        sum(span_count) AS span_count,
-       sumIf(span_count, span_type = 'llm') AS llm_span_count,
+       -- Qualify the column so it binds to the column, not the
+       -- \`sum(span_count) AS span_count\` alias above (which would nest an
+       -- aggregate inside sumIf → ILLEGAL_AGGREGATION). Qualifying is more
+       -- surgical than \`prefer_column_name_to_alias\`, which would also break
+       -- the \`ORDER BY total_cost\` alias reference below.
+       sumIf(metrics_by_minute.span_count, span_type = 'llm') AS llm_span_count,
        sum(error_count) AS error_count,
        sum(total_cost) AS total_cost,
        sum(priced_span_count) AS priced_span_count,
@@ -370,7 +450,10 @@ export function listTracesByWorkflowRun(
        sum(priced_span_count) AS priced_span_count,
        sum(total_tokens) AS total_tokens
      FROM trace_summary
-     WHERE project_id = {projectId:String} AND workflow_run_id = {workflowRunId:String}
+     -- Qualify workflow_run_id so the filter binds to the column, not the
+     -- \`any(workflow_run_id) AS workflow_run_id\` alias above (an aggregate,
+     -- illegal in WHERE).
+     WHERE project_id = {projectId:String} AND trace_summary.workflow_run_id = {workflowRunId:String}
      GROUP BY trace_id
      ORDER BY trace_start ASC
      LIMIT {limit:UInt32} OFFSET {offset:UInt32}`,
@@ -404,7 +487,10 @@ export async function queryProjectSummary(
     client,
     `SELECT
        sum(span_count) AS span_count,
-       sumIf(span_count, span_type = 'llm') AS llm_span_count,
+       -- Qualify the column so it binds to the column, not the
+       -- \`sum(span_count) AS span_count\` alias above (which would nest an
+       -- aggregate inside sumIf → ILLEGAL_AGGREGATION).
+       sumIf(metrics_by_minute.span_count, span_type = 'llm') AS llm_span_count,
        sum(error_count) AS error_count,
        sum(total_cost) AS total_cost,
        sum(priced_span_count) AS priced_span_count,

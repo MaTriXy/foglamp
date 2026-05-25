@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
 import { resolveRange } from "../lib/util";
-import { getAgentList } from "../services/agents";
+import { getAgentDetail, getAgentList } from "../services/agents";
 
 export const agentsRouter = router({
   list: protectedProcedure
@@ -17,6 +17,25 @@ export const agentsRouter = router({
       const { from, to } = resolveRange(input.from, input.to);
       return getAgentList(ctx.db, ctx.ch, ctx.session.user.id, {
         projectId: input.projectId,
+        from,
+        to,
+      });
+    }),
+
+  get: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        agentName: z.string(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      const { from, to } = resolveRange(input.from, input.to);
+      return getAgentDetail(ctx.db, ctx.ch, ctx.session.user.id, {
+        projectId: input.projectId,
+        agentName: input.agentName,
         from,
         to,
       });

@@ -7,7 +7,15 @@ import {
   createProject,
   listApiKeys,
   revokeApiKey,
+  updateProject,
 } from "../services/projects";
+
+// Accepts a bare hostname or a full URL; empty string clears it.
+const urlField = z
+  .string()
+  .max(512)
+  .transform((v) => v.trim())
+  .optional();
 
 export const projectsRouter = router({
   list: protectedProcedure.query(({ ctx }) =>
@@ -15,9 +23,27 @@ export const projectsRouter = router({
   ),
 
   create: protectedProcedure
-    .input(z.object({ orgId: z.string(), name: z.string().min(1).max(100) }))
+    .input(
+      z.object({
+        orgId: z.string(),
+        name: z.string().min(1).max(100),
+        url: urlField,
+      }),
+    )
     .mutation(({ ctx, input }) =>
       createProject(ctx.db, ctx.session.user.id, input),
+    ),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        name: z.string().min(1).max(100).optional(),
+        url: urlField,
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      updateProject(ctx.db, ctx.session.user.id, input),
     ),
 
   keys: router({

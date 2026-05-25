@@ -1,11 +1,11 @@
 "use client";
 
-import MagicLinkForm from "@/components/magic-link-form";
+import LoginForm from "@/components/login-form";
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center">
-      <MagicLinkForm />
+      <LoginForm />
     </div>
   );
 }

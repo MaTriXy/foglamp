@@ -12,6 +12,8 @@ export const workflowRunsRouter = router({
     .input(
       z.object({
         projectId: z.string(),
+        // Empty string selects the "Ungrouped" bucket; omit for all runs.
+        workflowName: z.string().optional(),
         limit: z.number().int().min(1).max(200).optional(),
         offset: z.number().int().min(0).optional(),
       }),

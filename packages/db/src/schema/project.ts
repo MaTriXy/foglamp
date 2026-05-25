@@ -15,6 +15,9 @@ export const project = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    // Optional site/app URL for the project. Used to render a favicon next to
+    // the project in the sidebar (via Google's favicon service).
+    url: text("url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

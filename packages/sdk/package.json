@@ -1,5 +1,5 @@
 {
-  "name": "@watchtower/sdk",
+  "name": "@watchtower-ai/sdk",
   "version": "0.0.1",
   "description": "Two-line observability for the Vercel AI SDK — costs, latency, tokens, and traces.",
   "license": "Apache-2.0",

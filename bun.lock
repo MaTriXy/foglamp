@@ -100,7 +100,7 @@
       "name": "watchtower-example-basic",
       "dependencies": {
         "@ai-sdk/openai": "catalog:",
-        "@watchtower/sdk": "workspace:*",
+        "@watchtower-ai/sdk": "workspace:*",
         "ai": "catalog:",
       },
       "devDependencies": {
@@ -116,11 +116,13 @@
         "@trpc/server": "catalog:",
         "@watchtower/auth": "workspace:*",
         "@watchtower/clickhouse": "workspace:*",
+        "@watchtower/cost": "workspace:*",
         "@watchtower/db": "workspace:*",
         "@watchtower/env": "workspace:*",
         "dotenv": "catalog:",
         "drizzle-orm": "^0.45.1",
         "evlog": "^2.13.0",
+        "uuidv7": "^1.0.2",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -222,7 +224,7 @@
       },
     },
     "packages/sdk": {
-      "name": "@watchtower/sdk",
+      "name": "@watchtower-ai/sdk",
       "version": "0.0.1",
       "dependencies": {
         "uuidv7": "catalog:",
@@ -804,6 +806,8 @@
 
     "@vercel/oidc": ["@vercel/oidc@3.4.1", "", {}, "sha512-H6B+/ig/GoahccL3WZjiHayHw1H5KhvTJNceqYulwfK9kkz5iul2hTmYzcJ7tTCQzyd0dutuL9xYFZCyLUqsog=="],
 
+    "@watchtower-ai/sdk": ["@watchtower-ai/sdk@workspace:packages/sdk"],
+
     "@watchtower/api": ["@watchtower/api@workspace:packages/api"],
 
     "@watchtower/auth": ["@watchtower/auth@workspace:packages/auth"],
@@ -819,8 +823,6 @@
     "@watchtower/db": ["@watchtower/db@workspace:packages/db"],
 
     "@watchtower/env": ["@watchtower/env@workspace:packages/env"],
-
-    "@watchtower/sdk": ["@watchtower/sdk@workspace:packages/sdk"],
 
     "@watchtower/ui": ["@watchtower/ui@workspace:packages/ui"],
 

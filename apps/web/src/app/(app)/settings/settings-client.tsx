@@ -1,6 +1,12 @@
 "use client";
 
-import { IconCopy, IconKey, IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  IconCopy,
+  IconKey,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@watchtower/ui/components/badge";
 import { Button } from "@watchtower/ui/components/button";
@@ -48,6 +54,13 @@ export function SettingsClient() {
   // Projects dialog state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectUrl, setProjectUrl] = useState("");
+  // Edit-project dialog state (name + url).
+  const [editing, setEditing] = useState<{
+    id: string;
+    name: string;
+    url: string;
+  } | null>(null);
 
   // API keys dialog state
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
@@ -65,7 +78,19 @@ export function SettingsClient() {
         qc.invalidateQueries({ queryKey: trpc.projects.list.queryKey() });
         setProjectDialogOpen(false);
         setProjectName("");
+        setProjectUrl("");
         toast.success("Project created");
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+
+  const updateProject = useMutation(
+    trpc.projects.update.mutationOptions({
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: trpc.projects.list.queryKey() });
+        setEditing(null);
+        toast.success("Project updated");
       },
       onError: (e) => toast.error(e.message),
     }),
@@ -122,16 +147,18 @@ export function SettingsClient() {
                   placeholder="My project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      if (!projectName.trim() || !project?.orgId) return;
-                      createProject.mutate({
-                        orgId: project.orgId,
-                        name: projectName.trim(),
-                      });
-                    }
-                  }}
                 />
+              </Field>
+              <Field>
+                <FieldLabel>URL (optional)</FieldLabel>
+                <Input
+                  placeholder="example.com"
+                  value={projectUrl}
+                  onChange={(e) => setProjectUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used to show a favicon next to the project.
+                </p>
               </Field>
               <DialogFooter>
                 <Button
@@ -145,6 +172,7 @@ export function SettingsClient() {
                     createProject.mutate({
                       orgId: project.orgId,
                       name: projectName.trim(),
+                      url: projectUrl.trim() || undefined,
                     });
                   }}
                 >
@@ -162,6 +190,7 @@ export function SettingsClient() {
                 <TableHead>Org</TableHead>
                 <TableHead>Slug</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -185,10 +214,74 @@ export function SettingsClient() {
                       <Badge variant="emerald">active</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing({ id: p.id, name: p.name, url: p.url ?? "" });
+                      }}
+                    >
+                      <IconPencil />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
+          {/* Edit project (name + url) */}
+          <Dialog
+            open={editing !== null}
+            onOpenChange={(open) => !open && setEditing(null)}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit project</DialogTitle>
+              </DialogHeader>
+              <Field>
+                <FieldLabel>Name</FieldLabel>
+                <Input
+                  autoFocus
+                  value={editing?.name ?? ""}
+                  onChange={(e) =>
+                    setEditing((s) => (s ? { ...s, name: e.target.value } : s))
+                  }
+                />
+              </Field>
+              <Field>
+                <FieldLabel>URL (optional)</FieldLabel>
+                <Input
+                  placeholder="example.com"
+                  value={editing?.url ?? ""}
+                  onChange={(e) =>
+                    setEditing((s) => (s ? { ...s, url: e.target.value } : s))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used to show a favicon next to the project. Leave blank to clear.
+                </p>
+              </Field>
+              <DialogFooter>
+                <Button
+                  disabled={
+                    !editing?.name.trim() || updateProject.isPending
+                  }
+                  onClick={() => {
+                    if (!editing?.name.trim()) return;
+                    updateProject.mutate({
+                      projectId: editing.id,
+                      name: editing.name.trim(),
+                      url: editing.url.trim(),
+                    });
+                  }}
+                >
+                  Save
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 

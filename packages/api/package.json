@@ -1,31 +1,33 @@
 {
-  "name": "@watchtower/api",
-  "license": "Elastic-2.0",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {},
-  "dependencies": {
-    "@watchtower/auth": "workspace:*",
-    "@watchtower/clickhouse": "workspace:*",
-    "@watchtower/db": "workspace:*",
-    "@watchtower/env": "workspace:*",
-    "@trpc/client": "catalog:",
-    "@trpc/server": "catalog:",
-    "dotenv": "catalog:",
-    "drizzle-orm": "^0.45.1",
-    "evlog": "^2.13.0",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@watchtower/config": "workspace:*",
-    "hono": "catalog:",
-    "typescript": "^5"
-  }
+	"name": "@watchtower/api",
+	"license": "Elastic-2.0",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {},
+	"dependencies": {
+		"@watchtower/auth": "workspace:*",
+		"@watchtower/clickhouse": "workspace:*",
+		"@watchtower/cost": "workspace:*",
+		"@watchtower/db": "workspace:*",
+		"uuidv7": "^1.0.2",
+		"@watchtower/env": "workspace:*",
+		"@trpc/client": "catalog:",
+		"@trpc/server": "catalog:",
+		"dotenv": "catalog:",
+		"drizzle-orm": "^0.45.1",
+		"evlog": "^2.13.0",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@watchtower/config": "workspace:*",
+		"hono": "catalog:",
+		"typescript": "^5"
+	}
 }

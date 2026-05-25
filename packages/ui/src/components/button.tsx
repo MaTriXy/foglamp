@@ -47,12 +47,17 @@ function Button({
   variant = "default",
   size = "default",
   children,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      // When `render` swaps in a non-button element (e.g. a Next.js
+      // <Link>/<a>), it isn't a native <button>; tell Base UI so it applies the
+      // right a11y semantics instead of warning. An explicit prop always wins.
+      nativeButton={nativeButton ?? props.render === undefined}
       {...props}
     >
       {React.Children.map(children, (child) =>

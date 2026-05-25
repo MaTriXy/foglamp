@@ -9,6 +9,7 @@ export type Project = {
   id: string;
   name: string;
   slug: string;
+  url: string | null;
   orgId: string;
   orgName: string;
   orgSlug: string;

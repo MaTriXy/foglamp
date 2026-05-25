@@ -1,9 +1,9 @@
-// @watchtower/sdk — two-line observability for the Vercel AI SDK (v7).
+// @watchtower-ai/sdk — two-line observability for the Vercel AI SDK (v7).
 //
 // Global (instruments every generateText/streamText in the app):
 //
 //   import { registerTelemetry } from "ai";
-//   import { watchtower } from "@watchtower/sdk";
+//   import { watchtower } from "@watchtower-ai/sdk";
 //   registerTelemetry(watchtower());
 //
 // Per-call (typed, wins over global; attaches first-class context):

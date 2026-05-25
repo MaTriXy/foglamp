@@ -13,7 +13,7 @@ hosted service to others needs a commercial license.)
 
 ```ts
 import { registerTelemetry } from "ai";
-import { watchtower } from "@watchtower/sdk";
+import { watchtower } from "@watchtower-ai/sdk";
 
 registerTelemetry(watchtower()); // that's it — every AI SDK call is now traced
 ```
@@ -51,7 +51,7 @@ follow-up; see [Deferred](#deferred).)
 ### 1. Install the SDK
 
 ```bash
-npm i @watchtower/sdk     # ai@7 is a peer dependency
+npm i @watchtower-ai/sdk     # ai@7 is a peer dependency
 ```
 
 ### 2. Set your API key
@@ -71,7 +71,7 @@ self-hosting — from the `migrate` service logs on first `docker compose up`.
 
 ```ts
 import { registerTelemetry } from "ai";
-import { watchtower } from "@watchtower/sdk";
+import { watchtower } from "@watchtower-ai/sdk";
 
 registerTelemetry(watchtower());
 ```
@@ -80,7 +80,7 @@ registerTelemetry(watchtower());
 first-class context:
 
 ```ts
-import { watchtower } from "@watchtower/sdk";
+import { watchtower } from "@watchtower-ai/sdk";
 import { generateText } from "ai";
 
 const wt = watchtower();
@@ -242,7 +242,7 @@ SDK:
 ## Architecture
 
 ```
-@watchtower/sdk  ──POST /ingest──▶  apps/ingest  ──bulk insert──▶  ClickHouse
+@watchtower-ai/sdk  ──POST /ingest──▶  apps/ingest  ──bulk insert──▶  ClickHouse
  (Telemetry impl)                   (auth, rate-limit,            (spans + MVs:
                                      cost-at-ingest, buffer)       trace / run /
                                                                    per-minute)
@@ -267,7 +267,7 @@ Bun workspaces + Turborepo.
 | `apps/ingest` | Hono span-ingestion API (API-key auth, cost-at-ingest, write buffer). |
 | `apps/server` | Hono + tRPC dashboard API, better-auth, alert evaluator. |
 | `apps/web` | Next.js dashboard. |
-| `packages/sdk` | Published `@watchtower/sdk` — zero workspace runtime deps, `ai@7` peer. |
+| `packages/sdk` | Published `@watchtower-ai/sdk` — zero workspace runtime deps, `ai@7` peer. |
 | `packages/contracts` | Zod wire contract shared by SDK ↔ ingest ↔ API. |
 | `packages/cost` | OpenRouter pricing fetch + model normalization + cost computation. |
 | `packages/clickhouse` | Client, DDL migrations + runner, query builders, bulk insert. |
@@ -301,7 +301,7 @@ bun run db:migrate         # apply Postgres migrations
 Contributions welcome — especially **model aliases** in `@watchtower/cost` (so
 more providers/models resolve to a price) and provider coverage. Please:
 
-1. Keep `@watchtower/sdk` dependency-free at runtime (zero workspace deps,
+1. Keep `@watchtower-ai/sdk` dependency-free at runtime (zero workspace deps,
    `ai` stays a peer dep, don't force consumers to install `zod`).
 2. Run `bun run check-types` before opening a PR.
 3. Remember the storage invariants: API keys are stored as sha256 hashes only;
@@ -325,7 +325,7 @@ Watchtower uses a split license:
   modify, and self-host it — **including for commercial/internal use** — but you
   **may not offer it to third parties as a hosted or managed service** without a
   commercial license. Contact us for commercial/hosting licensing.
-- **The SDK** — [`@watchtower/sdk`](./packages/sdk) and the bundled
+- **The SDK** — [`@watchtower-ai/sdk`](./packages/sdk) and the bundled
   [`@watchtower/contracts`](./packages/contracts) — is licensed under
   [**Apache-2.0**](./packages/sdk/LICENSE) so you can embed the client anywhere
   with no restrictions, including in commercial and hosted products.

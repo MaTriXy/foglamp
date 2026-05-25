@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    // ES2020 (not the Next default ES2017) so BigInt literals are valid syntax:
+    // the tRPC `AppRouter` type pulls @watchtower/cost source (exact-decimal cost
+    // math uses `10n`/`0n`) into this program. Type-check only — Next's SWC still
+    // transpiles output per browserslist, so shipped browser support is unchanged.
+    "target": "ES2020",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "baseUrl": ".",

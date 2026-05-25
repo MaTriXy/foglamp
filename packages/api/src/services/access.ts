@@ -70,6 +70,7 @@ export async function listAccessibleProjects(db: Db, userId: string) {
       id: project.id,
       name: project.name,
       slug: project.slug,
+      url: project.url,
       orgId: project.orgId,
       orgName: organization.name,
       orgSlug: organization.slug,

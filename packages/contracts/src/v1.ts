@@ -3,7 +3,7 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 // Watchtower native ingest wire contract — v1.
 //
-// Producer: @watchtower/sdk (maps the AI SDK v7 Telemetry hooks onto this).
+// Producer: @watchtower-ai/sdk (maps the AI SDK v7 Telemetry hooks onto this).
 // Consumer: apps/ingest (validates, prices, flattens to ClickHouse span rows).
 // Also imported by packages/api for typed reads. This is the single source of
 // truth for the wire shape — nothing here is recomputed downstream except cost

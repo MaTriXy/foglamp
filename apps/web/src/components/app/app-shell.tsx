@@ -6,6 +6,7 @@ import {
   IconChevronDown,
   IconCoin,
   IconDotsVertical,
+  IconFlask,
   IconLayoutDashboard,
   IconListTree,
   IconLogout,
@@ -15,6 +16,8 @@ import {
   IconTimeline,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@watchtower/ui/components/avatar";
+
+import { getGoogleFavicon } from "@/lib/favicon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +52,7 @@ import { ProjectProvider, useProject } from "./project-context";
 const nav = [
   { href: "/overview", label: "Overview", icon: IconLayoutDashboard },
   { href: "/traces", label: "Traces", icon: IconListTree },
-  { href: "/workflow-runs", label: "Workflow runs", icon: IconTimeline },
+  { href: "/workflows", label: "Workflows", icon: IconTimeline },
   { href: "/agents", label: "Agents", icon: IconRobot },
   { href: "/alerts", label: "Alerts", icon: IconAlertTriangle },
 ] as const;
@@ -59,8 +62,43 @@ const account = [
   { href: "/settings/pricing", label: "Pricing", icon: IconCoin },
 ] as const;
 
+// Inlined by Next at build time. The Admin tools (synthetic ingest, raw pricing
+// table) are dev-only and never shipped in a production build (e.g. Docker).
+const isDev = process.env.NODE_ENV !== "production";
+
 function initials(value: string) {
   return value.slice(0, 2).toUpperCase();
+}
+
+// A project's favicon (from its URL) or a building placeholder, in a rounded box.
+function ProjectIcon({
+  url,
+  size = "md",
+}: {
+  url: string | null | undefined;
+  size?: "sm" | "md";
+}) {
+  const box =
+    size === "md"
+      ? "size-8 rounded-md shadow-(--custom-shadow)"
+      : "size-5 rounded";
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- external favicon service, no optimization wanted
+      <img
+        src={getGoogleFavicon(url)}
+        alt=""
+        className={`${box} bg-background object-cover`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`flex aspect-square items-center justify-center bg-primary/10 text-primary ${box}`}
+    >
+      <IconBuilding className={size === "md" ? "size-4" : "size-3.5"} />
+    </div>
+  );
 }
 
 function ProjectSwitcher() {
@@ -71,9 +109,7 @@ function ProjectSwitcher() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary/10 text-primary shadow-(--custom-shadow)">
-              <IconBuilding className="size-4" />
-            </div>
+            <ProjectIcon url={project?.url} />
             <div className="flex flex-1 flex-col text-left text-sm leading-tight ml-0.5">
               <span className="truncate font-medium">
                 {project?.name ?? "Select project"}
@@ -92,7 +128,7 @@ function ProjectSwitcher() {
             <DropdownMenuLabel>Projects</DropdownMenuLabel>
             {projects.map((p) => (
               <DropdownMenuItem key={p.id} onClick={() => setProjectId(p.id)}>
-                <IconBuilding />
+                <ProjectIcon url={p.url} size="sm" />
                 <div className="flex flex-1 flex-col">
                   <span>{p.name}</span>
                   <span className="text-xs text-muted-foreground">
@@ -175,7 +211,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ProjectProvider>
-      <SidebarProvider className="h-svh min-h-0">
+      <SidebarProvider className="h-svh min-h-0 overflow-hidden">
         <Sidebar variant="inset">
           <SidebarHeader>
             <ProjectSwitcher />
@@ -219,6 +255,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {isDev && (
+              <SidebarGroup>
+                <SidebarGroupLabel>Developer</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        isActive={isActive(pathname, "/admin")}
+                        render={<Link href="/admin" />}
+                      >
+                        <IconFlask />
+                        <span>Admin</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
           </SidebarContent>
 
           <SidebarFooter>
@@ -233,8 +288,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ThemeSwitcher />
             </div>
           </header>
-          <main className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-            {children}
+          {/* The scroll viewport is a plain block with a definite height
+              (flex-1 + min-h-0); the flex-column layout lives in a child so the
+              scroll container itself never tries to flex-fit its content. */}
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-6 p-6">{children}</div>
           </main>
         </SidebarInset>
       </SidebarProvider>

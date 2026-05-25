@@ -1,6 +1,7 @@
 import {
   listTracesByWorkflowRun,
   listWorkflowRuns,
+  listWorkflows,
 } from "@watchtower/clickhouse";
 import { workflowRunName } from "@watchtower/db/schema/workflowRun";
 import { and, eq, inArray } from "drizzle-orm";
@@ -9,11 +10,42 @@ import { decimalOrNull, num } from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
 
-export async function getWorkflowRunList(
+/**
+ * Workflows grouped by name (the Workflows grid). `workflowName: null` is the
+ * "Ungrouped" bucket (runs with no workflow name); the UI labels it.
+ */
+export async function getWorkflowList(
   db: Db,
   ch: Ch,
   userId: string,
   input: { projectId: string; limit?: number; offset?: number },
+) {
+  await requireProjectAccess(db, userId, input.projectId);
+  const rows = await listWorkflows(ch, input);
+  return rows.map((r) => ({
+    workflowName: r.workflow_name || null,
+    runCount: num(r.run_count),
+    traceCount: num(r.trace_count),
+    spanCount: num(r.span_count),
+    errorCount: num(r.error_count),
+    totalCost: decimalOrNull(r.total_cost),
+    pricedSpanCount: num(r.priced_span_count),
+    totalTokens: num(r.total_tokens),
+    firstRun: r.first_run,
+    lastRun: r.last_run,
+  }));
+}
+
+export async function getWorkflowRunList(
+  db: Db,
+  ch: Ch,
+  userId: string,
+  input: {
+    projectId: string;
+    workflowName?: string;
+    limit?: number;
+    offset?: number;
+  },
 ) {
   await requireProjectAccess(db, userId, input.projectId);
   const runs = await listWorkflowRuns(ch, input);
