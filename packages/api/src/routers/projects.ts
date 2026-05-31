@@ -5,6 +5,7 @@ import { listAccessibleProjects } from "../services/access";
 import {
   createApiKey,
   createProject,
+  deleteApiKey,
   deleteProject,
   listApiKeys,
   revokeApiKey,
@@ -72,6 +73,13 @@ export const projectsRouter = router({
       .input(z.object({ projectId: z.string(), keyId: z.string() }))
       .mutation(({ ctx, input }) =>
         revokeApiKey(ctx.db, ctx.session.user.id, input),
+      ),
+
+    // Hard-delete (no auditable row). For ephemeral bootstrap keys only.
+    delete: protectedProcedure
+      .input(z.object({ projectId: z.string(), keyId: z.string() }))
+      .mutation(({ ctx, input }) =>
+        deleteApiKey(ctx.db, ctx.session.user.id, input),
       ),
   }),
 });

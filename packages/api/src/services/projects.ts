@@ -151,6 +151,24 @@ export async function revokeApiKey(
 }
 
 /**
+ * Hard-delete a key row. Used for ephemeral bootstrap keys (e.g. the onboarding
+ * key the dashboard re-mints) so revoked rows don't accumulate. For
+ * user-managed keys prefer revoke (keeps an auditable row).
+ */
+export async function deleteApiKey(
+  db: Db,
+  userId: string,
+  input: { projectId: string; keyId: string },
+) {
+  const proj = await requireProjectAccess(db, userId, input.projectId);
+  await requireOrgRole(db, userId, proj.orgId, [...ADMIN]);
+  await db
+    .delete(apiKey)
+    .where(and(eq(apiKey.id, input.keyId), eq(apiKey.projectId, input.projectId)));
+  return { id: input.keyId };
+}
+
+/**
  * Delete a project: Postgres cascades remove its keys/alerts/evals/pricing/
  * workflow-run-names; ClickHouse has no FKs so its spans/scores are purged
  * explicitly. Admin+ only.

@@ -53,7 +53,13 @@ export const usageSchema = z
 export type Usage = z.infer<typeof usageSchema>;
 
 // Free-form string→string map (mirrors ClickHouse Map(String, String)).
-export const metadataSchema = z.record(z.string(), z.string());
+// Bounded so a single span can't carry an unbounded number of keys or huge
+// values (wide-row amplification). Keys ≤128 chars, values ≤1024, ≤64 entries.
+export const metadataSchema = z
+  .record(z.string().max(128), z.string().max(1024))
+  .refine((m) => Object.keys(m).length <= 64, {
+    message: "metadata may have at most 64 keys",
+  });
 export type Metadata = z.infer<typeof metadataSchema>;
 
 const MAX_PAYLOAD_CHARS = 1_000_000; // 1MB soft cap per input/output blob.

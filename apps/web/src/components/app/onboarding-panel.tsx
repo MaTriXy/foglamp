@@ -62,25 +62,25 @@ export function OnboardingPanel() {
         void qc.invalidateQueries({ queryKey: trpc.projects.keys.list.queryKey() }),
     }),
   );
-  const revokeKey = useMutation(trpc.projects.keys.revoke.mutationOptions({}));
+  const deleteKey = useMutation(trpc.projects.keys.delete.mutationOptions({}));
 
   // Once keys have loaded, ensure we hold a usable key to inline — no click.
-  // Plaintext can't be recovered, so revoke any prior onboarding key and mint a
+  // Plaintext can't be recovered, so drop any prior onboarding key and mint a
   // fresh one (covers both first visit and reloads). Runs once per mount.
+  // We hard-delete rather than revoke: these are throwaway bootstrap keys, so
+  // soft-revoking would pile up dead rows on every reload before the first trace.
   useEffect(() => {
     if (!projectId || keys.isLoading || mintedRef.current) return;
     mintedRef.current = true;
-    const stale = (keys.data ?? []).filter(
-      (k) => !k.revokedAt && k.name === KEY_NAME,
-    );
+    const stale = (keys.data ?? []).filter((k) => k.name === KEY_NAME);
     void (async () => {
       for (const k of stale) {
-        await revokeKey.mutateAsync({ projectId, keyId: k.id });
+        await deleteKey.mutateAsync({ projectId, keyId: k.id });
       }
       const res = await createKey.mutateAsync({ projectId, name: KEY_NAME });
       setRevealedKey(res.key);
     })();
-  }, [projectId, keys.isLoading, keys.data, createKey, revokeKey]);
+  }, [projectId, keys.isLoading, keys.data, createKey, deleteKey]);
 
   const prompt = revealedKey ? buildPrompt(revealedKey) : null;
   const copy = () => {
