@@ -1,6 +1,7 @@
 {
   "name": "foglamp-example-basic",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
