@@ -1,1 +1,13 @@
 @import "@foglamp/ui/globals.css";
+
+/* Shiki dual-theme token colors. CodeBlock highlights with defaultColor:false,
+   so each token carries both --shiki-light and --shiki-dark; pick per theme via
+   the .dark class. Backgrounds are handled by the component (bg-muted). */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+}
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark);
+}

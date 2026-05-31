@@ -1,7 +1,5 @@
 "use client";
 
-import { IconCircleCheckFilled, IconCopyFilled } from "@tabler/icons-react";
-import { Button } from "@foglamp/ui/components/button";
 import {
   Empty,
   EmptyContent,
@@ -16,7 +14,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@foglamp/ui/components/tabs";
-import { useState } from "react";
+
+import { CodeBlock } from "./code-block";
 
 // Empty state for the Agents / Workflows pages: the usual dashed card plus a
 // copy-pasteable instrumentation snippet, toggled between the AI SDK v7 native
@@ -76,31 +75,6 @@ const { generateText } = wrap(ai, {
 await generateText({ model, prompt });`,
   },
 };
-
-function CodeBlock({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    void navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <div className="relative">
-      <pre className="overflow-auto rounded-md bg-muted p-3 pr-10 text-left text-xs leading-relaxed">
-        <code>{code}</code>
-      </pre>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        className="absolute right-1.5 top-1.5"
-        aria-label="Copy code"
-        onClick={copy}
-      >
-        {copied ? <IconCircleCheckFilled /> : <IconCopyFilled />}
-      </Button>
-    </div>
-  );
-}
 
 export function InstrumentEmptyState({
   feature,

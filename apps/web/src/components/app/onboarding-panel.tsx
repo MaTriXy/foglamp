@@ -142,8 +142,7 @@ const fog = foglamp();
 await generateText({
   model,
   prompt,
-  experimental_telemetry: {
-    isEnabled: true,
+  telemetry: {
     integrations: [fog.integration({ agentName: "my-agent" })],
   },
 });`}
