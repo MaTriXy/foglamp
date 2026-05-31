@@ -19,6 +19,15 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@foglamp/ui/components/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@foglamp/ui/components/select";
 import { Switch } from "@foglamp/ui/components/switch";
 import {
   Table,
@@ -40,11 +49,53 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { useProject } from "@/components/app/project-context";
+import { ModelLogo } from "@/components/model-logo";
 import { formatRelative } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
 
 type Provider = "google" | "openai" | "anthropic";
 const SAMPLE_PRESETS = ["0.01", "0.05", "0.1", "0.25", "0.5", "1"] as const;
+
+// Judge model catalog per provider. Kept to known-good ids (BYOK calls these
+// directly), surfaced as a dropdown so users don't have to type a model id.
+const JUDGE_MODELS: Record<Provider, { id: string; label: string }[]> = {
+  google: [
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
+  ],
+  openai: [
+    { id: "gpt-5.4-mini", label: "GPT-5.4 Mini" },
+    { id: "gpt-5.5", label: "GPT-5.5" },
+  ],
+  anthropic: [
+    { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  ],
+};
+
+// Provider display order + labels for the grouped judge-model dropdown.
+const PROVIDER_GROUPS: { provider: Provider; label: string; disabled?: boolean }[] = [
+  { provider: "google", label: "Google" },
+  { provider: "openai", label: "OpenAI" },
+  // Anthropic judges aren't wired yet (@ai-sdk/anthropic is canary-only); shown
+  // but disabled so the lineup is visible without producing broken evals.
+  { provider: "anthropic", label: "Anthropic", disabled: true },
+];
+
+// Flat lookups: which provider/label owns a given model id (ids are unique
+// across providers), so selecting a model derives its provider.
+const MODEL_PROVIDER: Record<string, Provider> = Object.fromEntries(
+  (Object.entries(JUDGE_MODELS) as [Provider, { id: string }[]][]).flatMap(
+    ([p, list]) => list.map((m) => [m.id, p] as const),
+  ),
+);
+const MODEL_LABEL: Record<string, string> = Object.fromEntries(
+  Object.values(JUDGE_MODELS)
+    .flat()
+    .map((m) => [m.id, m.label] as const),
+);
 
 const DEFAULT_FORM = {
   name: "",
@@ -332,23 +383,63 @@ export function EvalsClient() {
                     {isJudge && (
                       <>
                         <Field>
-                          <FieldLabel>Judge provider</FieldLabel>
-                          <NativeSelect
-                            value={form.judgeProvider}
-                            onChange={(e) =>
-                              set({ judgeProvider: e.target.value as Provider })
-                            }
-                          >
-                            <NativeSelectOption value="google">Google</NativeSelectOption>
-                            <NativeSelectOption value="openai">OpenAI</NativeSelectOption>
-                          </NativeSelect>
-                        </Field>
-                        <Field>
                           <FieldLabel>Judge model</FieldLabel>
-                          <Input
+                          <Select
                             value={form.judgeModel}
-                            onChange={(e) => set({ judgeModel: e.target.value })}
-                          />
+                            onValueChange={(v) => {
+                              const id = v as string;
+                              // Derive the provider from the chosen model so the
+                              // two stay in lockstep without a separate field.
+                              set({
+                                judgeModel: id,
+                                judgeProvider:
+                                  MODEL_PROVIDER[id] ?? form.judgeProvider,
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a model">
+                                {(value) => {
+                                  const id = value as string;
+                                  return (
+                                    <span className="flex items-center gap-2">
+                                      <ModelLogo
+                                        provider={MODEL_PROVIDER[id]}
+                                        modelId={id}
+                                      />
+                                      {MODEL_LABEL[id] ?? id}
+                                    </span>
+                                  );
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROVIDER_GROUPS.map((g) => (
+                                <SelectGroup key={g.provider}>
+                                  <SelectLabel>{g.label}</SelectLabel>
+                                  {JUDGE_MODELS[g.provider].map((m) => (
+                                    <SelectItem
+                                      key={m.id}
+                                      value={m.id}
+                                      label={m.label}
+                                      disabled={g.disabled}
+                                    >
+                                      <ModelLogo
+                                        provider={g.provider}
+                                        modelId={m.id}
+                                      />
+                                      {m.label}
+                                      {g.disabled && (
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                          Soon
+                                        </span>
+                                      )}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </Field>
                         {needsKey && (
                           <p className="text-sm text-destructive">
