@@ -10,18 +10,20 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 // client-side and async; the raw code renders immediately as a fallback so there
 // is never an empty flash. The highlighter is a lazy singleton (built once,
 // shared by every CodeBlock) and uses the pure-JS regex engine — no wasm to
-// load in the browser. Dual github-light/github-dark themes emit CSS variables;
-// `.dark` selects between them (see globals.css).
+// load in the browser. Uses the `vesper` theme (dark-only), so code blocks are
+// always dark regardless of the app's light/dark mode.
+
+const THEME = "vesper";
+// Vesper's background — used for the pre-highlight fallback so there is no
+// light→dark flash before Shiki resolves.
+const THEME_BG = "#101010";
 
 let highlighterPromise: Promise<HighlighterCore> | undefined;
 
 function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighterCore({
-      themes: [
-        import("shiki/themes/github-light.mjs"),
-        import("shiki/themes/github-dark.mjs"),
-      ],
+      themes: [import("shiki/themes/vesper.mjs")],
       langs: [import("shiki/langs/typescript.mjs")],
       engine: createJavaScriptRegexEngine(),
     });
@@ -43,11 +45,7 @@ export function CodeBlock({
     let active = true;
     void getHighlighter()
       .then((hl) => {
-        const out = hl.codeToHtml(code, {
-          lang,
-          themes: { light: "github-light", dark: "github-dark" },
-          defaultColor: false,
-        });
+        const out = hl.codeToHtml(code, { lang, theme: THEME });
         if (active) setHtml(out);
       })
       .catch(() => {
@@ -65,18 +63,18 @@ export function CodeBlock({
   };
 
   return (
-    <div className="relative text-left text-xs [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:!bg-muted [&_pre]:p-3 [&_pre]:pr-10 [&_pre]:leading-relaxed">
+    <div className="relative text-left text-xs [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:p-3 [&_pre]:pr-10 [&_pre]:leading-relaxed">
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <pre>
+        <pre style={{ backgroundColor: THEME_BG, color: "#a0a0a0" }}>
           <code>{code}</code>
         </pre>
       )}
       <Button
         size="icon-sm"
         variant="ghost"
-        className="absolute right-1.5 top-1.5"
+        className="absolute right-1.5 top-1.5 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
         aria-label="Copy code"
         onClick={copy}
       >
