@@ -122,7 +122,7 @@ export function FoggyWidget({ projectId }: { projectId: string }) {
         aria-label="Ask Foggy"
         variant="secondary"
         className={cn(
-          "fixed bottom-5 right-5 z-30 size-10 rounded-full hover:bg-[#0F283F] shadow-(--custom-shadow) transition-all",
+          "fixed bottom-6 right-6 z-30 size-10 rounded-full hover:bg-[#0F283F] shadow-(--custom-shadow) transition-all",
           open && "pointer-events-none scale-90 opacity-0"
         )}
       >
@@ -201,71 +201,71 @@ export function FoggyWidget({ projectId }: { projectId: string }) {
               className="h-full overflow-y-auto px-4 py-4"
             >
               <AnimatePresence mode="wait" initial={false}>
-              {messages.length === 0 ? (
-                <motion.div
-                  key="empty"
-                  className="h-full"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                >
-                <Empty className="h-full border-0 p-0">
-                  <EmptyHeader>
-                    <EmptyMedia
-                      variant="icon"
-                      className="size-10 [&_svg:not([class*='size-'])]:size-5 bg-[#0090FD]/10"
-                    >
-                      <IconPacmanFilled className="text-[#0090FD] size-6" />
-                    </EmptyMedia>
-                    <EmptyTitle>Ask Foggy</EmptyTitle>
-                    <EmptyDescription>
-                      I can dig through this project&apos;s traces, costs, and
-                      agents - or explain how Foglamp works.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent className="mt-2 gap-2">
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => send(s)}
-                        className="w-full rounded-xl corner-squircle bg-card px-3 py-2 cursor-pointer text-left text-sm transition-colors hover:bg-accent flex justify-center items-center gap-2"
-                      >
-                        <IconMessageFilled className="size-3.5 text-muted-foreground/50" />
-                        {s}
-                      </button>
+                {messages.length === 0 ? (
+                  <motion.div
+                    key="empty"
+                    className="h-full"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                  >
+                    <Empty className="h-full border-0 p-0">
+                      <EmptyHeader>
+                        <EmptyMedia
+                          variant="icon"
+                          className="size-10 [&_svg:not([class*='size-'])]:size-5 bg-[#0090FD]/10"
+                        >
+                          <IconPacmanFilled className="text-[#0090FD] size-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>Ask Foggy</EmptyTitle>
+                        <EmptyDescription>
+                          I can dig through this project&apos;s traces, costs,
+                          and agents - or explain how Foglamp works.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                      <EmptyContent className="mt-2 gap-2">
+                        {SUGGESTIONS.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => send(s)}
+                            className="w-full rounded-xl corner-squircle bg-card px-3 py-2 cursor-pointer text-left text-sm transition-colors hover:bg-accent flex justify-center items-center gap-2"
+                          >
+                            <IconMessageFilled className="size-3.5 text-muted-foreground/50" />
+                            {s}
+                          </button>
+                        ))}
+                      </EmptyContent>
+                    </Empty>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="messages"
+                    className="flex flex-col gap-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                  >
+                    {messages.map((m) => (
+                      <FoggyMessage key={m.id} message={m} />
                     ))}
-                  </EmptyContent>
-                </Empty>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="messages"
-                  className="flex flex-col gap-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                >
-                  {messages.map((m) => (
-                    <FoggyMessage key={m.id} message={m} />
-                  ))}
-                  {thinking && (
-                    <TextShimmerLoader
-                      text="Foggy is thinking…"
-                      size="sm"
-                      className="pl-4"
-                    />
-                  )}
-                  {error && (
-                    <div className="rounded-3xl corner-squircle bg-destructive/10 px-3 ml-3 py-2 text-sm text-destructive w-fit flex gap-2 items-center">
-                      <IconAlertHexagonFilled className="size-3.5" />
-                      {errorMessage(error)}
-                    </div>
-                  )}
-                </motion.div>
-              )}
+                    {thinking && (
+                      <TextShimmerLoader
+                        text="Foggy is thinking…"
+                        size="sm"
+                        className="pl-4"
+                      />
+                    )}
+                    {error && (
+                      <div className="rounded-3xl corner-squircle bg-destructive/10 px-3 ml-3 py-2 text-sm text-destructive w-fit flex gap-2 items-center">
+                        <IconAlertHexagonFilled className="size-3.5" />
+                        {errorMessage(error)}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
             <div
