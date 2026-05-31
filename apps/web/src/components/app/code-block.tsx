@@ -10,20 +10,19 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 // client-side and async; the raw code renders immediately as a fallback so there
 // is never an empty flash. The highlighter is a lazy singleton (built once,
 // shared by every CodeBlock) and uses the pure-JS regex engine — no wasm to
-// load in the browser. Uses the `vesper` theme (dark-only), so code blocks are
-// always dark regardless of the app's light/dark mode.
-
-const THEME = "vesper";
-// Vesper's background — used for the pre-highlight fallback so there is no
-// light→dark flash before Shiki resolves.
-const THEME_BG = "#101010";
+// load in the browser. Dual theme: `github-light` in light mode, `vesper` in
+// dark; each token carries both as CSS variables, selected by the `.dark` class
+// (see index.css).
 
 let highlighterPromise: Promise<HighlighterCore> | undefined;
 
 function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighterCore({
-      themes: [import("shiki/themes/vesper.mjs")],
+      themes: [
+        import("shiki/themes/github-light.mjs"),
+        import("shiki/themes/vesper.mjs"),
+      ],
       langs: [import("shiki/langs/typescript.mjs")],
       engine: createJavaScriptRegexEngine(),
     });
@@ -45,7 +44,11 @@ export function CodeBlock({
     let active = true;
     void getHighlighter()
       .then((hl) => {
-        const out = hl.codeToHtml(code, { lang, theme: THEME });
+        const out = hl.codeToHtml(code, {
+          lang,
+          themes: { light: "github-light", dark: "vesper" },
+          defaultColor: false,
+        });
         if (active) setHtml(out);
       })
       .catch(() => {
@@ -67,14 +70,14 @@ export function CodeBlock({
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <pre style={{ backgroundColor: THEME_BG, color: "#a0a0a0" }}>
+        <pre className="!bg-muted text-foreground">
           <code>{code}</code>
         </pre>
       )}
       <Button
         size="icon-sm"
         variant="ghost"
-        className="absolute right-1.5 top-1.5 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+        className="absolute right-1.5 top-1.5 text-muted-foreground hover:text-foreground"
         aria-label="Copy code"
         onClick={copy}
       >
