@@ -65,11 +65,12 @@ export async function applySpansRetention(
   client: ClickHouseClient,
   days: number,
 ): Promise<void> {
-  if (!Number.isFinite(days) || days <= 0) {
-    await client.command({ query: `ALTER TABLE spans REMOVE TTL` });
-    return;
-  }
-  // Per-row, plan-driven TTL (matches migration 0008). Ignores the fixed `days`.
+  // Retention is plan-driven via the per-row `retention_days` column (stamped at
+  // ingest), so this always reasserts the per-row TTL and ignores `days`. We do
+  // NOT honor days<=0 as "remove TTL" anymore — that would wipe every org's
+  // plan-driven retention (a footgun). Self-hosters who want no expiry run with
+  // billing off, which stamps an effectively-infinite retention at ingest.
+  void days;
   await client.command({
     query: `ALTER TABLE spans MODIFY TTL toDateTime(start_time) + toIntervalDay(retention_days)`,
   });

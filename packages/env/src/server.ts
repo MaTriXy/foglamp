@@ -33,6 +33,8 @@ const serverSchema = {
   INGEST_FLUSH_MAX_ROWS: z.coerce.number().default(1000),
   INGEST_RATE_LIMIT_RPS: z.coerce.number().default(100),
   API_KEY_CACHE_TTL_MS: z.coerce.number().default(60_000),
+  // Max ingest request body; rejected (413) before the body is buffered/parsed.
+  INGEST_MAX_BODY_BYTES: z.coerce.number().default(10_485_760), // 10 MB
 
   // Span retention; applied via ALTER TABLE … MODIFY TTL on boot.
   FOGLAMP_SPANS_RETENTION_DAYS: z.coerce.number().default(30),

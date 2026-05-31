@@ -9,6 +9,7 @@ import { getPricingTable } from "@foglamp/cost";
 import { env } from "@foglamp/env/server";
 import { createLogger } from "evlog";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 
 import { resolveApiKey } from "./apiKey";
 import { WriteBuffer } from "./buffer";
@@ -70,7 +71,14 @@ function bearerKey(header: string | undefined): string | null {
   return match ? match[1]!.trim() : null;
 }
 
-app.post("/ingest", async (c) => {
+app.post(
+  "/ingest",
+  // Reject oversized bodies before buffering/parsing the whole payload.
+  bodyLimit({
+    maxSize: env.INGEST_MAX_BODY_BYTES,
+    onError: (c) => c.json({ error: "payload too large" }, 413),
+  }),
+  async (c) => {
   const log = c.get("log");
 
   // 1. Authenticate. Accept `Authorization: Bearer fl_…` or `x-api-key`.

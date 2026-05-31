@@ -9,7 +9,9 @@ import { and, eq, inArray } from "drizzle-orm";
 // When disabled (self-host / no Stripe), the platform is UNMETERED: no plan
 // limits are enforced anywhere.
 export function isBillingEnabled(): boolean {
-  return !!env.STRIPE_SECRET_KEY;
+  // Both are required: without the webhook secret, subscription state never
+  // syncs, so enforcing limits would strand orgs with no way to upgrade.
+  return !!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET;
 }
 
 // Plan limits are the single source of truth for the whole product (API gates,

@@ -65,7 +65,8 @@ export async function updateProject(
   userId: string,
   input: { projectId: string; name?: string; url?: string | null },
 ) {
-  await requireProjectAccess(db, userId, input.projectId);
+  const proj = await requireProjectAccess(db, userId, input.projectId);
+  await requireOrgRole(db, userId, proj.orgId, [...ADMIN]);
 
   const patch: { name?: string; url?: string | null } = {};
   if (input.name !== undefined) patch.name = input.name;

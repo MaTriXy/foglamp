@@ -12,6 +12,11 @@ type CodeScorer = (
 const pass = (reason: string): ScoreResult => ({ score: null, passed: true, reason });
 const fail = (reason: string): ScoreResult => ({ score: null, passed: false, reason });
 
+// Matches a group whose body contains a quantifier and is itself quantified —
+// e.g. (a+)+, (a*)+, (\d+)* — the classic catastrophic-backtracking shapes.
+const NESTED_QUANTIFIER = /\([^)]*[*+][^)]*\)[*+]/;
+const MAX_REGEX_INPUT = 10_000;
+
 const PII_PATTERNS: Array<[string, RegExp]> = [
   ["email", /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i],
   ["phone", /(?:\+?\d[\d ().-]{7,}\d)/],
@@ -80,8 +85,16 @@ export const CODE_SCORERS: Record<string, CodeScorer> = {
   },
   regex_match: ({ output }, params) => {
     const pattern = str(params, "pattern") || ".*";
+    // ReDoS guard: reject the classic nested-quantifier shapes (e.g. `(a+)+`)
+    // and bound the tested input length. A nested quantifier on a group whose
+    // body already has a quantifier causes catastrophic backtracking. (A
+    // linear-time engine like re2 would be the production-grade fix.)
+    if (NESTED_QUANTIFIER.test(pattern)) {
+      return fail("Rejected potentially catastrophic regex (ReDoS)");
+    }
     try {
-      return new RegExp(pattern).test(output)
+      const re = new RegExp(pattern);
+      return re.test(output.slice(0, MAX_REGEX_INPUT))
         ? pass(`Matches /${pattern}/`)
         : fail(`No match for /${pattern}/`);
     } catch {

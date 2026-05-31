@@ -13,6 +13,7 @@ import { count, desc, eq } from "drizzle-orm";
 import { decimalOrNull } from "../lib/util";
 import type { Db } from "../types";
 import { requireProjectAccess } from "./access";
+import { requireEvalAccess } from "./evals";
 
 export type AlertMetric =
   | "cost"
@@ -87,6 +88,9 @@ export async function listAlerts(db: Db, userId: string, projectId: string) {
 
 export async function createAlert(db: Db, userId: string, input: AlertRuleInput) {
   const proj = await requireProjectAccess(db, userId, input.projectId);
+  // Eval-score alerts reference an eval — verify it's one the caller can access
+  // (prevents pointing an alert at another org's eval id).
+  if (input.evalId) await requireEvalAccess(db, userId, input.evalId);
 
   // Plan limit: cap alerts per org, counted across all its projects.
   const { limits } = await getOrgPlan(proj.orgId);
@@ -131,6 +135,7 @@ export async function updateAlert(
   input: { ruleId: string } & Partial<Omit<AlertRuleInput, "projectId">>,
 ) {
   await requireRuleAccess(db, userId, input.ruleId);
+  if (input.evalId) await requireEvalAccess(db, userId, input.evalId);
   await db
     .update(alertRule)
     .set({

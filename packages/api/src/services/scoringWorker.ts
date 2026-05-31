@@ -124,7 +124,25 @@ async function scoreOneEval(
     limit: env.EVAL_SCORING_BATCH,
   });
 
-  if (candidates.length > 0) {
+  // When the batch is capped, trim trailing rows that share the last row's
+  // ingested_at so we never end mid-millisecond: the watermark lands on a clean
+  // boundary and strict `ingested_at > watermark` re-fetches the trimmed ties
+  // next sweep — no skipped spans, no re-scored (re-judged) spans. If the whole
+  // batch is one millisecond (pathological), score it all and advance past it.
+  let batch = candidates;
+  let newWatermark = until;
+  if (candidates.length === env.EVAL_SCORING_BATCH) {
+    const lastTs = candidates[candidates.length - 1]!.ingested_at;
+    const trimmed = candidates.filter((c) => c.ingested_at !== lastTs);
+    if (trimmed.length > 0) {
+      batch = trimmed;
+      newWatermark = new Date(trimmed[trimmed.length - 1]!.ingested_at + "Z");
+    } else {
+      newWatermark = new Date(lastTs + "Z");
+    }
+  }
+
+  if (batch.length > 0) {
     const config = (ev.config ?? {}) as EvalConfig;
     const contextSpec = (config.contextSpec ?? {}) as ContextSpec;
     const params = config.params ?? preset.defaultParams ?? {};
@@ -132,7 +150,7 @@ async function scoreOneEval(
     const now = Date.now();
 
     const results = await mapLimit(
-      candidates,
+      batch,
       env.EVAL_JUDGE_CONCURRENCY,
       async (c): Promise<ScoreRow | null> => {
         try {
@@ -178,15 +196,8 @@ async function scoreOneEval(
     await insertScores(ch, results.filter((r): r is ScoreRow => r !== null));
   }
 
-  // Advance the watermark: to the last candidate's ingest time if we hit the
-  // batch cap (more may remain), otherwise to the end of the scanned window.
-  const capped = candidates.length === env.EVAL_SCORING_BATCH;
-  const newWatermark =
-    capped && candidates.length > 0
-      ? new Date(candidates[candidates.length - 1]!.ingested_at + "Z")
-      : until;
   await setState(db, ev.id, newWatermark, "ok", null);
-  log.info("eval.scored", { evalId: ev.id, scored: candidates.length });
+  log.info("eval.scored", { evalId: ev.id, scored: batch.length });
 }
 
 async function buildTarget(

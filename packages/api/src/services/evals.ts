@@ -30,7 +30,7 @@ export type EvalInput = {
   enabled?: boolean;
 };
 
-async function requireEvalAccess(db: Db, userId: string, evalId: string) {
+export async function requireEvalAccess(db: Db, userId: string, evalId: string) {
   const rows = await db
     .select({ id: evalDefinition.id, projectId: evalDefinition.projectId })
     .from(evalDefinition)
