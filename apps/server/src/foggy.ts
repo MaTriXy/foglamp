@@ -62,12 +62,22 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
   const body = (await c.req.json().catch(() => null)) as {
     messages?: UIMessage[];
     projectId?: string;
+    threadId?: string;
   } | null;
   const projectId = body?.projectId;
   const messages = body?.messages;
   if (!projectId || !Array.isArray(messages)) {
     return c.json({ error: "Missing projectId or messages" }, 400);
   }
+
+  // One foglamp session per conversation: the client mints a stable threadId and
+  // resets it on "new chat". Sanitize + cap (sessionId is capped at 128 on the
+  // wire); fall back to per-user grouping if the client didn't send one.
+  const threadId =
+    typeof body?.threadId === "string" && body.threadId.length > 0
+      ? body.threadId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64)
+      : null;
+  const sessionId = `foggy:${threadId || userId}`;
 
   let projectName: string;
   try {
@@ -101,7 +111,7 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
       integrations: [
         fog.integration({
           agentName: "foggy",
-          sessionId: `foggy:${userId}`,
+          sessionId,
           metadata: { userId, projectId },
         }),
       ],

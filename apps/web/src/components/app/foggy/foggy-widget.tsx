@@ -64,16 +64,21 @@ export function FoggyWidget({ projectId }: { projectId: string }) {
   // Whether the message list is scrolled away from the top — gates the top fade.
   const [scrolled, setScrolled] = useState(false);
 
-  // One transport per project; the parent keys this component by projectId so a
-  // project switch fully resets the conversation.
+  // A stable id for the current conversation, sent to the server so each chat
+  // becomes its own foglamp session. Regenerated on "new chat" (below) and on a
+  // project switch (the parent keys this component by projectId, remounting it).
+  // Not rendered to the DOM, so generating it during render is hydration-safe.
+  const [threadId, setThreadId] = useState(() => crypto.randomUUID());
+
+  // One transport per project + conversation; a new threadId resets the body.
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: `${env.NEXT_PUBLIC_SERVER_URL}/foggy`,
         credentials: "include",
-        body: { projectId },
+        body: { projectId, threadId },
       }),
-    [projectId]
+    [projectId, threadId]
   );
 
   const { messages, sendMessage, setMessages, status, error, stop } = useChat({
@@ -81,12 +86,13 @@ export function FoggyWidget({ projectId }: { projectId: string }) {
   });
   const busy = status === "submitted" || status === "streaming";
 
-  // Reset to a fresh conversation (same project/transport).
+  // Reset to a fresh conversation — new threadId → new foglamp session.
   function newChat() {
     if (busy) void stop();
     setMessages([]);
     setInput("");
     setScrolled(false);
+    setThreadId(crypto.randomUUID());
   }
 
   // Show the shimmer while we're waiting for (or tool-calling toward) a reply —
