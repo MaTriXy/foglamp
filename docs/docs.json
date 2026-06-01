@@ -8,13 +8,10 @@
     "light": "#FFFFFF",
     "dark": "#171717"
   },
-  "favicon": {
-    "light": "/docs/images/foglamp.jpg",
-    "dark": "/docs/images/foglamp.jpg"
-  },
+  "favicon": "/images/foglamp.jpg",
   "logo": {
-    "light": "/docs/images/foglamp.jpg",
-    "dark": "/docs/images/foglamp.jpg"
+    "light": "/images/foglamp.jpg",
+    "dark": "/images/foglamp.jpg"
   },
   "navigation": {
     "tabs": [
@@ -37,17 +34,27 @@
               "sdk/runtimes",
               "sdk/wrap"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Dashboard",
+        "groups": [
           {
-            "group": "Dashboard",
+            "group": "Explore",
             "pages": [
               "dashboard/overview",
               "dashboard/traces",
               "dashboard/workflows",
               "dashboard/agents",
-              "dashboard/sessions",
-              "dashboard/evals",
+              "dashboard/sessions"
+            ]
+          },
+          {
+            "group": "Operate",
+            "pages": [
               "dashboard/alerts",
+              "dashboard/evals",
               "dashboard/cost",
               "dashboard/account"
             ]
