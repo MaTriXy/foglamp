@@ -48,13 +48,14 @@ export function RangePicker({
         render={
           <Button
             variant="outline"
-            className="w-fit justify-start px-8 gap-2 active:scale-100"
+            size="sm"
+            className="w-fit justify-start px-8 gap-2 active:scale-100 font-normal"
           />
         }
       >
-        <IconCalendarEventFilled className="text-muted-foreground ml-1.5" />
-        <span className="truncate pr-4">{value.label}</span>
-        <IconChevronDown className="ml-auto size-4 opacity-40 mr-1 mt-px stroke-1" />
+        <IconCalendarEventFilled className="text-muted-foreground/50 ml-1" />
+        <span className="truncate pr-1">{value.label}</span>
+        <IconChevronDown className="ml-auto size-4 text-muted-foreground/50 mr-1 mt-px stroke-1.5" />
       </PopoverTrigger>
       <PopoverContent
         align="end"

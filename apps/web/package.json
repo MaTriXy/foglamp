@@ -22,6 +22,7 @@
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "^11.13.4",
     "@better-auth/stripe": "catalog:",
+    "@vercel/analytics": "^2.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "date-fns": "^4.1.0",

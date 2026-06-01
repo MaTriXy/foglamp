@@ -99,42 +99,48 @@ const nav: NavItem[] = [
     label: "Overview",
     icon: IconMichelinStar,
     activeIcon: IconMichelinStarFilled,
-    iconClassName: "dark:text-rose-600 text-rose-400",
+    iconClassName:
+      "bg-rose-100 dark:bg-rose-950 rounded-xl p-0.5 corner-squircle text-rose-500 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.14),0_2px_6px_-2px_rgba(244,63,94,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
     href: "/workflows",
     label: "Workflows",
     icon: IconSitemap,
     activeIcon: IconSitemapFilled,
-    iconClassName: "dark:text-emerald-600 text-emerald-400",
+    iconClassName:
+      "bg-emerald-100 dark:bg-emerald-950 rounded-xl p-0.5 corner-squircle text-emerald-500 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.14),0_2px_6px_-2px_rgba(16,185,129,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
     href: "/agents",
     label: "Agents",
     icon: IconGhost,
     activeIcon: IconGhostFilled,
-    iconClassName: "dark:text-[#FF5512] text-orange-400",
+    iconClassName:
+      "bg-orange-100 dark:bg-orange-950 rounded-xl p-0.5 corner-squircle text-orange-500 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.14),0_2px_6px_-2px_rgba(249,115,22,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
     href: "/sessions",
     label: "Sessions",
     icon: IconMessage2,
     activeIcon: IconMessage2Filled,
-    iconClassName: "dark:text-blue-600 text-blue-400",
+    iconClassName:
+      "dark:text-blue-400 bg-blue-100 dark:bg-blue-950 rounded-xl p-0.5 corner-squircle text-blue-500 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.14),0_2px_6px_-2px_rgba(59,130,246,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
     href: "/evals",
     label: "Evals",
     icon: IconGauge,
     activeIcon: IconGaugeFilled,
-    iconClassName: "dark:text-fuchsia-600 text-fuchsia-400",
+    iconClassName:
+      "bg-fuchsia-100 dark:bg-fuchsia-950 rounded-xl p-0.5 corner-squircle text-fuchsia-500 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.14),0_2px_6px_-2px_rgba(217,70,239,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
     href: "/traces",
     label: "Traces",
     icon: IconLayoutDistributeHorizontal,
     activeIcon: IconLayoutDistributeHorizontalFilled,
-    iconClassName: "dark:text-[#0090FD] text-sky-400",
+    iconClassName:
+      "bg-sky-100 dark:bg-sky-950 rounded-xl p-0.5 corner-squircle text-sky-500 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.14),0_2px_6px_-2px_rgba(14,165,233,0.25)] dark:shadow-(--custom-shadow)",
   },
 
   {
@@ -142,7 +148,8 @@ const nav: NavItem[] = [
     label: "Alerts",
     icon: IconAlertTriangle,
     activeIcon: IconAlertTriangleFilled,
-    iconClassName: "dark:text-yellow-500 text-yellow-400",
+    iconClassName:
+      "bg-yellow-100 dark:bg-yellow-950 rounded-xl p-0.5 corner-squircle text-yellow-500 shadow-[inset_0_0_0_1px_rgba(234,179,8,0.14),0_2px_6px_-2px_rgba(234,179,8,0.25)] dark:shadow-(--custom-shadow)",
   },
 ];
 
