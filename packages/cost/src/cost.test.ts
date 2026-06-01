@@ -117,6 +117,17 @@ describe("computeCost", () => {
     expect(c.internalReasoningCost).toBe("0.0009000000");
   });
 
+  test("web search count is priced and added to the total", () => {
+    const r = resolveModelPrice(table, "google", "gemini-3.5-flash")!;
+    const c = computeCost(
+      { inputTokens: 0, outputTokens: 0, webSearchCount: 3 },
+      r.price,
+    );
+    // 3 searches * 0.014 = 0.042
+    expect(c.webSearchCost).toBe("0.0420000000");
+    expect(c.totalCost).toBe("0.0420000000");
+  });
+
   test("unknown model → all null, never $0", () => {
     const priced = priceSpan({
       table,

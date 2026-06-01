@@ -1,10 +1,18 @@
 import { uuidv7 } from "uuidv7";
 
+import { extractWebSearchCount } from "../providerUsage";
 import { coerceMetadata, serialize } from "../serialize";
 import type { Transport } from "../transport";
 import type { IntegrationContext, ResolvedConfig } from "../types";
 import type { Span, Trace, Usage } from "../wire";
 import { mapUsageWrap } from "./usage";
+
+// Merge web-search usage (from provider metadata / tools) into the mapped usage.
+function withWebSearch(usage: Usage | undefined, step: unknown): Usage | undefined {
+  const webSearchCount = extractWebSearchCount(step);
+  if (webSearchCount === undefined) return usage;
+  return { ...(usage ?? {}), webSearchCount };
+}
 
 // Per-call trace builder for the wrapping adapter (foglamp/wrap). Unlike the v7
 // `Collector` (one global instance keyed by callId), one `WrapCollector` exists
@@ -73,6 +81,12 @@ export interface StepView {
   text?: string;
   finishReason?: string;
   response?: { modelId?: string };
+  // Provider-specific usage (web search etc.) — read by extractWebSearchCount.
+  providerMetadata?: unknown;
+  experimental_providerMetadata?: unknown;
+  content?: unknown;
+  toolCalls?: unknown;
+  toolResults?: unknown;
 }
 
 interface LlmSpanInput {
@@ -204,7 +218,7 @@ export class WrapCollector {
     const start = this.lastBoundary;
     const end = Date.now();
     this.lastBoundary = end;
-    const usage = mapUsageWrap(step?.usage as never);
+    const usage = withWebSearch(mapUsageWrap(step?.usage as never), step);
     const chunks = this.buildChunkArrays(stepNumber, usage);
     this.chunkSamples.delete(stepNumber);
     this.chunkTextLen.delete(stepNumber);
@@ -239,7 +253,7 @@ export class WrapCollector {
         stepNumber: 0,
         start: this.startTime,
         end,
-        usage: mapUsageWrap(result?.usage as never),
+        usage: withWebSearch(mapUsageWrap(result?.usage as never), result),
         provider: this.provider,
         modelId: this.modelId,
         finishReason: undefined,
@@ -253,7 +267,7 @@ export class WrapCollector {
           stepNumber: i,
           start: st,
           end: en,
-          usage: mapUsageWrap(s?.usage as never),
+          usage: withWebSearch(mapUsageWrap(s?.usage as never), s),
           provider: this.provider,
           modelId: s?.response?.modelId ?? this.modelId,
           finishReason: s?.finishReason,

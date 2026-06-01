@@ -6,6 +6,7 @@
 import { ingestPayloadSchema, type IngestPayload } from "@foglamp/contracts";
 
 import { foglamp } from "../src/index";
+import { extractWebSearchCount } from "../src/providerUsage";
 import { wrap } from "../src/wrap/index";
 
 function assert(cond: unknown, msg: string): void {
@@ -386,5 +387,66 @@ await wD.flush();
 assert(dRes.text === "ok", "disabled wrap still forwards to the real function");
 assert(capD.calls === 0, "no network calls when disabled");
 if (prevW !== undefined) process.env.FOGLAMP_API_KEY = prevW;
+
+// ===========================================================================
+// Web-search usage capture — providerUsage.extractWebSearchCount, per provider,
+// then end-to-end onto the emitted llm span's usage.
+// ===========================================================================
+console.log("\nweb-search usage extraction (per provider):");
+assert(
+  extractWebSearchCount({
+    providerMetadata: { google: { groundingMetadata: { webSearchQueries: ["a", "b", ""] } } },
+  }) === 2,
+  "google: non-empty webSearchQueries counted (2; empty ignored)",
+);
+assert(
+  extractWebSearchCount({
+    providerMetadata: { anthropic: { usage: { server_tool_use: { web_search_requests: 3 } } } },
+  }) === 3,
+  "anthropic: usage.server_tool_use.web_search_requests (3)",
+);
+assert(
+  extractWebSearchCount({
+    providerMetadata: { perplexity: { usage: { numSearchQueries: 1 } } },
+  }) === 1,
+  "perplexity: usage.numSearchQueries (1)",
+);
+assert(
+  extractWebSearchCount({
+    content: [
+      { type: "tool-call", toolName: "web_search", providerExecuted: true },
+      { type: "tool-result", toolName: "web_search", providerExecuted: true, output: { sources: [] } },
+      { type: "tool-call", toolName: "web_search", providerExecuted: true },
+    ],
+  }) === 2,
+  "openai/generic: counts provider-executed web_search tool-calls (2; result not double-counted)",
+);
+assert(
+  extractWebSearchCount({
+    content: [{ type: "tool-call", toolName: "file_search", providerExecuted: true }],
+  }) === undefined,
+  "file_search is NOT counted as web search",
+);
+assert(extractWebSearchCount({ usage: { inputTokens: 5 } }) === undefined, "no web search → undefined");
+assert(extractWebSearchCount(undefined) === undefined, "missing step → undefined (no throw)");
+
+console.log("web-search count lands on the llm span (v7 collector):");
+const capWS = makeCapture();
+const wtWS = foglamp({ apiKey: "k", fetch: capWS.fetchImpl });
+const iWS = wtWS.integration({ agentName: "search" }) as unknown as Hooks;
+iWS.onStart({ callId: "cWS", operationId: "ai.generateText", provider: "google", modelId: "gemini-3.1-pro-preview", messages: [] });
+iWS.onStepFinish({
+  callId: "cWS",
+  stepNumber: 0,
+  model: { provider: "google", modelId: "gemini-3.1-pro-preview" },
+  usage: { inputTokens: 100, outputTokens: 50 },
+  providerMetadata: { google: { groundingMetadata: { webSearchQueries: ["x", "y"] } } },
+  text: "answer",
+  finishReason: "stop",
+});
+iWS.onFinish({ callId: "cWS", text: "answer" });
+await wtWS.flush();
+const wsLlm = capWS.bodies[0]!.traces[0]!.spans.find((s) => s.spanType === "llm")!;
+assert(wsLlm.usage?.webSearchCount === 2, `webSearchCount set on llm span (got ${wsLlm.usage?.webSearchCount})`);
 
 console.log("\nALL SDK CHECKS PASSED ✅");

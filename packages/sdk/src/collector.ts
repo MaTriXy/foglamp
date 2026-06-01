@@ -1,5 +1,6 @@
 import type { Telemetry } from "ai";
 
+import { extractWebSearchCount } from "./providerUsage";
 import { coerceMetadata, serialize } from "./serialize";
 import { Transport } from "./transport";
 import type {
@@ -60,6 +61,10 @@ interface StepEndView {
   text?: string;
   content?: unknown;
   finishReason?: string;
+  // Provider-specific usage (web search etc.) lives here, not in `usage`.
+  providerMetadata?: unknown;
+  toolCalls?: unknown;
+  toolResults?: unknown;
 }
 interface FinishView {
   callId?: string;
@@ -306,7 +311,10 @@ export class Collector implements Telemetry {
       const metadata: Metadata = { stepNumber: String(e.stepNumber) };
       if (e.finishReason) metadata.finishReason = e.finishReason;
 
-      const usage = mapUsage(e.usage);
+      let usage = mapUsage(e.usage);
+      // Web-search usage isn't in `usage` — pull it from provider metadata / tools.
+      const webSearchCount = extractWebSearchCount(e);
+      if (webSearchCount !== undefined) usage = { ...(usage ?? {}), webSearchCount };
       const chunks = this.buildChunkArrays(builder, e.stepNumber, usage);
       // This step is done streaming; drop its sampling scratch state.
       builder.chunkSamples.delete(e.stepNumber);
