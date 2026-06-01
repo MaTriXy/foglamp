@@ -199,8 +199,8 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                   {runRows.map((r) => (
                     <TableRow
                       key={r.workflowRunId}
+                      interactive
                       className={cn(
-                        "cursor-pointer",
                         r.workflowRunId === activeRunId && "bg-accent",
                       )}
                       onClick={() => setSelected(r.workflowRunId)}

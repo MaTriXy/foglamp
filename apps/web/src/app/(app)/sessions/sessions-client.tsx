@@ -97,17 +97,17 @@ export function SessionsClient() {
               <TableRow>
                 <TableHead>Session</TableHead>
                 <TableHead>Agent</TableHead>
-                <TableHead className="text-right">Turns</TableHead>
-                <TableHead className="text-right">Tokens</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Last activity</TableHead>
+                <TableHead align="right">Turns</TableHead>
+                <TableHead align="right">Tokens</TableHead>
+                <TableHead align="right">Cost</TableHead>
+                <TableHead align="right">Last activity</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((s) => (
                 <TableRow
                   key={s.sessionId}
-                  className="cursor-pointer"
+                  interactive
                   onClick={() =>
                     router.push(`/sessions/${encodeURIComponent(s.sessionId)}`)
                   }
@@ -121,16 +121,12 @@ export function SessionsClient() {
                     </div>
                   </TableCell>
                   <TableCell>{s.agentName ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCount(s.turnCount)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatTokens(s.totalTokens)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">
+                  <TableCell align="right">{formatCount(s.turnCount)}</TableCell>
+                  <TableCell align="right">{formatTokens(s.totalTokens)}</TableCell>
+                  <TableCell align="right" className="font-medium">
                     {formatCost(s.totalCost)}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell align="right" className="text-muted-foreground">
                     {formatRelative(s.lastSeen)}
                   </TableCell>
                 </TableRow>

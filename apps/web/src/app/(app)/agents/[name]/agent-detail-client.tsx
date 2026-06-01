@@ -214,7 +214,7 @@ export function AgentDetailClient({ agentName }: { agentName: string }) {
                     {(data?.traces ?? []).map((t) => (
                       <TableRow
                         key={t.traceId}
-                        className="cursor-pointer"
+                        interactive
                         onClick={() =>
                           router.push(
                             `/traces/${encodeURIComponent(t.traceId)}`,

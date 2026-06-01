@@ -556,7 +556,7 @@ export function EvalsClient() {
             {rows.map((r) => (
               <TableRow
                 key={r.id}
-                className="cursor-pointer"
+                interactive
                 onClick={() => router.push(`/evals/${r.id}`)}
               >
                 <TableCell className="font-medium">{r.name}</TableCell>

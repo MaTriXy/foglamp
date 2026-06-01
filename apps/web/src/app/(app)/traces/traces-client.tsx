@@ -114,7 +114,7 @@ export function TracesClient() {
               {rows.map((t) => (
                 <TableRow
                   key={t.traceId}
-                  className="cursor-pointer"
+                  interactive
                   onClick={() =>
                     router.push(`/traces/${encodeURIComponent(t.traceId)}`)
                   }
