@@ -8,10 +8,10 @@
     "light": "#FFFFFF",
     "dark": "#171717"
   },
-  "favicon": "/images/foglamp.jpg",
+  "favicon": "/images/favicon.png",
   "logo": {
-    "light": "/images/foglamp.jpg",
-    "dark": "/images/foglamp.jpg"
+    "light": "/images/wordmark-light.png",
+    "dark": "/images/wordmark-dark.png"
   },
   "navigation": {
     "tabs": [
