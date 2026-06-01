@@ -154,6 +154,8 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         "text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        // Vertical column dividers (none on the leftmost cell).
+        "border-l border-[#EBEBEB] first:border-l-0 dark:border-[#1E1E1E]",
         density === "compact" ? "h-9 px-3" : "h-12 px-5",
         align && alignClass[align],
         className
@@ -174,6 +176,8 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         "align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        // Vertical column dividers (none on the leftmost cell).
+        "border-l border-[#EBEBEB] first:border-l-0 dark:border-[#1E1E1E]",
         density === "compact" ? "p-1.5 px-3" : "p-2.5 px-5",
         align && alignClass[align],
         className
