@@ -1,0 +1,51 @@
+---
+title: Overview
+description: "The dashboard home — KPIs, trends, and a live trace feed."
+---
+
+The **Overview** is the dashboard home: a single screen that answers "what is my
+AI app doing right now, and how does it compare to before?" Every number
+respects the [date-range picker](#date-range) at the top of the page, and each
+KPI shows a delta against the immediately preceding window of equal length.
+
+## KPI cards
+
+| Card | What it shows |
+| --- | --- |
+| **Total cost** | Summed cost for the window, with a `~$/mo` extrapolation and the share of LLM spans that received a price (`% priced`). |
+| **Error rate** | Errored spans ÷ total spans. |
+| **Eval pass rate** | Pass/fail ratio across scored traffic, with the number of checks scored (see [Evals](/dashboard/evals)). |
+| **Latency p95** | p95 step latency, with p50 and TTFT p95 underneath. |
+| **Requests** | Span count, with the LLM-span subset. |
+| **Tokens** | Total tokens, broken into input/output. |
+
+Deltas for cost, error rate, and latency are **inverted** — red means the number
+went up (worse), green means it went down.
+
+## Trend charts
+
+- **Cost over time** — a stacked area chart of cost per minute, split by model.
+  The top five models get their own series; the rest roll into **Other**.
+- **Requests & errors** — spans per minute with errors overlaid.
+- **Latency** — p50 / p95 / p99 per minute.
+- **By model** — a table of requests, tokens, p95 latency, and cost per model.
+- **By agent** — the same, grouped by `agentName`.
+
+<Note>
+  Models Foglamp can't price are labelled `(unknown)` in the breakdowns rather
+  than shown as `$0` — a missing price is never silently treated as free. Add a
+  rule on the [Pricing](/dashboard/cost) page to price them.
+</Note>
+
+## Live feed
+
+The **Live feed** card streams the latest traces as they arrive, refreshing
+every few seconds. Click any row to open its [trace](/dashboard/traces). Before
+your first span lands, an onboarding panel appears here instead — it disappears
+automatically once data starts flowing.
+
+## Date range
+
+The range picker drives every view. Presets: last hour, last 24 hours (default),
+7 / 30 / 90 days, today, this month, last month — plus a custom two-month
+calendar. Future dates are disabled.

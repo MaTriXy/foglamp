@@ -112,3 +112,13 @@ generateText() ─────────────▶ trace
 
 The SDK opens a span per step and tool execution, reads the SDK's own
 performance metrics for TTFT, and closes the trace when the call ends.
+
+<Note>
+  **Embeddings aren't captured yet.** The wire contract reserves an `embedding`
+  span type, but neither SDK path currently emits one: the v7 collector
+  instruments `generateText`/`streamText` (and the `wrap` path adds
+  `generateObject`/`streamObject`), while `embed`/`embedMany` and `rerank` are
+  not yet traced. Instrumenting an `embed` call today produces a trace with a
+  root span but no token usage or cost. Embedding capture is planned — until
+  then, treat the `embedding` span type as reserved.
+</Note>

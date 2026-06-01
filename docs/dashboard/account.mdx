@@ -1,0 +1,59 @@
+---
+title: Projects, keys & billing
+description: "API keys, team roles, plans, and usage quotas."
+---
+
+Everything is scoped to a **project** inside an **organization**. Switch
+projects from the dropdown at the top of the sidebar; org-wide settings live
+under the **Configs** section of the nav.
+
+## API keys
+
+Each project has its own ingest keys. On the **API Keys** page you can:
+
+- **Create** a key (admins/owners only). The full `fl_…` value is shown **once**
+  in a modal — copy it then. Only a SHA-256 hash is stored, so it can never be
+  retrieved again; only the `fl_…` prefix is displayed thereafter.
+- **Revoke** a key. Revocation takes effect immediately — the
+  [ingest API](/api-reference/introduction) rejects it on the next request.
+
+Point the SDK at a key with `FOGLAMP_API_KEY` (see the
+[Quickstart](/quickstart)).
+
+## Team & roles
+
+The **Organization** settings cover members, invitations, and projects. There
+are three roles:
+
+| Role | Can do |
+| --- | --- |
+| **Owner** | Everything, including deleting the org. |
+| **Admin** | Manage projects, API keys, members, and billing. |
+| **Member** | Read project data. |
+
+Invite teammates by email with a role; manage or revoke pending invitations from
+the same screen.
+
+## Plans & billing
+
+The **Billing** tab shows your current plan (free, pro, enterprise, or — on
+self-hosted instances with billing disabled — unmetered) and lets owners/admins
+upgrade or open the billing portal.
+
+## Usage
+
+The **Usage** tab shows your consumption against plan limits for the current
+period:
+
+- **Spans this period** — the metered quota, with the reset date.
+- **Projects** and **Alerts** — counts against their limits.
+
+A bar turns red as it approaches its limit. When the span quota is nearly
+exhausted, an app-wide banner appears (amber at 90%, red at 100%).
+
+<Warning>
+  Once the monthly span quota is exceeded, the ingest API rejects new spans with
+  a `429` (a billing condition, distinct from rate limiting — see
+  [Two kinds of 429](/api-reference/introduction#two-kinds-of-429)). Upgrade the
+  plan or wait for the period to reset to resume ingesting.
+</Warning>

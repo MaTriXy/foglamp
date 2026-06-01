@@ -72,16 +72,18 @@ You have two ways to wire Foglamp in. Pick whichever fits your app.
 
     const fog = foglamp();
 
+    // One run of a workflow — reuse this id across every call in the run.
+    const runId = crypto.randomUUID();
+
     const result = await generateText({
       model: openai("gpt-4o"),
       prompt: "Summarize the latest deploy.",
-      experimental_telemetry: {
-        isEnabled: true,
+      telemetry: {
         integrations: [
           fog.integration({
             agentName: "summarizer",
             workflowName: "deploy-digest",
-            workflowRunId: run.id,
+            workflowRunId: runId,
           }),
         ],
       },

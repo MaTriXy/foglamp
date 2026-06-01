@@ -1,0 +1,50 @@
+---
+title: Cost & pricing
+description: "How Foglamp prices spans, and how to override the defaults."
+---
+
+Foglamp prices every span **at ingest**, the moment it arrives, from the token
+dimensions the provider reported. Cost is never recomputed downstream, so what
+you see in a trace is what was charged when it landed.
+
+## How pricing works
+
+Each [usage dimension](/concepts/data-model#usage) is priced independently
+against a model price table sourced from
+[OpenRouter](https://openrouter.ai/api/v1/models), refreshed every 24 hours. The
+dimensions priced are prompt, completion, request, image, web-search, internal
+reasoning, cache-read, and cache-write tokens.
+
+The span detail panel shows a **pricing source** so you can see whether a cost
+came from the resolved OpenRouter price or one of your custom rules.
+
+<Note>
+  A model Foglamp can't find a price for is labelled **`(unknown)`** in cost
+  breakdowns — never silently treated as `$0`. The Overview KPI's "% priced"
+  tells you what fraction of LLM spans were priced; a low number usually means
+  you're running a model that needs a custom rule.
+</Note>
+
+## Custom pricing rules
+
+Use the **Pricing** page to override or supply prices — for a self-hosted model,
+a negotiated rate, or a model OpenRouter doesn't list.
+
+A rule has a **model pattern** (e.g. `openai/gpt-4o-mini`) and one or more price
+dimensions. The two most common — **prompt price** and **completion price** —
+are in the create dialog; the full set of eight dimensions (request, image,
+web-search, reasoning, cache-read, cache-write) is supported by the API.
+
+- Any dimension you set on a rule wins over the OpenRouter price.
+- Any dimension you leave unset falls back to the resolved OpenRouter price.
+- An optional **effective-from** date lets a rule apply only to spans after a
+  cutoff, so historical costs stay correct when a price changes.
+
+## Where cost shows up
+
+- **[Overview](/dashboard/overview)** — total cost, cost-over-time (stacked by
+  model), and per-model / per-agent cost tables.
+- **[Traces](/dashboard/traces)** — per-span cost and pricing source.
+- **[Agents](/dashboard/agents)** and **[Workflows](/dashboard/workflows)** —
+  cost rolled up by actor and by run.
+- **[Alerts](/dashboard/alerts)** — alert on `cost` over a window.

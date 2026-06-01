@@ -16,8 +16,10 @@ const fog = foglamp();
 <Note>
   The `foglamp()` collector uses the **AI SDK v7** telemetry-integrations API.
   On **AI SDK v4/v5/v6**, use the [`foglamp/wrap`](/sdk/wrap) entry point instead —
-  same traces, same backend. Either way the SDK ships zero runtime dependencies
-  of its own and never forces a particular version of `zod` on your project.
+  same traces, same backend. Either way the SDK carries a single small runtime
+  dependency (`uuidv7`) and never forces a particular version of `zod` on your
+  project — the wire types are a hand-written, zod-free mirror of the contract,
+  so `ai` is the only required peer dependency.
 </Note>
 
 ## `foglamp(config?)`
@@ -42,8 +44,9 @@ integrations become no-ops, nothing is sent, and nothing is thrown.
 ### `fog.integration(context?)`
 
 Returns a telemetry integration to pass into a call's
-`experimental_telemetry.integrations` array. The optional context labels every
-span the call produces.
+`telemetry.integrations` array (AI SDK v7 also accepts the legacy
+`experimental_telemetry` alias). The optional context labels every span the
+call produces.
 
 ```ts
 fog.integration({

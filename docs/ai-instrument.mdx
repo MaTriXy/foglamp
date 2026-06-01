@@ -38,8 +38,8 @@ FOGLAMP_API_KEY=fl_your_key_here
 
 ## 2. Wrap the AI SDK calls (per-call, recommended)
 
-Attach the integration to each `generateText` / `streamText` call via
-`experimental_telemetry`. Every call needs a `traceName` **or** an `agentName`.
+Attach the integration to each `generateText` / `streamText` call via the
+`telemetry` option. Every call needs a `traceName` **or** an `agentName`.
 
 ```ts
 import { foglamp } from "foglamp";
@@ -50,8 +50,7 @@ const fog = foglamp();
 await generateText({
   model,
   prompt,
-  experimental_telemetry: {
-    isEnabled: true,
+  telemetry: {
     integrations: [fog.integration({ agentName: "summarizer" })],
   },
 });

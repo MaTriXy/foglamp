@@ -23,7 +23,7 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["introduction", "quickstart", "ai-instrument"]
+            "pages": ["introduction", "quickstart", "ai-instrument", "troubleshooting"]
           },
           {
             "group": "Core concepts",
@@ -36,6 +36,20 @@
               "sdk/configuration",
               "sdk/runtimes",
               "sdk/wrap"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "dashboard/overview",
+              "dashboard/traces",
+              "dashboard/workflows",
+              "dashboard/agents",
+              "dashboard/sessions",
+              "dashboard/evals",
+              "dashboard/alerts",
+              "dashboard/cost",
+              "dashboard/account"
             ]
           }
         ]

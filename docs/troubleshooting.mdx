@@ -1,0 +1,95 @@
+---
+title: Troubleshooting
+description: "Why you might not see traces, and how to fix it."
+---
+
+Foglamp is deliberately silent — it never throws into your app and never adds
+latency, which means a misconfiguration fails quietly rather than loudly. This
+page covers the handful of things that account for almost every "I don't see my
+traces" report.
+
+## Turn on debug first
+
+Before anything else, enable debug logging. It reports whether the collector is
+enabled, when batches flush, and any transport errors:
+
+```ts
+const fog = foglamp({ debug: true });
+```
+
+If you see `FOGLAMP_API_KEY not set — telemetry disabled (no-op)`, that's your
+answer — jump to the next section.
+
+## No traces at all
+
+<AccordionGroup>
+  <Accordion title="The API key isn't set">
+    Without `FOGLAMP_API_KEY` (or an explicit `apiKey`), the collector is a
+    **silent no-op** — integrations do nothing and nothing is sent. This is by
+    design, so instrumentation is safe to leave in every environment. Set the
+    key in the environment the code actually runs in (a `.env` that isn't loaded,
+    or a key set locally but not in your deploy, is the usual culprit).
+  </Accordion>
+  <Accordion title="You didn't flush before the process exited">
+    In serverless/edge runtimes the process can freeze the moment your handler
+    returns, before the background batch is sent. **Await `fog.flush()` before
+    returning.** On AWS Lambda this is mandatory; `process.on("beforeExit")`
+    won't fire. See [Runtimes & flushing](/sdk/runtimes).
+  </Accordion>
+  <Accordion title="The endpoint is wrong">
+    The hosted endpoint is the default. If you're self-hosting, set
+    `FOGLAMP_INGEST_URL` to your ingest API (e.g.
+    `http://your-host:4000/ingest`) — and make sure it includes the `/ingest`
+    path. Debug logging surfaces non-2xx responses from the endpoint.
+  </Accordion>
+  <Accordion title="The integration isn't attached">
+    Per-call instrumentation only fires when you pass the integration into the
+    call's `telemetry.integrations` array. Check the call actually includes it,
+    or register globally with `registerTelemetry(foglamp())`.
+  </Accordion>
+</AccordionGroup>
+
+## Traces appear but something's off
+
+<AccordionGroup>
+  <Accordion title="Cost shows as “—” or a model is “(unknown)”">
+    Foglamp couldn't find a price for that model, so it refuses to guess. Add a
+    [custom pricing rule](/dashboard/cost#custom-pricing-rules) for the model
+    pattern. Token counts and latency are unaffected.
+  </Accordion>
+  <Accordion title="No prompt/response text on spans">
+    Capture may be disabled. Check you haven't set `recordInputs: false` /
+    `recordOutputs: false`, and that `maxPayloadChars` isn't truncating more
+    than you expect. See [Configuration](/sdk/configuration).
+  </Accordion>
+  <Accordion title="New spans are being rejected (429)">
+    Your org has hit its monthly span quota — a billing condition, not rate
+    limiting. The dashboard shows a red quota banner. Upgrade the plan or wait
+    for the period to reset. See [Projects, keys & billing](/dashboard/account#usage).
+  </Accordion>
+  <Accordion title="Streaming replay/throughput is missing on a global setup">
+    Intra-stream sampling needs to attribute text deltas to one call. When many
+    streams run concurrently on a single globally-registered collector, an
+    ambiguous delta is dropped. Use a per-call `fog.integration(...)` for
+    reliable replay under concurrency.
+  </Accordion>
+  <Accordion title="Embedding calls have no tokens or cost">
+    Embeddings aren't captured yet — `embed`/`embedMany` produce a trace with a
+    root span but no usage. See the note in the
+    [data model](/concepts/data-model#how-it-streams).
+  </Accordion>
+</AccordionGroup>
+
+## Still stuck?
+
+Enable `debug` and route transport failures somewhere you'll see them:
+
+```ts
+const fog = foglamp({
+  debug: true,
+  onError: (err) => console.error("[foglamp]", err),
+});
+```
+
+The collector never retries a failed batch — a failed flush is reported to
+`onError` and dropped — so `onError` is the place to catch transport problems.

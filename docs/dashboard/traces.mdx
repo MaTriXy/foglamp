@@ -1,0 +1,60 @@
+---
+title: Traces
+description: "Inspect a single run — waterfall, span detail, scores, and replay."
+---
+
+A **trace** is one top-level `generateText` / `streamText` call. The **Traces**
+view lists them; opening one shows the full execution as a waterfall you can
+inspect span by span and replay in real time.
+
+See the [data model](/concepts/data-model) for how traces and spans are defined.
+
+## Traces list
+
+A paginated table (newest first) over the selected date range. Columns: trace
+id, name (`traceName`, falling back to `agentName`, else `—`), span count,
+tokens, duration, cost, and when it ran. Errored traces carry a red badge. Click
+a row to open the trace.
+
+## Waterfall
+
+Each span is a row, indented by its parent (`parentSpanId`) so nested tool calls
+and steps sit under their parent. Span types are colour-coded:
+
+| Type | Colour | Meaning |
+| --- | --- | --- |
+| `agent` | amber | the root span — the whole call |
+| `llm` | violet | one model step |
+| `tool` | blue | one tool execution |
+| `other` | grey | anything else |
+
+The bar's offset and width are proportional to when the span started and how
+long it ran, so you can see serial vs. overlapping work at a glance.
+
+## Span detail
+
+Click any span to open its detail panel:
+
+- **Timing** — start time, duration, and TTFT (time to first token).
+- **Model** — provider and model id.
+- **Tokens & cost** — input/output tokens, computed cost, and the
+  **pricing source** that produced it (resolved price vs. a custom rule).
+- **Throughput** — for streaming LLM spans, a tokens/second headline.
+- **Payloads** — the captured `input` and `output`, pretty-printed and
+  collapsible (subject to [`recordInputs`/`recordOutputs`](/sdk/configuration)).
+- **Errors & metadata** — the error message (if any) and any span metadata.
+
+## Scores
+
+If a trace has been scored by an [eval](/dashboard/evals), a **Scores** card
+lists each result as a badge — green for pass, red for fail, or the numeric
+score. Hover a badge to read the judge's reason.
+
+## Replay
+
+The **Replay** card plays the trace back on its real timeline: press play, scrub
+with the slider, and switch between 1× / 2× / 4× speed. As it plays, the readout
+shows the currently streaming span, its token count, and instantaneous
+tokens/second; the TTFT moment is marked on each LLM bar. Replay is powered by
+the intra-stream token samples the SDK records — no extra instrumentation
+needed. Opening a trace with `?replay=1` auto-plays it.

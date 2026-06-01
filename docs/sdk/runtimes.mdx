@@ -36,6 +36,13 @@ import { waitUntil } from "@vercel/functions";
 const fog = foglamp({ waitUntil });
 ```
 
+<Info>
+  `@vercel/functions` is an **optional peer dependency**. On Vercel it's
+  normally already in your project and the collector imports it lazily, so
+  auto-detection just works. You only need to add it (`npm i @vercel/functions`)
+  if you import `waitUntil` yourself as shown above.
+</Info>
+
 ## Cloudflare Workers
 
 Workers don't expose a global `waitUntil`; it lives on the request `ctx`. Thread
@@ -49,8 +56,7 @@ export default {
     const result = await generateText({
       model: openai("gpt-4o"),
       prompt: "…",
-      experimental_telemetry: {
-        isEnabled: true,
+      telemetry: {
         integrations: [fog.integration({ traceName: "worker-handler" })],
       },
     });

@@ -50,11 +50,29 @@ creation. A revoked key is rejected immediately.
 | `202 Accepted` | Batch buffered. Body: `{ "accepted": <rowCount> }`. |
 | `400 Bad Request` | Invalid JSON, or payload failed schema validation (`issues` array). |
 | `401 Unauthorized` | Missing, invalid, or revoked API key. |
-| `429 Too Many Requests` | Per-key rate limit exceeded. Includes `Retry-After`. |
+| `429 Too Many Requests` | Either a per-key rate limit or a plan quota — see below. |
 
 Ingest is **fire-and-forget**: a `202` means the batch was accepted into the
-write buffer, which flushes to ClickHouse on an interval. The SDK retries
-transparently, so direct callers should treat `202` as success.
+write buffer, which flushes to ClickHouse on an interval. Treat `202` as
+success.
+
+### Two kinds of `429`
+
+A `429` is returned in two distinct cases, and they call for different handling:
+
+- **Per-key rate limit** — too many requests per second for one key. The
+  response includes a `Retry-After` header; back off and retry after it.
+- **Plan quota exceeded** — the org's monthly span quota is used up. This is a
+  billing condition, **not** rate limiting: it carries no `Retry-After`, and
+  retrying will not succeed until the plan is upgraded or the quota resets.
+
+<Note>
+  The `foglamp` SDK does **not** retry failed batches — a failed flush is routed
+  to `onError` and the batch is dropped (telemetry never blocks or retries into
+  your app). If you call the ingest API directly, implement your own retry with
+  backoff for transport errors and rate-limit `429`s, and treat a quota `429` as
+  terminal.
+</Note>
 
 ## Payload shape
 
