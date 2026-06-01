@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
-import { Field, FieldLabel } from "@foglamp/ui/components/field";
+import { Field, FieldDescription, FieldLabel } from "@foglamp/ui/components/field";
 import { Input } from "@foglamp/ui/components/input";
 import {
   NativeSelect,
@@ -100,7 +100,10 @@ function useOrgPeople(orgId: string) {
 }
 
 function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const { project } = useProject();
+  const qc = useQueryClient();
   const [name, setName] = useState(orgName);
+  const [url, setUrl] = useState(project?.url ?? "");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const save = async () => {
@@ -108,6 +111,22 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
     if (res.error) return toast.error(res.error.message ?? "Failed to update");
     toast.success("Organization updated");
   };
+
+  // Project URL drives the favicon/identicon shown in the switcher; "" clears it.
+  const updateProject = useMutation(
+    trpc.projects.update.mutationOptions({
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: trpc.projects.list.queryKey() });
+        toast.success("Project updated");
+      },
+      onError: (e) => toast.error(e.message ?? "Failed to update project"),
+    }),
+  );
+  const saveUrl = () => {
+    if (!project) return;
+    updateProject.mutate({ projectId: project.id, url: url.trim() });
+  };
+
   const del = async () => {
     const res = await authClient.organization.delete({ organizationId: orgId });
     if (res.error) return toast.error(res.error.message ?? "Failed to delete");
@@ -133,6 +152,42 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {project && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Project</CardTitle>
+            <CardDescription>
+              Settings for the active project, {project.name}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel>URL</FieldLabel>
+              <Input
+                placeholder="example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="max-w-sm"
+              />
+              <FieldDescription>
+                Used for the project&apos;s favicon. Leave blank to clear it.
+              </FieldDescription>
+            </Field>
+            <div>
+              <Button
+                size="sm"
+                disabled={
+                  updateProject.isPending || url.trim() === (project.url ?? "")
+                }
+                onClick={saveUrl}
+              >
+                Save
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-destructive/40">
         <CardHeader>
