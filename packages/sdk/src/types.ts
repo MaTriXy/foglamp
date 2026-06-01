@@ -63,19 +63,28 @@ export interface IntegrationContext {
 }
 
 /**
- * Public parameter type for `fog.integration(ctx)`. Every trace must be
- * identifiable, so exactly one of `traceName` / `agentName` is required at the
- * type level (both may be passed). The `workflowName`/`workflowRunId` both-or-
- * neither rule is enforced at runtime — encoding it in the type produces
- * confusing errors.
+ * Public parameter type for `fog.integration(ctx)`. Both trace rules are
+ * enforced at the type level:
+ *  - Every trace must be identifiable, so exactly one of `traceName` /
+ *    `agentName` is required (both may be passed).
+ *  - `workflowName` and `workflowRunId` are both-or-neither — passing one
+ *    without the other is a compile-time error.
+ * Both rules are rechecked at runtime (for JS callers) and again at ingest.
  */
-export type IntegrationInput =
-  | ({ traceName: string; agentName?: string } & IntegrationContextExtras)
-  | ({ traceName?: string; agentName: string } & IntegrationContextExtras);
+export type IntegrationInput = IntegrationIdentity &
+  IntegrationWorkflow &
+  IntegrationContextExtras;
+
+type IntegrationIdentity =
+  | { traceName: string; agentName?: string }
+  | { traceName?: string; agentName: string };
+
+// Both-or-neither: supply a name + run id together, or omit both entirely.
+type IntegrationWorkflow =
+  | { workflowName: string; workflowRunId: string }
+  | { workflowName?: undefined; workflowRunId?: undefined };
 
 type IntegrationContextExtras = {
-  workflowName?: string;
-  workflowRunId?: string;
   sessionId?: string;
   metadata?: MetadataInput;
 };
