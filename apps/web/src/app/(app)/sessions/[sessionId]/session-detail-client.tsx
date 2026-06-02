@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  IconArrowLeft,
+  IconAlertTriangle,
   IconArrowUpRight,
   IconMessageOff,
   IconRobotFace,
@@ -9,9 +9,9 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@foglamp/ui/components/badge";
-import { Button } from "@foglamp/ui/components/button";
 import Link from "next/link";
 
+import { navItem } from "@/components/app/nav";
 import {
   EmptyState,
   NoProject,
@@ -53,17 +53,12 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
     enabled: !!projectId,
   });
 
-  const back = (
-    <Button variant="outline" size="sm" render={<Link href="/sessions" />}>
-      <IconArrowLeft />
-      Sessions
-    </Button>
-  );
+  const back = navItem("/sessions");
 
   if (!projectId) {
     return (
       <>
-        <PageHeader title={sessionId} actions={back} />
+        <PageHeader title={sessionId} back={back} />
         <NoProject />
       </>
     );
@@ -82,7 +77,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
             ? `Conversation · ${data.agentName}`
             : "Conversation timeline"
         }
-        actions={back}
+        back={back}
       />
 
       {detail.isLoading ? (
@@ -96,12 +91,18 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Turns" value={formatCount(stats?.turnCount ?? 0)} />
+            <StatCard
+              label="Turns"
+              value={formatCount(stats?.turnCount ?? 0)}
+            />
             <StatCard
               label="Tokens"
               value={formatTokens(stats?.totalTokens ?? 0)}
             />
-            <StatCard label="Cost" value={formatCost(stats?.totalCost ?? null)} />
+            <StatCard
+              label="Cost"
+              value={formatCost(stats?.totalCost ?? null)}
+            />
             <StatCard
               label="Started"
               value={formatRelative(stats?.firstSeen)}
@@ -137,7 +138,12 @@ function TurnBlock({ turn, index }: { turn: Turn; index: number }) {
             {turn.workflowName}
           </Badge>
         )}
-        {turn.status === "error" && <Badge variant="rose">error</Badge>}
+        {turn.status === "error" && (
+          <Badge variant="rose">
+            <IconAlertTriangle />
+            error
+          </Badge>
+        )}
         <Link
           href={`/traces/${encodeURIComponent(turn.traceId)}`}
           className="ml-auto inline-flex items-center gap-0.5 hover:text-foreground hover:underline"
@@ -192,13 +198,13 @@ function Bubble({
             : "min-w-0 flex-1 rounded-lg border px-3 py-2"
         }
       >
-        <p className="whitespace-pre-wrap break-words text-sm">{text}</p>
+        <p className="whitespace-pre-wrap wrap-break-word text-sm">{text}</p>
         {showRaw && (
           <details className="mt-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none">
               View full input
             </summary>
-            <pre className="mt-1 overflow-auto whitespace-pre-wrap break-words rounded bg-background/60 p-2">
+            <pre className="mt-1 overflow-auto whitespace-pre-wrap wrap-break-word rounded bg-background/60 p-2">
               {raw}
             </pre>
           </details>

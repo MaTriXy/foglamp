@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  IconArrowLeft,
   IconCheck,
   IconPencil,
   IconRobot,
@@ -26,11 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { navItem } from "@/components/app/nav";
 import { NodeFlow, type FlowNode } from "@/components/app/node-flow";
 import {
   EmptyState,
@@ -94,17 +93,12 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
     enabled: !!projectId && !!activeRunId,
   });
 
-  const back = (
-    <Button variant="outline" size="sm" render={<Link href="/workflows" />}>
-      <IconArrowLeft />
-      Workflows
-    </Button>
-  );
+  const back = navItem("/workflows");
 
   if (!projectId) {
     return (
       <>
-        <PageHeader title={label} actions={back} />
+        <PageHeader title={label} back={back} />
         <NoProject />
       </>
     );
@@ -132,7 +126,7 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
         description={`${formatCount(runRows.length)} run${
           runRows.length === 1 ? "" : "s"
         }`}
-        actions={back}
+        back={back}
       />
 
       {runs.isLoading ? (

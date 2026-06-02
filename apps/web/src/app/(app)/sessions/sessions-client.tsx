@@ -1,6 +1,6 @@
 "use client";
 
-import { IconMessage2Filled } from "@tabler/icons-react";
+import { IconAlertTriangle, IconMessage2Filled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@foglamp/ui/lib/utils";
 import { Badge } from "@foglamp/ui/components/badge";
@@ -23,8 +23,18 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  FilterSelect,
+  SearchInput,
+  SortableHead,
+  ToggleChip,
+  Toolbar,
+  useDebouncedValue,
+  useTableSort,
+} from "@/components/app/data-table";
 import { InstrumentEmptyState } from "@/components/app/instrument-empty-state";
 import {
+  EmptyState,
   NoProject,
   PageHeader,
   TableSkeleton,
@@ -42,19 +52,46 @@ import { trpc } from "@/utils/trpc";
 
 const PAGE_SIZE = 25;
 
+type SessionSortKey = "last" | "cost" | "tokens" | "turns";
+
 export function SessionsClient() {
   const { projectId } = useProject();
   const { range, setRange } = useRange();
   const router = useRouter();
   const [page, setPage] = useState(0);
 
-  useEffect(() => setPage(0), [projectId, range]);
+  // Filters + sorting (applied server-side across the full result set).
+  const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState("");
+  const [errorsOnly, setErrorsOnly] = useState(false);
+  const { sort, toggle } = useTableSort<SessionSortKey>();
+  const debouncedSearch = useDebouncedValue(search);
+  const hasFilters = !!(debouncedSearch.trim() || agentFilter || errorsOnly);
+
+  useEffect(
+    () => setPage(0),
+    [projectId, range, debouncedSearch, agentFilter, errorsOnly, sort],
+  );
+
+  // Agent names for the filter dropdown.
+  const agentsList = useQuery({
+    ...trpc.agents.list.queryOptions({
+      projectId: projectId!,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+    }),
+    enabled: !!projectId,
+  });
 
   const sessions = useQuery({
     ...trpc.sessions.list.queryOptions({
       projectId: projectId!,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
+      agentName: agentFilter || undefined,
+      sessionId: debouncedSearch.trim() || undefined,
+      errorsOnly: errorsOnly || undefined,
+      sort: sort ? { field: sort.key, dir: sort.dir } : undefined,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }),
@@ -73,6 +110,10 @@ export function SessionsClient() {
 
   const rows = sessions.data ?? [];
   const hasMore = rows.length === PAGE_SIZE;
+  const agentOptions = (agentsList.data ?? []).map((a) => ({
+    value: a.agentName,
+    label: a.agentName,
+  }));
 
   return (
     <>
@@ -83,7 +124,7 @@ export function SessionsClient() {
       />
       {sessions.isLoading ? (
         <TableSkeleton />
-      ) : rows.length === 0 && page === 0 ? (
+      ) : rows.length === 0 && page === 0 && !hasFilters ? (
         <InstrumentEmptyState
           feature="session"
           icon={IconMessage2Filled}
@@ -92,82 +133,154 @@ export function SessionsClient() {
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Session</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead align="right">Turns</TableHead>
-                <TableHead align="right">Tokens</TableHead>
-                <TableHead align="right">Cost</TableHead>
-                <TableHead align="right">Last activity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((s) => (
-                <TableRow
-                  key={s.sessionId}
-                  interactive
-                  onClick={() =>
-                    router.push(`/sessions/${encodeURIComponent(s.sessionId)}`)
-                  }
-                >
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">{s.sessionId}</span>
-                      {s.errorCount > 0 && (
-                        <Badge variant="rose">{s.errorCount} err</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{s.agentName ?? "—"}</TableCell>
-                  <TableCell align="right">{formatCount(s.turnCount)}</TableCell>
-                  <TableCell align="right">{formatTokens(s.totalTokens)}</TableCell>
-                  <TableCell align="right" className="font-medium">
-                    {formatCost(s.totalCost)}
-                  </TableCell>
-                  <TableCell align="right" className="text-muted-foreground">
-                    {formatRelative(s.lastSeen)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Toolbar>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search session id…"
+            />
+            <FilterSelect
+              value={agentFilter}
+              onChange={setAgentFilter}
+              allLabel="Any agent"
+              options={agentOptions}
+            />
+            <ToggleChip
+              active={errorsOnly}
+              onClick={() => setErrorsOnly((v) => !v)}
+            >
+              <IconAlertTriangle className="size-3.5" />
+              Errors only
+            </ToggleChip>
+          </Toolbar>
 
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {rows.length > 0
-                ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
-                : "No more sessions"}
-            </p>
-            <Pagination className="mx-0 w-auto justify-end">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    aria-disabled={page === 0 || sessions.isFetching}
-                    className={cn(
-                      (page === 0 || sessions.isFetching) &&
-                        "pointer-events-none opacity-50"
-                    )}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink isActive>{page + 1}</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    aria-disabled={!hasMore || sessions.isFetching}
-                    className={cn(
-                      (!hasMore || sessions.isFetching) &&
-                        "pointer-events-none opacity-50"
-                    )}
-                    onClick={() => setPage((p) => p + 1)}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+          {rows.length === 0 && page === 0 ? (
+            <EmptyState
+              icon={IconMessage2Filled}
+              title="No matching sessions"
+              description="Try a different search or clearing filters."
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <SortableHead
+                      sortKey="turns"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Turns
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="tokens"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Tokens
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="cost"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Cost
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="last"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Last activity
+                    </SortableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((s) => (
+                    <TableRow
+                      key={s.sessionId}
+                      interactive
+                      onClick={() =>
+                        router.push(
+                          `/sessions/${encodeURIComponent(s.sessionId)}`,
+                        )
+                      }
+                    >
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{s.sessionId}</span>
+                          {s.errorCount > 0 && (
+                            <Badge variant="rose" className="font-sans">
+                              <IconAlertTriangle />
+                              {s.errorCount}
+                              {s.errorCount === 1 ? "error" : "errors"}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{s.agentName ?? "—"}</TableCell>
+                      <TableCell align="right">
+                        {formatCount(s.turnCount)}
+                      </TableCell>
+                      <TableCell align="right">
+                        {formatTokens(s.totalTokens)}
+                      </TableCell>
+                      <TableCell align="right" className="font-medium">
+                        {formatCost(s.totalCost)}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        className="text-muted-foreground"
+                      >
+                        {formatRelative(s.lastSeen)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {rows.length > 0
+                    ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
+                    : "No more sessions"}
+                </p>
+                <Pagination className="mx-0 w-auto justify-end">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        aria-disabled={page === 0 || sessions.isFetching}
+                        className={cn(
+                          (page === 0 || sessions.isFetching) &&
+                            "pointer-events-none opacity-50",
+                        )}
+                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationLink isActive>{page + 1}</PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        aria-disabled={!hasMore || sessions.isFetching}
+                        className={cn(
+                          (!hasMore || sessions.isFetching) &&
+                            "pointer-events-none opacity-50",
+                        )}
+                        onClick={() => setPage((p) => p + 1)}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

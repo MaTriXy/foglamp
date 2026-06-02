@@ -11,6 +11,16 @@ export const sessionsRouter = router({
         projectId: z.string(),
         from: z.coerce.date().optional(),
         to: z.coerce.date().optional(),
+        // Filters.
+        agentName: z.string().optional(),
+        sessionId: z.string().optional(),
+        errorsOnly: z.boolean().optional(),
+        sort: z
+          .object({
+            field: z.enum(["last", "cost", "tokens", "turns"]),
+            dir: z.enum(["asc", "desc"]),
+          })
+          .optional(),
         limit: z.number().int().min(1).max(200).optional(),
         offset: z.number().int().min(0).optional(),
       }),
@@ -21,6 +31,10 @@ export const sessionsRouter = router({
         projectId: input.projectId,
         from,
         to,
+        agentName: input.agentName,
+        sessionId: input.sessionId,
+        errorsOnly: input.errorsOnly,
+        sort: input.sort,
         limit: input.limit,
         offset: input.offset,
       });

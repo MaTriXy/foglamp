@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  IconAdjustmentsHorizontalFilled,
-  IconLayoutDistributeHorizontalFilled,
-  IconListTree,
-} from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { cn } from "@foglamp/ui/lib/utils";
 import { Badge } from "@foglamp/ui/components/badge";
 import {
   Pagination,
@@ -24,9 +17,26 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
+import { cn } from "@foglamp/ui/lib/utils";
+import {
+  IconAdjustmentsHorizontalFilled,
+  IconAffiliateFilled,
+  IconAlertTriangle,
+  IconListTree,
+} from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  FilterSelect,
+  SearchInput,
+  SortableHead,
+  ToggleChip,
+  Toolbar,
+  useDebouncedValue,
+  useTableSort,
+} from "@/components/app/data-table";
 import {
   EmptyState,
   NoProject,
@@ -47,20 +57,47 @@ import { trpc } from "@/utils/trpc";
 
 const PAGE_SIZE = 25;
 
+type TraceSortKey = "when" | "cost" | "duration" | "tokens" | "spans";
+
 export function TracesClient() {
   const { projectId } = useProject();
   const { range, setRange } = useRange();
   const router = useRouter();
   const [page, setPage] = useState(0);
 
-  // Reset to the first page when the project or range changes.
-  useEffect(() => setPage(0), [projectId, range]);
+  // Filters + sorting (applied server-side across the full result set).
+  const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState("");
+  const [errorsOnly, setErrorsOnly] = useState(false);
+  const { sort, toggle } = useTableSort<TraceSortKey>();
+  const debouncedSearch = useDebouncedValue(search);
+  const hasFilters = !!(debouncedSearch.trim() || agentFilter || errorsOnly);
+
+  // Reset to the first page when the project, range, filters, or sort change.
+  useEffect(
+    () => setPage(0),
+    [projectId, range, debouncedSearch, agentFilter, errorsOnly, sort],
+  );
+
+  // Agent names for the filter dropdown.
+  const agentsList = useQuery({
+    ...trpc.agents.list.queryOptions({
+      projectId: projectId!,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+    }),
+    enabled: !!projectId,
+  });
 
   const traces = useQuery({
     ...trpc.traces.list.queryOptions({
       projectId: projectId!,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
+      agentName: agentFilter || undefined,
+      traceName: debouncedSearch.trim() || undefined,
+      errorsOnly: errorsOnly || undefined,
+      sort: sort ? { field: sort.key, dir: sort.dir } : undefined,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }),
@@ -80,6 +117,10 @@ export function TracesClient() {
 
   const rows = traces.data ?? [];
   const hasMore = rows.length === PAGE_SIZE;
+  const agentOptions = (agentsList.data ?? []).map((a) => ({
+    value: a.agentName,
+    label: a.agentName,
+  }));
 
   return (
     <>
@@ -90,98 +131,168 @@ export function TracesClient() {
       />
       {traces.isLoading ? (
         <TableSkeleton />
-      ) : rows.length === 0 && page === 0 ? (
+      ) : rows.length === 0 && page === 0 && !hasFilters ? (
         <EmptyState
-          icon={IconLayoutDistributeHorizontalFilled}
+          icon={IconAffiliateFilled}
           title="No traces yet"
           description="Run an instrumented call to see traces appear here."
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Trace</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">Spans</TableHead>
-                <TableHead className="text-right">Tokens</TableHead>
-                <TableHead className="text-right">Duration</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">When</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((t) => (
-                <TableRow
-                  key={t.traceId}
-                  interactive
-                  onClick={() =>
-                    router.push(`/traces/${encodeURIComponent(t.traceId)}`)
-                  }
-                >
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      {t.traceId.slice(0, 12)}…
-                      {t.errorCount > 0 && (
-                        <Badge variant="rose">{t.errorCount} err</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{t.traceName ?? t.agentName ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCount(t.spanCount)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatTokens(t.totalTokens)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatDuration(t.durationMs)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">
-                    {formatCost(t.totalCost)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatRelative(t.startTime)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Toolbar>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search trace name…"
+            />
+            <FilterSelect
+              value={agentFilter}
+              onChange={setAgentFilter}
+              allLabel="Any agent"
+              options={agentOptions}
+            />
+            <ToggleChip
+              active={errorsOnly}
+              onClick={() => setErrorsOnly((v) => !v)}
+            >
+              <IconAlertTriangle className="size-3.5" />
+              Errors only
+            </ToggleChip>
+          </Toolbar>
 
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {rows.length > 0
-                ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
-                : "No more traces"}
-            </p>
-            <Pagination className="mx-0 w-auto justify-end">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    aria-disabled={page === 0 || traces.isFetching}
-                    className={cn(
-                      (page === 0 || traces.isFetching) &&
-                        "pointer-events-none opacity-50"
-                    )}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink isActive>{page + 1}</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    aria-disabled={!hasMore || traces.isFetching}
-                    className={cn(
-                      (!hasMore || traces.isFetching) &&
-                        "pointer-events-none opacity-50"
-                    )}
-                    onClick={() => setPage((p) => p + 1)}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+          {rows.length === 0 && page === 0 ? (
+            <EmptyState
+              icon={IconAffiliateFilled}
+              title="No matching traces"
+              description="Try a different search or clearing filters."
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-fit">Trace</TableHead>
+                    <TableHead>Name</TableHead>
+                    <SortableHead
+                      sortKey="spans"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Spans
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="tokens"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Tokens
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="duration"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Duration
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="cost"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      Cost
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="when"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                    >
+                      When
+                    </SortableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((t) => (
+                    <TableRow
+                      key={t.traceId}
+                      interactive
+                      onClick={() =>
+                        router.push(`/traces/${encodeURIComponent(t.traceId)}`)
+                      }
+                    >
+                      <TableCell className="font-mono text-xs text-muted-foreground w-fit">
+                        <div className="flex items-center gap-0">
+                          {t.traceId.slice(0, 48)}
+                          {t.errorCount > 0 && (
+                            <Badge variant="rose" className="ml-auto font-sans">
+                              <IconAlertTriangle />
+                              {t.errorCount}
+                              {t.errorCount === 1 ? "error" : "errors"}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{t.traceName ?? t.agentName ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCount(t.spanCount)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatTokens(t.totalTokens)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatDuration(t.durationMs)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {formatCost(t.totalCost)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatRelative(t.startTime)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {rows.length > 0
+                    ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
+                    : "No more traces"}
+                </p>
+                <Pagination className="mx-0 w-auto justify-end">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        aria-disabled={page === 0 || traces.isFetching}
+                        className={cn(
+                          (page === 0 || traces.isFetching) &&
+                            "pointer-events-none opacity-50",
+                        )}
+                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationLink isActive>{page + 1}</PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        aria-disabled={!hasMore || traces.isFetching}
+                        className={cn(
+                          (!hasMore || traces.isFetching) &&
+                            "pointer-events-none opacity-50",
+                        )}
+                        onClick={() => setPage((p) => p + 1)}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

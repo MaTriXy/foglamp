@@ -2,6 +2,8 @@ import {
   getSessionTurns,
   listSessions,
   listTraces,
+  type SessionSortField,
+  type SortDir,
   type TraceListRow,
 } from "@foglamp/clickhouse";
 
@@ -18,13 +20,27 @@ export async function getSessionList(
   db: Db,
   ch: Ch,
   userId: string,
-  input: { projectId: string; from: Date; to: Date; limit?: number; offset?: number },
+  input: {
+    projectId: string;
+    from: Date;
+    to: Date;
+    agentName?: string;
+    sessionId?: string;
+    errorsOnly?: boolean;
+    sort?: { field: SessionSortField; dir: SortDir };
+    limit?: number;
+    offset?: number;
+  },
 ) {
   await requireProjectAccess(db, userId, input.projectId);
   const sessions = await listSessions(ch, {
     projectId: input.projectId,
     from: toClickHouseDateTime(input.from),
     to: toClickHouseDateTime(input.to),
+    agentName: input.agentName,
+    sessionId: input.sessionId,
+    errorsOnly: input.errorsOnly,
+    sort: input.sort,
     limit: input.limit,
     offset: input.offset,
   });

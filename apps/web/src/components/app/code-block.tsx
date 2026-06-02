@@ -2,6 +2,7 @@
 
 import { IconCircleCheckFilled, IconCopyFilled } from "@tabler/icons-react";
 import { Button } from "@foglamp/ui/components/button";
+import { cn } from "@foglamp/ui/lib/utils";
 import { useEffect, useState } from "react";
 import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
@@ -33,9 +34,12 @@ function getHighlighter(): Promise<HighlighterCore> {
 export function CodeBlock({
   code,
   lang = "typescript",
+  actions,
 }: {
   code: string;
   lang?: string;
+  /** Extra controls rendered in the top-right corner, left of the copy button. */
+  actions?: React.ReactNode;
 }) {
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -66,23 +70,31 @@ export function CodeBlock({
   };
 
   return (
-    <div className="relative text-left text-xs [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:p-3 [&_pre]:pr-10 [&_pre]:leading-relaxed">
+    <div
+      className={cn(
+        "relative text-left text-xs [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted/50! [&_pre]:dark:bg-muted/20!  [&_pre]:p-5 [&_pre]:leading-relaxed [&_pre]:shadow-(--custom-shadow) corner-squircle",
+        actions ? "[&_pre]:pt-5" : "[&_pre]:pr-10"
+      )}
+    >
       {html ? (
         <div dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <pre className="!bg-muted text-foreground">
+        <pre className="bg-muted! dark:bg-muted! text-foreground">
           <code>{code}</code>
         </pre>
       )}
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        className="absolute right-1.5 top-1.5 text-muted-foreground hover:text-foreground"
-        aria-label="Copy code"
-        onClick={copy}
-      >
-        {copied ? <IconCircleCheckFilled /> : <IconCopyFilled />}
-      </Button>
+      <div className="absolute right-3 top-3 flex items-center gap-1">
+        {actions}
+        <Button
+          size="icon-sm"
+          variant="outline"
+          className="text-muted-foreground hover:text-foreground shadow-none dark:bg-input/20"
+          aria-label="Copy code"
+          onClick={copy}
+        >
+          {copied ? <IconCircleCheckFilled /> : <IconCopyFilled />}
+        </Button>
+      </div>
     </div>
   );
 }

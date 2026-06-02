@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  IconArrowLeft,
+  IconAlertTriangle,
   IconCpu,
   IconPlayerPlayFilled,
   IconRobot,
@@ -28,6 +28,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
+import { navItem } from "@/components/app/nav";
 import { NodeFlow, type FlowNode } from "@/components/app/node-flow";
 import {
   EmptyState,
@@ -76,17 +77,12 @@ export function AgentDetailClient({ agentName }: { agentName: string }) {
     enabled: !!projectId,
   });
 
-  const back = (
-    <Button variant="outline" size="sm" render={<Link href="/agents" />}>
-      <IconArrowLeft />
-      Agents
-    </Button>
-  );
+  const back = navItem("/agents");
 
   if (!projectId) {
     return (
       <>
-        <PageHeader title={agentName} actions={back} />
+        <PageHeader title={agentName} back={back} />
         <NoProject />
       </>
     );
@@ -109,12 +105,8 @@ export function AgentDetailClient({ agentName }: { agentName: string }) {
       <PageHeader
         title={agentName}
         description="Agent step flow, recent traces, and windowed stats."
-        actions={
-          <div className="flex items-center gap-2">
-            <RangePicker value={range} onChange={setRange} />
-            {back}
-          </div>
-        }
+        back={back}
+        actions={<RangePicker value={range} onChange={setRange} />}
       />
 
       {detail.isLoading ? (
@@ -225,8 +217,10 @@ export function AgentDetailClient({ agentName }: { agentName: string }) {
                           <div className="flex items-center gap-2">
                             {t.traceId.slice(0, 12)}…
                             {t.errorCount > 0 && (
-                              <Badge variant="rose">
-                                {formatCount(t.errorCount)} err
+                              <Badge variant="rose" className="font-sans">
+                                <IconAlertTriangle />
+                                {t.errorCount}
+                                {t.errorCount === 1 ? "error" : "errors"}
                               </Badge>
                             )}
                           </div>

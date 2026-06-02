@@ -1,9 +1,8 @@
 "use client";
 
-import { IconArrowLeft, IconGauge } from "@tabler/icons-react";
+import { IconGauge } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@foglamp/ui/components/badge";
-import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
@@ -21,6 +20,7 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { navItem } from "@/components/app/nav";
 import {
   EmptyState,
   NoProject,
@@ -72,17 +72,12 @@ export function EvalDetailClient({ evalId }: { evalId: string }) {
     };
   }, [series.data]);
 
-  const back = (
-    <Button variant="outline" size="sm" render={<Link href="/evals" />}>
-      <IconArrowLeft />
-      Evals
-    </Button>
-  );
+  const back = navItem("/evals");
 
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Eval" actions={back} />
+        <PageHeader title="Eval" back={back} />
         <NoProject />
       </>
     );
@@ -90,7 +85,7 @@ export function EvalDetailClient({ evalId }: { evalId: string }) {
 
   return (
     <>
-      <PageHeader title={ev?.name ?? "Eval"} description={evalId} actions={back} />
+      <PageHeader title={ev?.name ?? "Eval"} description={evalId} back={back} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Scored (7d)" value={totals.count.toLocaleString("en-US")} />

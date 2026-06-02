@@ -1,19 +1,18 @@
 "use client";
 
-import { IconArrowLeft, IconListTree } from "@tabler/icons-react";
+import { IconListTree } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@foglamp/ui/components/badge";
-import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { navItem } from "@/components/app/nav";
 import {
   EmptyState,
   NoProject,
@@ -66,17 +65,12 @@ export function TraceDetailClient({ traceId }: { traceId: string }) {
 
   const active = spans.find((s) => s.spanId === selected) ?? null;
 
-  const back = (
-    <Button variant="outline" size="sm" render={<Link href="/traces" />}>
-      <IconArrowLeft />
-      Traces
-    </Button>
-  );
+  const back = navItem("/traces");
 
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Trace" actions={back} />
+        <PageHeader title="Trace" back={back} />
         <NoProject />
       </>
     );
@@ -84,11 +78,7 @@ export function TraceDetailClient({ traceId }: { traceId: string }) {
 
   return (
     <>
-      <PageHeader
-        title="Trace"
-        description={traceId}
-        actions={back}
-      />
+      <PageHeader title="Trace" description={traceId} back={back} />
 
       {detail.isLoading ? (
         <TableSkeleton />

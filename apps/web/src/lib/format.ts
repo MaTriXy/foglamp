@@ -31,15 +31,25 @@ export function formatTps(value: number | null | undefined): string {
   return `${value >= 1000 ? compact.format(value) : Math.round(value)} tok/s`;
 }
 
-/** Milliseconds → human duration (µs/ms/s/m). */
+/** Milliseconds → human duration (µs/ms/s/m/h/d). */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms)) return "—";
   if (ms < 1) return `${Math.round(ms * 1000)}µs`;
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(2)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
+  // Beyond a minute, build from the largest non-zero unit and show at most two
+  // components so e.g. an even hour reads "1h", not "60m 0s".
+  const totalSec = Math.round(ms / 1000);
+  const d = Math.floor(totalSec / 86_400);
+  const h = Math.floor((totalSec % 86_400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  if (s) parts.push(`${s}s`);
+  return parts.slice(0, 2).join(" ") || "0s";
 }
 
 export function formatPercent(fraction: number | null | undefined): string {

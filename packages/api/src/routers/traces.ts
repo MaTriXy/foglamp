@@ -11,6 +11,16 @@ export const tracesRouter = router({
         // Optional time window — omitted by the live feed (latest, unfiltered).
         from: z.coerce.date().optional(),
         to: z.coerce.date().optional(),
+        // Filters.
+        agentName: z.string().optional(),
+        traceName: z.string().optional(),
+        errorsOnly: z.boolean().optional(),
+        sort: z
+          .object({
+            field: z.enum(["when", "cost", "duration", "tokens", "spans"]),
+            dir: z.enum(["asc", "desc"]),
+          })
+          .optional(),
         limit: z.number().int().min(1).max(200).optional(),
         offset: z.number().int().min(0).optional(),
       }),

@@ -2,47 +2,15 @@
 
 import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
 import {
-  type Icon,
-  IconAlertTriangle,
-  IconAlertTriangleFilled,
-  IconBriefcase,
-  IconBriefcaseFilled,
-  IconCherryFilled,
-  IconChefHatFilled,
   IconChevronDown,
-  IconCloudFilled,
-  IconCoin,
-  IconCoinFilled,
   IconDotsVertical,
-  IconDropletFilled,
-  IconFlameFilled,
   IconFlask2,
   IconFlask2Filled,
-  IconFlowerFilled,
-  IconGauge,
-  IconGaugeFilled,
-  IconGhost,
-  IconGhostFilled,
-  IconKey,
-  IconKeyFilled,
-  IconLayoutDistributeHorizontal,
-  IconLayoutDistributeHorizontalFilled,
   IconLogout,
-  IconMessage2,
-  IconMessage2Filled,
-  IconMeteorFilled,
-  IconMichelinStar,
-  IconMichelinStarFilled,
   IconPlus,
-  IconShieldLock,
-  IconShieldLockFilled,
-  IconSitemap,
-  IconSitemapFilled,
-  IconTriangleFilled,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { getGoogleFavicon } from "@/lib/favicon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,7 +33,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@foglamp/ui/components/sidebar";
-import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -77,112 +44,12 @@ import { Spinner } from "@foglamp/ui/components/spinner";
 import { NoProject } from "@/components/app/page-parts";
 import { QuotaBanner } from "@/components/app/quota-banner";
 
-import { Foggy } from "./foggy/foggy";
+import { FoggyLauncher, FoggyWidget } from "./foggy/foggy-widget";
+import { account, nav } from "./nav";
 import { NewProjectDialog } from "./new-project-dialog";
 import { ProjectProvider, useProject } from "./project-context";
+import { ProjectIcon } from "./project-icon";
 import { RangeProvider } from "./range-context";
-
-type NavItem = {
-  href: Route;
-  label: string;
-  /** Outline icon, shown when the tab is inactive. */
-  icon: Icon;
-  /** Filled icon, shown when the tab is active. */
-  activeIcon: Icon;
-  /** Optional Tailwind class(es) for the icon, e.g. "text-blue-500". */
-  iconClassName?: string;
-};
-
-const nav: NavItem[] = [
-  {
-    href: "/overview",
-    label: "Overview",
-    icon: IconMichelinStar,
-    activeIcon: IconMichelinStarFilled,
-    iconClassName:
-      "bg-rose-100 dark:bg-rose-950 rounded-xl p-0.5 corner-squircle text-rose-500 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.14),0_2px_6px_-2px_rgba(244,63,94,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
-    href: "/workflows",
-    label: "Workflows",
-    icon: IconSitemap,
-    activeIcon: IconSitemapFilled,
-    iconClassName:
-      "bg-emerald-100 dark:bg-emerald-950 rounded-xl p-0.5 corner-squircle text-emerald-500 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.14),0_2px_6px_-2px_rgba(16,185,129,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
-    href: "/agents",
-    label: "Agents",
-    icon: IconGhost,
-    activeIcon: IconGhostFilled,
-    iconClassName:
-      "bg-orange-100 dark:bg-orange-950 rounded-xl p-0.5 corner-squircle text-orange-500 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.14),0_2px_6px_-2px_rgba(249,115,22,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
-    href: "/sessions",
-    label: "Sessions",
-    icon: IconMessage2,
-    activeIcon: IconMessage2Filled,
-    iconClassName:
-      "dark:text-blue-400 bg-blue-100 dark:bg-blue-950 rounded-xl p-0.5 corner-squircle text-blue-500 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.14),0_2px_6px_-2px_rgba(59,130,246,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
-    href: "/evals",
-    label: "Evals",
-    icon: IconGauge,
-    activeIcon: IconGaugeFilled,
-    iconClassName:
-      "bg-fuchsia-100 dark:bg-fuchsia-950 rounded-xl p-0.5 corner-squircle text-fuchsia-500 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.14),0_2px_6px_-2px_rgba(217,70,239,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
-    href: "/traces",
-    label: "Traces",
-    icon: IconLayoutDistributeHorizontal,
-    activeIcon: IconLayoutDistributeHorizontalFilled,
-    iconClassName:
-      "bg-sky-100 dark:bg-sky-950 rounded-xl p-0.5 corner-squircle text-sky-500 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.14),0_2px_6px_-2px_rgba(14,165,233,0.25)] dark:shadow-(--custom-shadow)",
-  },
-
-  {
-    href: "/alerts",
-    label: "Alerts",
-    icon: IconAlertTriangle,
-    activeIcon: IconAlertTriangleFilled,
-    iconClassName:
-      "bg-yellow-100 dark:bg-yellow-950 rounded-xl p-0.5 corner-squircle text-yellow-500 shadow-[inset_0_0_0_1px_rgba(234,179,8,0.14),0_2px_6px_-2px_rgba(234,179,8,0.25)] dark:shadow-(--custom-shadow)",
-  },
-];
-
-const account: NavItem[] = [
-  {
-    href: "/settings/org",
-    label: "Organization",
-    icon: IconBriefcase,
-    activeIcon: IconBriefcaseFilled,
-    iconClassName: "dark:text-neutral-600 text-neutral-400",
-  },
-  {
-    href: "/settings",
-    label: "API Keys",
-    icon: IconKey,
-    activeIcon: IconKeyFilled,
-    iconClassName: "dark:text-neutral-600 text-neutral-400",
-  },
-  {
-    href: "/settings/pricing",
-    label: "Pricing",
-    icon: IconCoin,
-    activeIcon: IconCoinFilled,
-    iconClassName: "dark:text-neutral-600 text-neutral-400",
-  },
-  {
-    href: "/settings/provider-keys",
-    label: "Provider Keys",
-    icon: IconShieldLock,
-    activeIcon: IconShieldLockFilled,
-    iconClassName: "dark:text-neutral-600 text-neutral-400",
-  },
-];
 
 // Inlined by Next at build time. The Admin tools (synthetic ingest, raw pricing
 // table) are dev-only and never shipped in a production build (e.g. Docker).
@@ -190,63 +57,6 @@ const isDev = process.env.NODE_ENV !== "production";
 
 function initials(value: string) {
   return value.slice(0, 2).toUpperCase();
-}
-
-// Placeholder icons used when a project has no favicon. One is picked
-// deterministically from the project name, so the same project always shows
-// the same icon while different projects get some visual variety.
-const placeholderIcons: Icon[] = [
-  IconCloudFilled,
-  IconFlask2Filled,
-  IconFlowerFilled,
-  IconCherryFilled,
-  IconMeteorFilled,
-  IconFlameFilled,
-  IconDropletFilled,
-  IconChefHatFilled,
-  IconTriangleFilled,
-];
-
-function placeholderIcon(name: string | null | undefined): Icon {
-  const letter = name?.trim().charAt(0).toLowerCase() ?? "";
-  const code = letter.charCodeAt(0);
-  const index = Number.isNaN(code) ? 0 : code % placeholderIcons.length;
-  return placeholderIcons[index];
-}
-
-// A project's favicon (from its URL) or a per-project placeholder icon, in a
-// rounded box.
-function ProjectIcon({
-  url,
-  name,
-  size = "md",
-}: {
-  url: string | null | undefined;
-  name?: string | null | undefined;
-  size?: "sm" | "md";
-}) {
-  const box =
-    size === "md"
-      ? "size-6 rounded-lg corner-squircle shadow-(--custom-shadow)"
-      : "size-5 rounded-lg corner-squircle";
-  if (url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- external favicon service, no optimization wanted
-      <img
-        src={getGoogleFavicon(url)}
-        alt=""
-        className={`${box} bg-background object-cover`}
-      />
-    );
-  }
-  const PlaceholderIcon = placeholderIcon(name);
-  return (
-    <div
-      className={`flex aspect-square items-center justify-center bg-primary/10 text-primary ${box}`}
-    >
-      <PlaceholderIcon className={size === "md" ? "size-4" : "size-3"} />
-    </div>
-  );
 }
 
 function ProjectSwitcher() {
@@ -259,7 +69,10 @@ function ProjectSwitcher() {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="default" className="my-2 px-1 pr-2" />
+              <SidebarMenuButton
+                size="default"
+                className="my-2 px-1 pr-2 pl-[5px]"
+              />
             }
           >
             <ProjectIcon url={project?.url} name={project?.name} />
@@ -304,8 +117,14 @@ function ProjectSwitcher() {
 function NavUser() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  // The session resolves synchronously on the client but is absent during SSR,
+  // so gate the user-specific name on mount: SSR and the first client render
+  // both show "Account" (matching), then it swaps to the real name. Avoids a
+  // hydration mismatch on the avatar initials.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const email = session?.user.email ?? "";
-  const name = session?.user.name || email || "Account";
+  const name = (mounted && (session?.user.name || email)) || "Account";
 
   return (
     <SidebarMenu>
@@ -318,7 +137,7 @@ function NavUser() {
             <div className="flex flex-1 flex-col text-left text-sm ">
               <span className="truncate font-medium">{name}</span>
             </div>
-            <IconDotsVertical className="ml-auto size-4 opacity-30" />
+            <IconDotsVertical className="ml-auto size-4 opacity-20" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
@@ -368,108 +187,141 @@ function ProjectGate({ children }: { children: React.ReactNode }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
   return (
     <ProjectProvider>
       <RangeProvider>
-        <SidebarProvider className="h-svh min-h-0 overflow-hidden">
-          <Sidebar variant="inset">
-            <SidebarHeader>
-              <ProjectSwitcher />
-            </SidebarHeader>
-
-            <SidebarContent>
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {nav.map((item) => {
-                      const active = isActive(pathname, item.href);
-                      const Icon = active ? item.activeIcon : item.icon;
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            isActive={active}
-                            render={<Link href={item.href} />}
-                          >
-                            <Icon className={item.iconClassName} />
-                            <span>{item.label}</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-
-              <SidebarGroup>
-                <SidebarGroupLabel>Configs</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {account.map((item) => {
-                      const active = isActive(pathname, item.href);
-                      const Icon = active ? item.activeIcon : item.icon;
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            isActive={active}
-                            render={<Link href={item.href} />}
-                          >
-                            <Icon className={item.iconClassName} />
-                            <span>{item.label}</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-
-              {isDev && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>Dev mode</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          isActive={isActive(pathname, "/admin")}
-                          render={<Link href="/admin" />}
-                        >
-                          {isActive(pathname, "/admin") ? (
-                            <IconFlask2Filled className="dark:text-neutral-600 text-neutral-400" />
-                          ) : (
-                            <IconFlask2 className="dark:text-neutral-600 text-neutral-400" />
-                          )}
-                          <span>Admin</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              )}
-            </SidebarContent>
-
-            <SidebarFooter>
-              <NavUser />
-            </SidebarFooter>
-          </Sidebar>
-
-          <SidebarInset className="min-h-0 overflow-hidden">
-            {/* The scroll viewport is a plain block with a definite height
-              (flex-1 + min-h-0); the flex-column layout lives in a child so the
-              scroll container itself never tries to flex-fit its content. */}
-            <main className="min-h-0 flex-1 overflow-y-auto">
-              <div className="flex flex-col gap-6 p-12 2xl:p-16 max-w-380 mx-auto">
-                <QuotaBanner />
-                <ProjectGate>{children}</ProjectGate>
-              </div>
-            </main>
-          </SidebarInset>
-        </SidebarProvider>
-        {/* In-app AI assistant. Renders its own floating launcher; hides itself
-            when no project is selected. */}
-        <Foggy />
+        <ShellBody>{children}</ShellBody>
       </RangeProvider>
     </ProjectProvider>
+  );
+}
+
+function ShellBody({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { projectId } = useProject();
+  // Foggy chat open state. Lifted here so the launcher (carved into the inset)
+  // and the panel (a flex sibling of the inset) can share it.
+  const [foggyOpen, setFoggyOpen] = useState(false);
+
+  return (
+    <SidebarProvider className="relative h-svh min-h-0 overflow-hidden">
+      <Sidebar variant="inset">
+        <SidebarHeader>
+          <ProjectSwitcher />
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {nav.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  const Icon = active ? item.activeIcon : item.icon;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={active}
+                        render={<Link href={item.href} />}
+                      >
+                        <Icon className={item.iconClassName} />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Configs</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {account.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  const Icon = active ? item.activeIcon : item.icon;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={active}
+                        render={<Link href={item.href} />}
+                      >
+                        <Icon className={item.iconClassName} />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {isDev && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Dev mode</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={isActive(pathname, "/admin")}
+                      render={<Link href="/admin" />}
+                    >
+                      {isActive(pathname, "/admin") ? (
+                        <IconFlask2Filled className="dark:text-neutral-500 text-neutral-400" />
+                      ) : (
+                        <IconFlask2 className="dark:text-neutral-500 text-neutral-400" />
+                      )}
+                      <span>Admin</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+
+        <SidebarFooter>
+          <NavUser />
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset
+        className="min-h-0 overflow-hidden"
+        // Square the top-right corner so the carved launcher's shelf sits flush
+        // there; restore the round corner once the chat pushes it in. Inline so
+        // it reliably beats the component's `rounded-3xl`.
+        style={!foggyOpen ? { borderTopRightRadius: 0 } : undefined}
+      >
+        {/* The scroll viewport is a plain block with a definite height
+              (flex-1 + min-h-0); the flex-column layout lives in a child so the
+              scroll container itself never tries to flex-fit its content. */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-6 p-12 2xl:p-16 max-w-380 mx-auto">
+            <QuotaBanner />
+            <ProjectGate>{children}</ProjectGate>
+          </div>
+        </main>
+      </SidebarInset>
+
+      {/* In-app AI assistant launcher, carved into the inset's top-right
+          corner. It lives in the canvas layer (above the inset) so it can mask
+          the inset's border for a seamless cut. Hidden while the chat is open
+          (the panel pushes the corner away and carries its own controls). */}
+      {projectId && !foggyOpen && (
+        <FoggyLauncher onOpen={() => setFoggyOpen(true)} />
+      )}
+
+      {/* The chat panel sits flat on the canvas to the right of the inset.
+              As it grows the flex-1 inset shrinks to make room. Keyed by
+              projectId so switching projects resets the conversation. */}
+      {projectId && (
+        <FoggyWidget
+          key={projectId}
+          projectId={projectId}
+          open={foggyOpen}
+          onOpenChange={setFoggyOpen}
+        />
+      )}
+    </SidebarProvider>
   );
 }

@@ -275,12 +275,12 @@ export function SettingsClient() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground border-r-0">
                       {formatDistanceToNow(new Date(k.createdAt), {
                         addSuffix: true,
                       })}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell align="center">
                       {!k.revokedAt && (
                         <Button
                           size="icon-sm"

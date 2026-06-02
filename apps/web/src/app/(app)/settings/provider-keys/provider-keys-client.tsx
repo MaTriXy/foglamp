@@ -1,7 +1,5 @@
 "use client";
 
-import { IconTrash } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@foglamp/ui/components/badge";
 import { Button } from "@foglamp/ui/components/button";
 import {
@@ -14,14 +12,24 @@ import {
 import { Field, FieldLabel } from "@foglamp/ui/components/field";
 import { Input } from "@foglamp/ui/components/input";
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@foglamp/ui/components/native-select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@foglamp/ui/components/select";
+import { IconTrash, IconTrashFilled } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { NoProject, PageHeader, TableSkeleton } from "@/components/app/page-parts";
+import {
+  NoProject,
+  PageHeader,
+  TableSkeleton,
+} from "@/components/app/page-parts";
 import { useProject } from "@/components/app/project-context";
+import { ModelLogo } from "@/components/model-logo";
 import { trpc } from "@/utils/trpc";
 
 type Provider = "google" | "openai" | "anthropic";
@@ -30,6 +38,9 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic (Claude)",
 };
+// Providers a key can be added for (judge-capable). The saved list shows all.
+const ADDABLE: Provider[] = ["google", "openai"];
+const ALL_PROVIDERS: Provider[] = ["google", "openai", "anthropic"];
 
 export function ProviderKeysClient() {
   const { projectId } = useProject();
@@ -50,7 +61,7 @@ export function ProviderKeysClient() {
         toast.success("Provider key saved");
       },
       onError: (e) => toast.error(e.message),
-    }),
+    })
   );
   const remove = useMutation(
     trpc.providerKeys.delete.mutationOptions({
@@ -59,7 +70,7 @@ export function ProviderKeysClient() {
         toast.success("Provider key removed");
       },
       onError: (e) => toast.error(e.message),
-    }),
+    })
   );
 
   if (!projectId) {
@@ -81,48 +92,61 @@ export function ProviderKeysClient() {
         description="Bring-your-own-key for LLM judges. Keys are encrypted at rest and never shown again."
       />
 
-      {!configured && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Encryption not configured</CardTitle>
-            <CardDescription>
-              Set <code>FOGLAMP_SECRETS_KEY</code> (32+ chars) on the server to
-              enable saving provider keys.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle>Add or replace a key</CardTitle>
           <CardDescription>
-            Saved per provider — reused by every judge eval that uses that
-            provider's models.
+            Used by every judge eval that uses that provider's models.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Field>
-            <FieldLabel>Provider</FieldLabel>
-            <NativeSelect
-              value={provider}
-              onChange={(e) => setProvider(e.target.value as Provider)}
-            >
-              <NativeSelectOption value="google">Google (Gemini)</NativeSelectOption>
-              <NativeSelectOption value="openai">OpenAI</NativeSelectOption>
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel>API key</FieldLabel>
-            <Input
-              type="password"
-              placeholder="Paste the provider API key"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              disabled={!configured}
-            />
-          </Field>
-          <div>
+        <CardContent className="flex flex-col gap-5">
+          {!configured && (
+            <div className="rounded-xl corner-squircle border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
+              <span className="font-medium text-destructive">
+                Encryption not configured.
+              </span>{" "}
+              Set <code>FOGLAMP_SECRETS_KEY</code> (32+ chars) on the server to
+              enable saving provider keys.
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 mt-2">
+            <Field className="w-52">
+              <FieldLabel>Provider</FieldLabel>
+              <Select
+                value={provider}
+                onValueChange={(v) => setProvider(v as Provider)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(value) => (
+                      <span className="flex items-center gap-2">
+                        <ModelLogo provider={value as string} />
+                        {PROVIDER_LABELS[value as Provider]}
+                      </span>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ADDABLE.map((p) => (
+                    <SelectItem key={p} value={p} label={PROVIDER_LABELS[p]}>
+                      <ModelLogo provider={p} />
+                      {PROVIDER_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field className="flex-1">
+              <FieldLabel>API key</FieldLabel>
+              <Input
+                type="password"
+                placeholder="Paste the provider API key"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                disabled={!configured}
+              />
+            </Field>
             <Button
               disabled={!configured || !key.trim() || upsert.isPending}
               onClick={() =>
@@ -132,47 +156,48 @@ export function ProviderKeysClient() {
               Save key
             </Button>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved keys</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {keys.isLoading ? (
-            <TableSkeleton rows={3} />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {(["google", "openai", "anthropic"] as Provider[]).map((p) => {
-                const has = saved.has(p);
-                return (
-                  <div
-                    key={p}
-                    className="flex items-center justify-between rounded-md border px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">
-                        {PROVIDER_LABELS[p]}
-                      </span>
-                      <Badge variant={has ? "emerald" : "secondary"}>
-                        {has ? "configured" : "not set"}
-                      </Badge>
+          <div className="flex flex-col gap-2 mt-2">
+            <p className="text-sm font-medium text-muted-foreground">
+              Saved keys
+            </p>
+            {keys.isLoading ? (
+              <TableSkeleton rows={3} />
+            ) : (
+              <div className="flex flex-col">
+                {ALL_PROVIDERS.map((p) => {
+                  const has = saved.has(p);
+                  return (
+                    <div
+                      key={p}
+                      className="flex items-center justify-between gap-4 border-b border-border/50 py-3 min-h-15 last:border-b-0 px-1.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <ModelLogo provider={p} className="size-4" />
+                        <span className="text-sm font-medium">
+                          {PROVIDER_LABELS[p]}
+                        </span>
+                        <Badge variant={has ? "emerald" : "secondary"}>
+                          {has ? "configured" : "not set"}
+                        </Badge>
+                      </div>
+                      {has && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() =>
+                            remove.mutate({ projectId, provider: p })
+                          }
+                        >
+                          <IconTrashFilled />
+                        </Button>
+                      )}
                     </div>
-                    {has && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => remove.mutate({ projectId, provider: p })}
-                      >
-                        <IconTrash />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </>

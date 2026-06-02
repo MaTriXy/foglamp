@@ -45,7 +45,7 @@ function Table({
       <div
         data-slot="table-container"
         className={cn(
-          "relative w-full overflow-x-auto rounded-3xl corner-squircle shadow-(--custom-shadow) dark:shadow-(--custom-shadow)",
+          "relative w-full overflow-x-auto rounded-xl corner-squircle shadow-(--custom-shadow) dark:shadow-(--custom-shadow)",
           scrollable && "overflow-y-auto"
         )}
         style={scrollable ? { maxHeight } : undefined}
@@ -53,7 +53,7 @@ function Table({
         <table
           data-slot="table"
           className={cn(
-            "w-full caption-bottom text-sm shadow-(--custom-shadow) rounded-3xl corner-squircle bg-card/40 dark:shadow-(--custom-shadow)",
+            "w-full caption-bottom text-sm shadow-(--custom-shadow) rounded-xl corner-squircle bg-card/40 dark:shadow-(--custom-shadow)",
             className
           )}
           {...props}
@@ -72,7 +72,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
         "bg-muted/50 [&_tr]:border-b",
         // When sticky, use a near-solid blurred bg so scrolling rows don't bleed through.
         stickyHeader &&
-          "sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75",
+          "sticky top-0 z-10 bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/75",
         className
       )}
       {...props}
@@ -130,7 +130,7 @@ function TableRow({
     <tr
       data-slot="table-row"
       data-interactive={interactive || undefined}
-      tabIndex={interactive ? tabIndex ?? 0 : tabIndex}
+      tabIndex={interactive ? (tabIndex ?? 0) : tabIndex}
       onClick={onClick}
       onKeyDown={handleKeyDown}
       className={cn(
@@ -154,8 +154,9 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         "text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
-        // Vertical column dividers (none on the leftmost cell).
-        "border-l border-[#EBEBEB] first:border-l-0 dark:border-[#1E1E1E]",
+        // Vertical column dividers (none on the leftmost cell). More prominent
+        // than the body cells to emphasize the header.
+        "border-l border-neutral-200 first:border-l-0 dark:border-neutral-800 [&_tr]:border-b",
         density === "compact" ? "h-9 px-3" : "h-12 px-5",
         align && alignClass[align],
         className

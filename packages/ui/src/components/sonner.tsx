@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  IconAlertCircle,
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconInfoCircle,
+  IconAlertCircleFilled,
+  IconAlertTriangleFilled,
+  IconCircleCheckFilled,
+  IconInfoCircleFilled,
   IconLoader,
 } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
@@ -18,10 +18,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <IconCircleCheck className="size-4 text-green-500" />,
-        info: <IconInfoCircle className="size-4" />,
-        warning: <IconAlertTriangle className="size-4" />,
-        error: <IconAlertCircle className="size-4 text-red-500" />,
+        success: <IconCircleCheckFilled className="size-4 text-green-500" />,
+        info: <IconInfoCircleFilled className="size-4" />,
+        warning: <IconAlertTriangleFilled className="size-4" />,
+        error: <IconAlertCircleFilled className="size-4 text-red-500" />,
         loading: <IconLoader className="size-4 animate-spin" />,
       }}
       style={

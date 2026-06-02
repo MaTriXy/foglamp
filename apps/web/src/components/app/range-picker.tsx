@@ -49,7 +49,7 @@ export function RangePicker({
           <Button
             variant="outline"
             size="sm"
-            className="w-fit justify-start px-8 gap-2 active:scale-100 font-normal"
+            className="w-fit justify-start px-8 gap-2 active:scale-100 font-normal dark:bg-input/20"
           />
         }
       >

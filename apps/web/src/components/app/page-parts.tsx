@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  type Icon,
   IconArrowDownRight,
   IconArrowUpRight,
+  IconChevronRight,
   IconFolderOff,
 } from "@tabler/icons-react";
 import {
@@ -13,6 +15,8 @@ import {
   CardTitle,
 } from "@foglamp/ui/components/card";
 import { cn } from "@foglamp/ui/lib/utils";
+import type { Route } from "next";
+import Link from "next/link";
 
 import type { Delta } from "@/lib/format";
 import {
@@ -25,19 +29,53 @@ import {
 } from "@foglamp/ui/components/empty";
 import { Skeleton } from "@foglamp/ui/components/skeleton";
 
+/**
+ * A clickable parent crumb rendered before the page title, e.g. an "Evals"
+ * link that takes the user back to the list. Pairs the section's nav icon with
+ * its label; the shape is a subset of `NavItem`, so a nav entry can be passed
+ * straight through.
+ */
+export type PageHeaderBack = {
+  href: Route;
+  label: string;
+  icon: Icon;
+  iconClassName?: string;
+};
+
 export function PageHeader({
   title,
   description,
   actions,
+  back,
 }: {
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  /** When set, renders a `[icon] Label › Title` breadcrumb instead of a plain
+   * title — the icon + label link back to the parent page. */
+  back?: PageHeaderBack;
 }) {
+  const BackIcon = back?.icon;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-medium tracking-tight">{title}</h1>
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        {back && BackIcon ? (
+          <h1 className="flex items-center gap-1.5 text-base font-medium tracking-tight">
+            <Link
+              href={back.href}
+              className="flex shrink-0 items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <BackIcon
+                className={cn("size-4.5 shrink-0", back.iconClassName)}
+              />
+              {back.label}
+            </Link>
+            <IconChevronRight className="size-4 shrink-0 text-muted-foreground/50 stroke-[1.5px]" />
+            <span className="truncate">{title}</span>
+          </h1>
+        ) : (
+          <h1 className="text-base font-medium tracking-tight">{title}</h1>
+        )}
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}

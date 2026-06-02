@@ -8,14 +8,65 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@foglamp/ui/components/empty";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@foglamp/ui/components/tabs";
+import { cn } from "@foglamp/ui/lib/utils";
+import { motion } from "motion/react";
+import { useId, useState } from "react";
 
 import { CodeBlock } from "./code-block";
+
+// Same spring as ViewToggle, so segmented controls across the app glide
+// identically.
+const MORPH = { type: "spring", stiffness: 400, damping: 38 } as const;
+
+type SdkVersion = "v7" | "v6";
+
+const SDK_OPTIONS: { value: SdkVersion; label: string }[] = [
+  { value: "v7", label: "v7" },
+  { value: "v6", label: "v6 or lower" },
+];
+
+/** A two-option segmented control for switching between AI SDK snippets.
+ * Sized to sit flush next to the CodeBlock's copy button. */
+function SdkToggle({
+  value,
+  onChange,
+}: {
+  value: SdkVersion;
+  onChange: (value: SdkVersion) => void;
+}) {
+  // Unique per instance so each mounted toggle owns its own sliding pill.
+  const pillId = useId();
+  return (
+    <div className="inline-flex h-7 items-center rounded-full px-0.5 p-0.5 dark:bg-input/20">
+      {SDK_OPTIONS.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "relative flex h-6 cursor-pointer items-center justify-center rounded-full px-2.5 text-xs transition-colors",
+              active
+                ? "text-foreground"
+                : "text-muted-foreground/60 hover:text-foreground"
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId={pillId}
+                transition={MORPH}
+                className="absolute inset-0 rounded-full bg-muted shadow-(--custom-shadow) dark:bg-input/50"
+              />
+            )}
+            <span className="relative z-10">{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // Empty state for the Agents / Workflows / Sessions pages: the usual dashed card
 // plus a copy-pasteable instrumentation snippet, toggled between the AI SDK v7
@@ -118,6 +169,7 @@ export function InstrumentEmptyState({
   description?: string;
 }) {
   const snip = SNIPPETS[feature];
+  const [version, setVersion] = useState<SdkVersion>("v7");
   return (
     <Empty className="rounded-lg border border-dashed">
       <EmptyHeader>
@@ -130,18 +182,31 @@ export function InstrumentEmptyState({
         </EmptyContent>
       </EmptyHeader>
 
-      <Tabs defaultValue="v7" className="w-full max-w-xl">
-        <TabsList>
-          <TabsTrigger value="v7">AI SDK v7</TabsTrigger>
-          <TabsTrigger value="v6">AI SDK v6 or lower</TabsTrigger>
-        </TabsList>
-        <TabsContent value="v7">
-          <CodeBlock code={snip.v7} />
-        </TabsContent>
-        <TabsContent value="v6">
-          <CodeBlock code={snip.v6} />
-        </TabsContent>
-      </Tabs>
+      {/* Both snippets share one grid cell, so the row is always sized to the
+          taller one — toggling never changes layout height (nothing above
+          shifts). The inactive snippet stays in the layout at opacity-0 and we
+          crossfade between them. `inert` keeps the hidden copy out of the tab
+          order and clicks. */}
+      <div className="grid w-full max-w-xl">
+        {SDK_OPTIONS.map(({ value }) => {
+          const active = value === version;
+          return (
+            <div
+              key={value}
+              inert={!active}
+              className={cn(
+                "col-start-1 row-start-1 transition-opacity duration-200",
+                active ? "opacity-100" : "opacity-0"
+              )}
+            >
+              <CodeBlock
+                code={snip[value]}
+                actions={<SdkToggle value={version} onChange={setVersion} />}
+              />
+            </div>
+          );
+        })}
+      </div>
     </Empty>
   );
 }

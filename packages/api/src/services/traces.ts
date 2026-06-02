@@ -1,4 +1,9 @@
-import { getTraceSpans, listTraces } from "@foglamp/clickhouse";
+import {
+  getTraceSpans,
+  listTraces,
+  type SortDir,
+  type TraceSortField,
+} from "@foglamp/clickhouse";
 
 import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
 import type { Ch, Db } from "../types";
@@ -26,6 +31,10 @@ export async function getTraceList(
     projectId: string;
     from?: Date;
     to?: Date;
+    agentName?: string;
+    traceName?: string;
+    errorsOnly?: boolean;
+    sort?: { field: TraceSortField; dir: SortDir };
     limit?: number;
     offset?: number;
   },
@@ -35,6 +44,10 @@ export async function getTraceList(
     projectId: input.projectId,
     from: input.from ? toClickHouseDateTime(input.from) : undefined,
     to: input.to ? toClickHouseDateTime(input.to) : undefined,
+    agentName: input.agentName,
+    traceName: input.traceName,
+    errorsOnly: input.errorsOnly,
+    sort: input.sort,
     limit: input.limit,
     offset: input.offset,
   });
