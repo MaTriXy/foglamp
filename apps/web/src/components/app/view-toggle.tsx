@@ -16,8 +16,8 @@ const OPTIONS: {
   label: string;
   icon: typeof IconLayoutGrid;
 }[] = [
-  { value: "cards", label: "Card view", icon: IconLayoutGrid },
   { value: "table", label: "Table view", icon: IconLayoutList },
+  { value: "cards", label: "Card view", icon: IconLayoutGrid },
 ];
 
 /**

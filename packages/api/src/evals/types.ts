@@ -15,6 +15,7 @@ export type ExtractedContext = {
   output: string;
   context?: string; // retrieved context (RAG presets)
   reference?: string; // expected answer (correctness presets)
+  tools?: string; // tool catalog offered to the model (tool_selection preset)
 };
 
 // A normalized trace/span to be scored. `siblings` carries the other spans of
@@ -36,4 +37,5 @@ export type SiblingSpan = {
   spanType: string;
   output: string;
   startTimeMs: number;
+  toolCatalog?: string; // JSON tool catalog (present on llm/agent spans)
 };

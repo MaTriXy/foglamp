@@ -2,7 +2,7 @@ import {
   getSessionTurns,
   listSessions,
   listTraces,
-  sessionCostQuantiles,
+  sessionListSummary,
   type SessionSortField,
   type SortDir,
   type TraceListRow,
@@ -42,21 +42,29 @@ export async function getSessionList(
     sessionId: input.sessionId,
     errorsOnly: input.errorsOnly,
   };
-  // Fetch the page and, in parallel, the global cost quintile thresholds across
-  // the whole filtered set — `costQuantiles` drives the cost heatmap in the UI
-  // (percentile-based, so it reflects all sessions, not just the current page).
-  const [sessions, quantiles] = await Promise.all([
+  // Fetch the page and, in parallel, a single-row rollup over the whole filtered
+  // set — the cost quintile thresholds drive the heatmap (percentile-based, so
+  // it reflects all sessions, not just this page) and the totals feed the header
+  // strip + the "N sessions" toolbar count.
+  const [sessions, summaryRows] = await Promise.all([
     listSessions(ch, {
       ...filters,
       sort: input.sort,
       limit: input.limit,
       offset: input.offset,
     }),
-    sessionCostQuantiles(ch, filters),
+    sessionListSummary(ch, filters),
   ]);
+  const sum = summaryRows[0];
   return {
     // 20/40/60/80th percentile cost thresholds; finite values only.
-    costQuantiles: (quantiles[0]?.q ?? []).map(Number).filter(Number.isFinite),
+    costQuantiles: (sum?.cost_q ?? []).map(Number).filter(Number.isFinite),
+    summary: {
+      sessionCount: num(sum?.session_count),
+      totalCost: sum ? Number(sum.total_cost) : 0,
+      errorSessionCount: num(sum?.error_session_count),
+      totalTokens: num(sum?.total_tokens),
+    },
     sessions: sessions.map((s) => ({
       sessionId: s.session_id,
       agentName: s.agent_name || null,

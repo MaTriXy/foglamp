@@ -36,9 +36,6 @@ const serverSchema = {
   // Max ingest request body; rejected (413) before the body is buffered/parsed.
   INGEST_MAX_BODY_BYTES: z.coerce.number().default(10_485_760), // 10 MB
 
-  // Span retention; applied via ALTER TABLE … MODIFY TTL on boot.
-  FOGLAMP_SPANS_RETENTION_DAYS: z.coerce.number().default(30),
-
   // --- Alerts (evaluator cron in apps/server) ---
   // How often the evaluator sweeps enabled rules; default every 60s.
   ALERT_EVAL_INTERVAL_MS: z.coerce.number().default(60_000),
@@ -56,6 +53,9 @@ const serverSchema = {
   // Max judge calls in flight, and max targets scored per eval per tick.
   EVAL_JUDGE_CONCURRENCY: z.coerce.number().default(5),
   EVAL_SCORING_BATCH: z.coerce.number().default(100),
+  // Approx char budget for a judge call's filled prompt fields; larger payloads
+  // are head+tail truncated before the call to bound context window + cost.
+  EVAL_JUDGE_MAX_INPUT_CHARS: z.coerce.number().default(200_000),
 
   // --- Billing (Stripe; org-scoped). Plugin enabled only when the secret is set. ---
   STRIPE_SECRET_KEY: z.string().min(1).optional(),

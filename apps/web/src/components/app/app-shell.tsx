@@ -347,7 +347,7 @@ function ShellBody({ children }: { children: React.ReactNode }) {
               (flex-1 + min-h-0); the flex-column layout lives in a child so the
               scroll container itself never tries to flex-fit its content. */}
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-6 p-12 2xl:p-16 max-w-380 mx-auto">
+          <div className="flex flex-col gap-6 p-10 2xl:p-16 max-w-380 mx-auto">
             <QuotaBanner />
             <ProjectGate>{children}</ProjectGate>
           </div>

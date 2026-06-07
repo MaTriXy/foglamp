@@ -8,33 +8,49 @@ import {
   CardTitle,
 } from "@foglamp/ui/components/card";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@foglamp/ui/components/pagination";
+import {
   Table,
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@foglamp/ui/components/tooltip";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangle,
   IconAlertTriangleFilled,
+  IconBoltFilled,
+  IconCoinFilled,
+  IconSitemap,
   IconSitemapFilled,
-  IconTimeline,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import {
   ClearFiltersButton,
   SearchInput,
   SortableHead,
-  sortRows,
   ToggleChip,
   Toolbar,
+  useDebouncedValue,
   useDelayedLoading,
   useTableSort,
-  useTextFilter,
 } from "@/components/app/data-table";
 import { InstrumentEmptyState } from "@/components/app/instrument-empty-state";
 import {
@@ -42,8 +58,10 @@ import {
   EmptyState,
   NoProject,
   PageHeader,
+  StatCard,
   TableSkeleton,
 } from "@/components/app/page-parts";
+import { navItem } from "@/components/app/nav";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
@@ -55,6 +73,8 @@ import {
   formatTokens,
 } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
+
+const PAGE_SIZE = 25;
 
 // Sentinel path segment for the no-workflow-name ("Ungrouped") bucket, since a
 // route segment can't be the empty string. The detail page maps it back to "".
@@ -69,64 +89,142 @@ type WorkflowSortKey =
   | "cost"
   | "lastRun";
 
+/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
+ * Always keeps the first/last page and the current page ±1 in view, e.g.
+ * `1 … 4 5 6 … 20`. */
+function pageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const middle: number[] = [];
+  for (
+    let i = Math.max(2, current - 1);
+    i <= Math.min(total - 1, current + 1);
+    i++
+  ) {
+    middle.push(i);
+  }
+  const out: (number | "ellipsis")[] = [1];
+  if (middle[0] > 2) out.push("ellipsis");
+  out.push(...middle);
+  if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
+  out.push(total);
+  return out;
+}
+
+// Heatmap: tint each workflow's cost by its percentile within the whole
+// (filtered) result set — not just this page. The API returns global quintile
+// thresholds; a traffic-light scale runs green (cheapest 20%) → yellow → red
+// (priciest 20%), so each shade holds ~1/5 of workflows regardless of skew.
+// Literal classes so Tailwind keeps them.
+const HEAT_SHADES = [
+  "text-green-600 dark:text-green-400",
+  "text-yellow-600 dark:text-yellow-400",
+  "text-amber-600 dark:text-amber-400",
+  "text-orange-600 dark:text-orange-400",
+  "text-red-600 dark:text-red-400",
+] as const;
+
+// Labels for the five quintile buckets, shown in the cost cell tooltip.
+const PCT_RANGE = [
+  "0–20th",
+  "20–40th",
+  "40–60th",
+  "60–80th",
+  "80–100th",
+] as const;
+
+/** Which quintile bucket (0..4) `value` falls in against the global `thresholds`
+ * (the 20/40/60/80th percentiles). null when there's nothing to place. */
+function percentileBucket(
+  value: number | null | undefined,
+  thresholds: number[]
+) {
+  if (!value || value <= 0 || thresholds.length === 0) return null;
+  let i = 0;
+  for (const t of thresholds) if (value > t) i += 1;
+  return Math.min(i, HEAT_SHADES.length - 1);
+}
+
+/** Tooltip copy for a bucketed cost cell, e.g. "80–100th percentile by cost · priciest". */
+function percentileTip(bucket: number) {
+  const extreme =
+    bucket === 0 ? " · cheapest" : bucket === 4 ? " · priciest" : "";
+  return `${PCT_RANGE[bucket]} percentile by cost${extreme}`;
+}
+
 export function WorkflowsClient() {
   const { projectId } = useProject();
   const { range, setRange } = useRange();
+  const router = useRouter();
   const [view, setView] = useViewMode("workflows", "cards");
+  const [page, setPage] = useState(0);
+
+  // Filters + sorting (applied server-side across the full result set).
   const [search, setSearch] = useState("");
   const [errorsOnly, setErrorsOnly] = useState(false);
   const { sort, toggle } = useTableSort<WorkflowSortKey>();
-  const router = useRouter();
+  const debouncedSearch = useDebouncedValue(search);
+  const hasFilters = !!(debouncedSearch.trim() || errorsOnly);
+
+  // Reset to the first page when the project, range, filters, or sort change.
+  useEffect(
+    () => setPage(0),
+    [projectId, range, debouncedSearch, errorsOnly, sort]
+  );
 
   const workflows = useQuery({
     ...trpc.workflows.list.queryOptions({
       projectId: projectId!,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
-      limit: 100,
+      workflowName: debouncedSearch.trim() || undefined,
+      errorsOnly: errorsOnly || undefined,
+      sort: sort ? { field: sort.key, dir: sort.dir } : undefined,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
     }),
     enabled: !!projectId,
+    // Keep the current page visible while the next one loads.
+    placeholderData: (prev) => prev,
   });
 
   // Delay the skeleton so fast loads don't flash it (see useDelayedLoading).
   const showSkeleton = useDelayedLoading(workflows.isLoading);
 
-  const rows = workflows.data ?? [];
-  const searched = useTextFilter(rows, search, (w) => [
-    w.workflowName ?? "Ungrouped",
-  ]);
-  const visible = useMemo(
-    () =>
-      sortRows(
-        errorsOnly ? searched.filter((w) => w.errorCount > 0) : searched,
-        sort,
-        {
-          name: (w) => w.workflowName,
-          runs: (w) => w.runCount,
-          traces: (w) => w.traceCount,
-          tokens: (w) => w.totalTokens,
-          errors: (w) => w.errorCount,
-          cost: (w) => w.totalCost,
-          lastRun: (w) => (w.lastRun ? Date.parse(w.lastRun) : null),
-        }
-      ),
-    [searched, errorsOnly, sort]
-  );
-
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Workflows" />
+        <PageHeader
+          title="Workflows"
+          icon={navItem("/workflows")?.icon}
+          iconClassName={navItem("/workflows")?.iconClassName}
+        />
         <NoProject />
       </>
     );
   }
 
+  const rows = workflows.data?.workflows ?? [];
+  const costQuantiles = workflows.data?.costQuantiles ?? [];
+  const summary = workflows.data?.summary;
+  const workflowCount = summary?.workflowCount ?? 0;
+  // Total pages from the filtered count (all pages), so we can render numbered
+  // page links. Falls back to "at least the current page" before the count loads.
+  const totalPages = Math.max(
+    page + 1,
+    Math.ceil(workflowCount / PAGE_SIZE) || 1
+  );
+  const currentPage = page + 1;
+  const pages = pageWindow(currentPage, totalPages);
+
   return (
     <>
       <PageHeader
         title="Workflows"
-        description="Grouped runs by workflow. Open one to see its runs and step flow."
+        icon={navItem("/workflows")?.icon}
+        iconClassName={navItem("/workflows")?.iconClassName}
+        description="Grouped runs by workflow."
       />
       {workflows.isLoading ? (
         showSkeleton ? (
@@ -136,7 +234,7 @@ export function WorkflowsClient() {
             <TableSkeleton />
           )
         ) : null
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && page === 0 && !hasFilters ? (
         <InstrumentEmptyState
           feature="workflow"
           icon={IconSitemapFilled}
@@ -145,6 +243,37 @@ export function WorkflowsClient() {
         />
       ) : (
         <div className="flex flex-col gap-4">
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard
+              icon={IconSitemapFilled}
+              iconClassName="text-emerald-300 dark:text-emerald-700"
+              size="sm"
+              label="Workflows"
+              value={formatCount(workflowCount)}
+            />
+            <StatCard
+              icon={IconBoltFilled}
+              iconClassName="text-violet-300 dark:text-violet-700"
+              size="sm"
+              label="Runs"
+              value={formatCount(summary?.runCount ?? 0)}
+            />
+            <StatCard
+              icon={IconAlertTriangleFilled}
+              iconClassName="text-rose-300 dark:text-rose-700"
+              size="sm"
+              label="Errored workflows"
+              value={formatCount(summary?.errorWorkflowCount ?? 0)}
+            />
+            <StatCard
+              icon={IconCoinFilled}
+              iconClassName="text-yellow-300 dark:text-yellow-600"
+              size="sm"
+              label="Total cost"
+              value={formatCost(summary?.totalCost ?? 0)}
+            />
+          </section>
+
           <Toolbar>
             <SearchInput
               value={search}
@@ -165,25 +294,27 @@ export function WorkflowsClient() {
                 setErrorsOnly(false);
               }}
             />
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-3">
               <ViewToggle value={view} onChange={setView} />
               <RangePicker value={range} onChange={setRange} />
             </div>
           </Toolbar>
 
-          {visible.length === 0 ? (
+          {rows.length === 0 && page === 0 ? (
             <EmptyState
-              icon={IconTimeline}
+              icon={IconSitemapFilled}
               title="No matching workflows"
               description="Try a different search or clearing filters."
             />
           ) : view === "cards" ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visible.map((w) => {
+              {rows.map((w) => {
                 const label = w.workflowName ?? "Ungrouped";
+                const bucket = percentileBucket(w.totalCost, costQuantiles);
                 return (
                   <Card
                     key={workflowSlug(w.workflowName)}
+                    size="sm"
                     className="cursor-pointer transition-colors hover:bg-accent/40"
                     onClick={() =>
                       router.push(`/workflows/${workflowSlug(w.workflowName)}`)
@@ -191,8 +322,15 @@ export function WorkflowsClient() {
                   >
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <IconTimeline className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{label}</span>
+                        <IconSitemap className="size-4 shrink-0 text-emerald-500" />
+                        <span
+                          className={cn(
+                            "truncate",
+                            !w.workflowName && "text-muted-foreground italic"
+                          )}
+                        >
+                          {label}
+                        </span>
                         {w.errorCount > 0 && (
                           <Badge variant="rose" className="ml-auto shrink-0">
                             <IconAlertTriangle className="size-3" />
@@ -203,7 +341,10 @@ export function WorkflowsClient() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 gap-y-3 text-sm">
                       <Stat label="Runs" value={formatCount(w.runCount)} />
-                      <Stat label="Traces" value={formatCount(w.traceCount)} />
+                      <Stat
+                        label="Last run"
+                        value={formatRelative(w.lastRun)}
+                      />
                       <Stat
                         label="Tokens"
                         value={formatTokens(w.totalTokens)}
@@ -212,11 +353,9 @@ export function WorkflowsClient() {
                         label="Cost"
                         value={formatCost(w.totalCost)}
                         emphasis
-                      />
-                      <Stat
-                        className="col-span-2"
-                        label="Last run"
-                        value={formatRelative(w.lastRun)}
+                        valueClassName={
+                          (bucket != null && HEAT_SHADES[bucket]) || undefined
+                        }
                       />
                     </CardContent>
                   </Card>
@@ -224,122 +363,185 @@ export function WorkflowsClient() {
               })}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableHead sortKey="name" sort={sort} onSort={toggle}>
-                    Workflow
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="runs"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-28"
-                  >
-                    Runs
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="traces"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-28"
-                  >
-                    Traces
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="tokens"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-28"
-                  >
-                    Tokens
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="errors"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-28"
-                  >
-                    Errors
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="cost"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-36"
-                  >
-                    Cost
-                  </SortableHead>
-                  <SortableHead
-                    sortKey="lastRun"
-                    sort={sort}
-                    onSort={toggle}
-                    align="right"
-                    className="w-36"
-                  >
-                    Last run
-                  </SortableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((w) => (
-                  <TableRow
-                    key={workflowSlug(w.workflowName)}
-                    interactive
-                    onClick={() =>
-                      router.push(`/workflows/${workflowSlug(w.workflowName)}`)
-                    }
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <IconTimeline className="size-4 shrink-0 text-muted-foreground" />
-                        <span
-                          className={cn(
-                            "truncate font-medium",
-                            !w.workflowName && "text-muted-foreground italic"
-                          )}
-                        >
-                          {w.workflowName ?? "Ungrouped"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell align="right" className="tabular-nums">
-                      {formatCount(w.runCount)}
-                    </TableCell>
-                    <TableCell align="right" className="tabular-nums">
-                      {formatCount(w.traceCount)}
-                    </TableCell>
-                    <TableCell align="right" className="tabular-nums">
-                      {formatTokens(w.totalTokens)}
-                    </TableCell>
-                    <TableCell align="right" className="tabular-nums">
-                      {w.errorCount > 0 ? (
-                        <Badge variant="rose">
-                          <IconAlertTriangleFilled />
-                          {formatCount(w.errorCount)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell
+            <TooltipProvider delay={150}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHead sortKey="name" sort={sort} onSort={toggle}>
+                      Workflow
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="runs"
+                      sort={sort}
+                      onSort={toggle}
                       align="right"
-                      className="tabular-nums font-medium"
+                      className="w-28"
                     >
-                      {formatCost(w.totalCost)}
-                    </TableCell>
-                    <TableCell align="right" className="text-muted-foreground">
-                      {formatRelative(w.lastRun)}
-                    </TableCell>
+                      Runs
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="traces"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                      className="w-28"
+                    >
+                      Traces
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="tokens"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                      className="w-28"
+                    >
+                      Tokens
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="cost"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                      className="w-36"
+                    >
+                      Cost
+                    </SortableHead>
+                    <SortableHead
+                      sortKey="lastRun"
+                      sort={sort}
+                      onSort={toggle}
+                      align="right"
+                      className="w-36"
+                    >
+                      Last run
+                    </SortableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((w) => (
+                    <TableRow
+                      key={workflowSlug(w.workflowName)}
+                      interactive
+                      onClick={() =>
+                        router.push(
+                          `/workflows/${workflowSlug(w.workflowName)}`
+                        )
+                      }
+                      className={cn(
+                        // Left accent bar on errored workflows — scannable at a glance.
+                        w.errorCount > 0 &&
+                          "shadow-[inset_1px_0_0_0_var(--color-rose-500)]"
+                      )}
+                    >
+                      <TableCell>
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <IconSitemap className="size-4 shrink-0 text-emerald-500" />
+                            <span
+                              className={cn(
+                                "truncate font-medium",
+                                !w.workflowName &&
+                                  "text-muted-foreground italic"
+                              )}
+                            >
+                              {w.workflowName ?? "Ungrouped"}
+                            </span>
+                          </div>
+                          {w.errorCount > 0 && (
+                            <Badge
+                              variant="rose"
+                              className="shrink-0 font-sans"
+                            >
+                              <IconAlertTriangle />
+                              {formatCount(w.errorCount)}
+                              {w.errorCount === 1 ? "error" : "errors"}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {formatCount(w.runCount)}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {formatCount(w.traceCount)}
+                      </TableCell>
+                      <TableCell align="right" className="tabular-nums">
+                        {formatTokens(w.totalTokens)}
+                      </TableCell>
+                      <HeatCell
+                        value={w.totalCost}
+                        thresholds={costQuantiles}
+                        bold
+                      >
+                        {formatCost(w.totalCost)}
+                      </HeatCell>
+                      <TableCell
+                        align="right"
+                        className="text-muted-foreground"
+                      >
+                        {formatRelative(w.lastRun)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
+          )}
+
+          {rows.length > 0 && (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-sm text-muted-foreground/50 tabular-nums">
+                {`Showing ${page * PAGE_SIZE + 1}–${
+                  page * PAGE_SIZE + rows.length
+                } of ${formatCount(workflowCount)}`}
+              </span>
+              <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      aria-disabled={page === 0 || workflows.isFetching}
+                      className={cn(
+                        (page === 0 || workflows.isFetching) &&
+                          "pointer-events-none opacity-50"
+                      )}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    />
+                  </PaginationItem>
+                  {pages.map((p, i) =>
+                    p === "ellipsis" ? (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: positional separator
+                      <PaginationItem key={`ellipsis-${i}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    ) : (
+                      <PaginationItem key={p}>
+                        <PaginationLink
+                          isActive={p === currentPage}
+                          className={cn(
+                            workflows.isFetching && "pointer-events-none"
+                          )}
+                          onClick={() => setPage(p - 1)}
+                        >
+                          {p}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      aria-disabled={
+                        currentPage >= totalPages || workflows.isFetching
+                      }
+                      className={cn(
+                        (currentPage >= totalPages || workflows.isFetching) &&
+                          "pointer-events-none opacity-50"
+                      )}
+                      onClick={() => setPage((p) => p + 1)}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           )}
         </div>
       )}
@@ -353,21 +555,66 @@ function workflowSlug(workflowName: string | null): string {
   return workflowName ? encodeURIComponent(workflowName) : UNGROUPED;
 }
 
+/** A right-aligned numeric cell tinted by its cost percentile bucket, with a
+ * tooltip naming the bucket. Unbucketed values (null/zero cost) render plain —
+ * muted for unpriced cost. */
+function HeatCell({
+  value,
+  thresholds,
+  bold,
+  children,
+}: {
+  value: number | null | undefined;
+  thresholds: number[];
+  bold?: boolean;
+  children: ReactNode;
+}) {
+  const bucket = percentileBucket(value, thresholds);
+  const className = cn(
+    "text-right tabular-nums",
+    bold && "font-medium",
+    value == null
+      ? "text-muted-foreground/40"
+      : bucket != null && HEAT_SHADES[bucket]
+  );
+  if (bucket == null) {
+    return <TableCell className={className}>{children}</TableCell>;
+  }
+  return (
+    <TableCell className={className}>
+      <Tooltip>
+        <TooltipTrigger render={<span className="cursor-default" />}>
+          {children}
+        </TooltipTrigger>
+        <TooltipContent>{percentileTip(bucket)}</TooltipContent>
+      </Tooltip>
+    </TableCell>
+  );
+}
+
 function Stat({
   label,
   value,
   emphasis,
   className,
+  valueClassName,
 }: {
   label: string;
   value: React.ReactNode;
   emphasis?: boolean;
   className?: string;
+  valueClassName?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
+    <div className={cn("flex flex-col gap-0.5", className)}>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`tabular-nums ${emphasis ? "font-medium" : ""}`}>
+      <span
+        className={cn(
+          "tabular-nums",
+          emphasis && "font-medium",
+          valueClassName
+        )}
+      >
         {value}
       </span>
     </div>

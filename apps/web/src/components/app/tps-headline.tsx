@@ -28,16 +28,18 @@ function instantaneousTps(span: TraceSpan): { ms: number; tps: number }[] {
 export function TpsHeadline({ span }: { span: TraceSpan }) {
   const series = useMemo(
     () => (hasChunkSamples(span) ? instantaneousTps(span) : []),
-    [span],
+    [span]
   );
 
   if (span.spanType !== "llm" || span.outputTokens <= 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border/60 p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-xs text-muted-foreground">Generation throughput</span>
-        <span className="text-2xl font-semibold tabular-nums">
+    <div className="flex flex-col gap-2 px-5 border-b border-border/40 py-5">
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-xs text-muted-foreground">
+          Generation throughput
+        </span>
+        <span className="text-sm font-semibold tabular-nums">
           {formatTps(span.tps)}
         </span>
       </div>
@@ -99,7 +101,7 @@ export function TpsSparkline({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
+      <div className="mt-3 flex justify-between text-[10px] text-muted-foreground tabular-nums">
         <span>peak {Math.round(peak)} tok/s</span>
         <span>{formatDuration(peakMs)}</span>
       </div>

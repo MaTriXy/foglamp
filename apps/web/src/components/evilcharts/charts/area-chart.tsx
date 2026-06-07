@@ -124,7 +124,8 @@ type EvilAreaChartBaseProps<
   curveType?: CurveType; // default curve interpolation for every <Area />
   animationType?: AreaAnimationType; // default intro reveal for every <Area />
   stackType?: StackType; // how multiple areas combine
-  defaultSelectedDataKey?: string | null; // series selected on first render
+  selectedDataKey?: string | null; // controlled selected series — drives selection from outside the chart
+  defaultSelectedDataKey?: string | null; // series selected on first render (uncontrolled)
   onSelectionChange?: (selectedDataKey: string | null) => void; // fires when the selected series changes
   isLoading?: boolean; // shows the animated loading skeleton
   loadingPoints?: number; // number of points in the loading skeleton
@@ -158,6 +159,7 @@ export function EvilAreaChart<
   curveType = "linear",
   animationType = "left-to-right",
   stackType = "default",
+  selectedDataKey: controlledSelectedDataKey,
   defaultSelectedDataKey = null,
   onSelectionChange,
   isLoading = false,
@@ -169,9 +171,14 @@ export function EvilAreaChart<
   onBrushChange,
 }: EvilAreaChartProps<TData, TConfig>) {
   const chartId = useId().replace(/:/g, ""); // colon-free id keeps CSS/SVG selectors valid
-  const [selectedDataKey, setSelectedDataKey] = useState<string | null>(defaultSelectedDataKey);
+  const [internalSelectedDataKey, setInternalSelectedDataKey] =
+    useState<string | null>(defaultSelectedDataKey);
   const { loadingData, onShimmerExit } = useLoadingData(isLoading, loadingPoints);
   const { visibleData, brushProps } = useEvilBrush({ data });
+
+  // Controlled when a `selectedDataKey` prop is passed, otherwise self-managed.
+  const isControlled = controlledSelectedDataKey !== undefined;
+  const selectedDataKey = isControlled ? controlledSelectedDataKey : internalSelectedDataKey;
 
   const isExpanded = stackType === "expanded";
   const isStacked = stackType === "stacked" || isExpanded;
@@ -180,10 +187,10 @@ export function EvilAreaChart<
   // Updates selection state and notifies the parent
   const selectDataKey = useCallback(
     (newSelectedDataKey: string | null) => {
-      setSelectedDataKey(newSelectedDataKey);
+      if (!isControlled) setInternalSelectedDataKey(newSelectedDataKey);
       onSelectionChange?.(newSelectedDataKey);
     },
-    [onSelectionChange],
+    [isControlled, onSelectionChange],
   );
 
   const contextValue = useMemo<AreaChartContextValue>(
@@ -466,13 +473,27 @@ type TooltipProps = {
   roundness?: TooltipRoundness; // border-radius of the tooltip
   defaultIndex?: number; // data index shown by default with no hover
   cursor?: boolean; // whether the vertical cursor line follows the pointer
+  // Formats the tooltip's heading (the x value), e.g. a raw bucket → a date.
+  labelFormatter?: ComponentProps<typeof ChartTooltipContent>["labelFormatter"];
+  // Formats each row's numeric value, e.g. raw ms → "1.70s".
+  valueFormatter?: ComponentProps<typeof ChartTooltipContent>["valueFormatter"];
+  // Lists the rows in reverse series order (top series first).
+  reverse?: ComponentProps<typeof ChartTooltipContent>["reverse"];
 };
 
 /**
  * The hover tooltip. Reads the chart's selection from context so its content
  * dims unselected series. Hidden automatically while the chart is loading.
  */
-export function Tooltip({ variant, roundness, defaultIndex, cursor = true }: TooltipProps) {
+export function Tooltip({
+  variant,
+  roundness,
+  defaultIndex,
+  cursor = true,
+  labelFormatter,
+  valueFormatter,
+  reverse,
+}: TooltipProps) {
   const { isLoading, selectedDataKey } = useAreaChart();
 
   if (isLoading) return null;
@@ -482,7 +503,14 @@ export function Tooltip({ variant, roundness, defaultIndex, cursor = true }: Too
       defaultIndex={defaultIndex}
       cursor={cursor ? { strokeDasharray: "3 3", strokeWidth: STROKE_WIDTH } : false}
       content={
-        <ChartTooltipContent selected={selectedDataKey} roundness={roundness} variant={variant} />
+        <ChartTooltipContent
+          selected={selectedDataKey}
+          roundness={roundness}
+          variant={variant}
+          labelFormatter={labelFormatter}
+          valueFormatter={valueFormatter}
+          reverse={reverse}
+        />
       }
     />
   );

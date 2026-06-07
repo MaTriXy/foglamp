@@ -95,6 +95,10 @@ export const spanSchema = z
     input: z.string().max(MAX_PAYLOAD_CHARS).optional(),
     output: z.string().max(MAX_PAYLOAD_CHARS).optional(),
 
+    // JSON catalog of tools the model was offered for this call (name →
+    // {description, JSON-Schema params}). Stamped on llm + agent spans only.
+    toolCatalog: z.string().max(MAX_PAYLOAD_CHARS).optional(),
+
     // Span-level metadata, merged over the trace-level map (span wins).
     metadata: metadataSchema.optional(),
   })

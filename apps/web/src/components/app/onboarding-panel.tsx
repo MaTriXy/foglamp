@@ -1,31 +1,34 @@
 "use client";
 
 import {
-  IconCircleCheckFilled,
-  IconCopyFilled,
-  IconSparkles,
+  IconBoltFilled,
+  IconBookFilled,
+  IconClipboardCheckFilled,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
-  CardContent,
+  CardAction,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from "@foglamp/ui/components/input-group";
 import { useEffect, useRef, useState } from "react";
 
+import { CopyIcon } from "@/components/app/copy-icon";
 import { useProject } from "@/components/app/project-context";
 import { trpc } from "@/utils/trpc";
 
-const DOCS_URL = "https://docs.foglamp.dev/ai-instrument";
+const DOCS_URL = "https://docs.foglamp.dev/quickstart";
 const KEY_NAME = "Onboarding";
+
+// A soft rainbow gradient ring: a 1px gradient-filled wrapper that the opaque
+// card sits inside, so only the thin border shows the rainbow. The conic
+// gradient rotates slowly via the registered --rainbow-angle property.
+const RAINBOW_RING =
+  "rounded-3xl corner-squircle p-px animate-rainbow-spin bg-[conic-gradient(from_var(--rainbow-angle),rgba(244,114,182,0.55),rgba(167,139,250,0.55),rgba(96,165,250,0.55),rgba(110,231,183,0.55),rgba(253,224,71,0.55),rgba(252,165,165,0.55),rgba(244,114,182,0.55))]";
 
 // The prompt a user pastes into their coding agent. The key is inlined so it's
 // truly paste-and-go; the agent fetches the docs and wires the SDK against the
@@ -59,8 +62,10 @@ export function OnboardingPanel() {
   const createKey = useMutation(
     trpc.projects.keys.create.mutationOptions({
       onSuccess: () =>
-        void qc.invalidateQueries({ queryKey: trpc.projects.keys.list.queryKey() }),
-    }),
+        void qc.invalidateQueries({
+          queryKey: trpc.projects.keys.list.queryKey(),
+        }),
+    })
   );
   const deleteKey = useMutation(trpc.projects.keys.delete.mutationOptions({}));
 
@@ -91,67 +96,65 @@ export function OnboardingPanel() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <IconSparkles className="size-5 text-fuchsia-500" />
-          Get your first trace
-        </CardTitle>
-        <CardDescription>
-          Paste this into your coding agent (Claude Code, Cursor, …). It installs
-          the SDK and instruments your app — including your agents and workflows.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {prompt ? (
-          <InputGroup>
-            <InputGroupTextarea
-              readOnly
-              value={prompt}
-              rows={9}
-              className="font-mono text-xs"
-            />
-            <InputGroupAddon align="inline-end">
-              <Button size="icon-sm" variant="ghost" onClick={copy} aria-label="Copy prompt">
-                {copied ? <IconCircleCheckFilled /> : <IconCopyFilled />}
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className={RAINBOW_RING}>
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-[6px]">
+              <IconClipboardCheckFilled className="size-4" />
+              Prompt
+            </CardTitle>
+            <CardDescription>
+              Paste this into your coding agent to install and wire up the SDK.
+            </CardDescription>
+            <CardAction className="self-center">
+              {prompt ? (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={copy}
+                  aria-label="Copy prompt"
+                >
+                  <CopyIcon
+                    copied={copied}
+                    checkClassName="text-green-400 dark:text-green-600"
+                  />
+                  Copy the prompt
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Preparing your key…
+                </p>
+              )}
+            </CardAction>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className={RAINBOW_RING}>
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-[6px]">
+              <IconBookFilled className="size-4" />
+              Old School
+            </CardTitle>
+            <CardDescription>
+              Prefer to wire it up by hand? Follow the full instrumentation
+              guide.
+            </CardDescription>
+            <CardAction className="self-center">
+              <Button
+                size="sm"
+                variant="secondary"
+                render={<a href={DOCS_URL} target="_blank" rel="noreferrer" />}
+              >
+                <IconExternalLink />
+                View the docs
               </Button>
-            </InputGroupAddon>
-          </InputGroup>
-        ) : (
-          <p className="text-sm text-muted-foreground">Preparing your key…</p>
-        )}
-
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fuchsia-500 opacity-75" />
-            <span className="relative inline-flex size-2 rounded-full bg-fuchsia-500" />
-          </span>
-          Waiting for your first trace… this page updates automatically.
-        </div>
-
-        <details className="text-sm text-muted-foreground">
-          <summary className="cursor-pointer">Prefer to do it manually?</summary>
-          <pre className="mt-2 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {`npm i foglamp
-# .env
-FOGLAMP_API_KEY=${revealedKey ?? "fl_…"}
-
-import { foglamp } from "foglamp";
-const fog = foglamp();
-
-await generateText({
-  model,
-  prompt,
-  telemetry: {
-    integrations: [fog.integration({ agentName: "my-agent" })],
-  },
-});`}
-          </pre>
-          <a href={DOCS_URL} className="underline" target="_blank" rel="noreferrer">
-            Full instrumentation guide →
-          </a>
-        </details>
-      </CardContent>
-    </Card>
+            </CardAction>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
   );
 }

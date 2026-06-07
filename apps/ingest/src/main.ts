@@ -29,11 +29,11 @@ const boot = createLogger({ service: "ingest", phase: "boot" });
 // --- Boot: ClickHouse client, schema, retention, pricing warmup -----------
 const client = createClickHouseClient(await clickHouseConfigFromEnv());
 const applied = await runMigrations(client);
-await applySpansRetention(client, env.FOGLAMP_SPANS_RETENTION_DAYS);
+await applySpansRetention(client);
 // Prime the pricing cache so the first requests don't all race the fetch. Never
 // throws; an empty table just means early spans land with null cost.
 void getPricingTable();
-boot.emit({ migrationsApplied: applied, retentionDays: env.FOGLAMP_SPANS_RETENTION_DAYS });
+boot.emit({ migrationsApplied: applied });
 
 const buffer = new WriteBuffer(client, {
   intervalMs: env.INGEST_FLUSH_INTERVAL_MS,

@@ -23,6 +23,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@foglamp/ui/components/empty";
+import { Kbd } from "@foglamp/ui/components/kbd";
 import { TextShimmerLoader } from "@foglamp/ui/components/loader";
 import { cn } from "@foglamp/ui/lib/utils";
 
@@ -52,12 +53,22 @@ const SUGGESTIONS = [
 // exactly this much room, so the chat reads as carved out of the same canvas.
 const PANEL_WIDTH = 384;
 
+// Shared layoutId-driven morph for the Foggy icon + label. The launcher's
+// "Ask Foggy" button and the open panel's header render the same icon/label
+// under these ids, so motion tweens them from the carved corner into the header
+// (and back) instead of one popping out as the other fades in. Eased to match
+// the panel's width animation so the badge travels in step with the reveal.
+const MORPH = { duration: 0.2, ease: [0.32, 0.72, 0, 1] } as const;
+const FOGGY_ICON_ID = "foggy-badge-icon";
+const FOGGY_LABEL_ID = "foggy-badge-label";
+const FOGGY_KBD_ID = "foggy-badge-kbd";
+
 // Geometry of the notch carved into the inset's top-right corner. The inset's
 // top edge drops vertically to a flat shelf where the button sits. The SVG is
 // anchored to the inset's corner (its bottom-right is the inset corner); units
 // are px. Tweak `w`/`floor` to resize the shelf (a larger `floor` leaves more
 // gap below the button before the inset content begins).
-const NOTCH = { w: 138, h: 77, floor: 43 };
+const NOTCH = { w: 165, h: 77, floor: 43 };
 
 // The cut's inset-facing boundary: a short stub left along the top edge (to
 // overlap the inset's edge), a rounded turn into a vertical drop, a rounded
@@ -80,6 +91,30 @@ const NOTCH_FILL = `M 0 0 q 12 0 12 12 V ${NOTCH.floor - 12} q 0 12 12 12 L ${NO
  * shelf. Anchored at the inset's corner (`right-2 top-2` ≈ the inset's `m-2`).
  */
 export function FoggyLauncher({ onOpen }: { onOpen: () => void }) {
+  // Press "f" to open. The launcher is only mounted while the panel is closed
+  // (and a project exists), so listening here is naturally scoped to when the
+  // shortcut should fire. We flash the kbd "pressed" first, then open on the
+  // press-down's completion — the layout morph then captures the scaled-down
+  // box, so the key pops back up as it flies into the header.
+  const [pressed, setPressed] = useState(false);
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "f" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t?.isContentEditable ||
+        t?.tagName === "INPUT" ||
+        t?.tagName === "TEXTAREA" ||
+        t?.tagName === "SELECT"
+      )
+        return;
+      e.preventDefault();
+      setPressed(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div
       // Anchor on the inset's box-shadow edge, which sits at a different offset
@@ -137,25 +172,47 @@ export function FoggyLauncher({ onOpen }: { onOpen: () => void }) {
           strokeWidth="1"
         />
       </svg>
-      {/* Only the button animates back in — the carved shelf stays put. Hold
-          off after the chat closes: wait for the panel's 0.25s close to finish,
-          then a beat more, so the button fades in rather than popping into the
-          corner the instant the panel is dismissed. */}
-      <motion.div
-        className="pointer-events-auto absolute right-2 top-1"
-        initial={{ opacity: 0, x: 4 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.15, delay: 0.1, ease: "easeOut" }}
-      >
+      {/* The carved shelf stays put; the badge inside shares its icon/label
+          layoutId with the open panel's header, so on open it flies up into the
+          header and on close it travels back down to the shelf. A bare opacity
+          fade covers the first appearance (page load), where there's no header
+          to morph from. */}
+      <motion.div className="pointer-events-auto absolute right-2 top-1">
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpen}
           aria-label="Ask Foggy"
-          className="rounded-sm h-8"
+          className="rounded-sm h-8 pl-2 active:scale-100"
         >
-          <IconPacmanFilled className="size-4 text-[#0090FD]" />
-          Ask Foggy
+          <motion.span
+            layoutId={FOGGY_ICON_ID}
+            transition={MORPH}
+            className="inline-flex"
+          >
+            <IconPacmanFilled className="size-4 text-[#0090FD]" />
+          </motion.span>
+          <motion.span layoutId={FOGGY_LABEL_ID} transition={MORPH}>
+            Ask Foggy
+          </motion.span>
+          <motion.span
+            layoutId={FOGGY_KBD_ID}
+            transition={MORPH}
+            className="ml-0.5 inline-flex"
+          >
+            {/* Inner span owns the press transform so it doesn't fight the
+                layout morph on the parent. On press-down complete we open. */}
+            <motion.span
+              className="inline-flex origin-center"
+              animate={pressed ? { scale: 0.78, y: 1.5 } : { scale: 1, y: 0 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
+              onAnimationComplete={() => {
+                if (pressed) onOpen();
+              }}
+            >
+              <Kbd className="text-[10px] dark:bg-card">F</Kbd>
+            </motion.span>
+          </motion.span>
         </Button>
       </motion.div>
     </div>
@@ -222,6 +279,16 @@ export function FoggyWidget({
     });
   }, [messages, busy]);
 
+  // Focus the composer when the panel opens so the user can type right away.
+  // Wait out the 0.25s width animation — focusing while the panel is still
+  // sliding in scrolls the textarea into view and fights the transition.
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 260);
+    return () => clearTimeout(t);
+  }, [open]);
+
   function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
@@ -245,12 +312,28 @@ export function FoggyWidget({
         style={{ width: PANEL_WIDTH }}
       >
         <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
-          {/* Unmount instantly on close (rather than animating out with the
-              panel) so the icon + name vanish the moment the tab is closed. */}
+          {/* The icon + label + kbd share their layoutId with the launcher
+              badge, so on close they travel back down to the carved shelf rather
+              than vanishing in place. */}
           {open && (
             <div className="flex items-center gap-2 pl-1 text-sm font-medium">
-              <IconPacmanFilled className="size-4 text-[#0090FD]" />
-              Foggy
+              <motion.span
+                layoutId={FOGGY_ICON_ID}
+                transition={MORPH}
+                className="inline-flex"
+              >
+                <IconPacmanFilled className="size-4 text-[#0090FD]" />
+              </motion.span>
+              <motion.span layoutId={FOGGY_LABEL_ID} transition={MORPH}>
+                Ask Foggy
+              </motion.span>
+              <motion.span
+                layoutId={FOGGY_KBD_ID}
+                transition={MORPH}
+                className="inline-flex"
+              >
+                <Kbd className="text-[10px] dark:bg-card">F</Kbd>
+              </motion.span>
             </div>
           )}
           <div className="flex items-center gap-1">
@@ -276,14 +359,18 @@ export function FoggyWidget({
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* Keep the button slot mounted (fixed icon-sm size) so the header
+                row doesn't reflow on close; only the icon drops, so the X
+                vanishes the instant close is clicked without a layout flick. */}
             <Button
               type="button"
               size="icon-sm"
               variant="ghost"
               onClick={() => onOpenChange(false)}
               aria-label="Close"
+              className="active:ring-0"
             >
-              <IconX className="size-4" />
+              {open && <IconX className="size-4" />}
             </Button>
           </div>
         </div>
@@ -350,7 +437,7 @@ export function FoggyWidget({
               ) : (
                 <motion.div
                   key="messages"
-                  className="flex flex-col gap-6"
+                  className="flex flex-col gap-6 pb-8"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -395,6 +482,7 @@ export function FoggyWidget({
           className="relative flex items-end gap-2 p-1 pt-0"
         >
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

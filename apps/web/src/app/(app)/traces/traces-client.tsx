@@ -4,6 +4,7 @@ import { Badge } from "@foglamp/ui/components/badge";
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -17,15 +18,31 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@foglamp/ui/components/tooltip";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAffiliateFilled,
   IconAlertTriangle,
+  IconAlertTriangleFilled,
+  IconCheck,
+  IconCheckFilled,
+  IconClockFilled,
+  IconCoinFilled,
   IconGhost,
+  IconMessage2Filled,
+  IconSitemap,
+  IconSitemapFilled,
+  IconTimeline,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import {
   ClearFiltersButton,
@@ -38,12 +55,16 @@ import {
   useDelayedLoading,
   useTableSort,
 } from "@/components/app/data-table";
+import { AgentIcon } from "@/components/app/agent-icon";
 import {
   EmptyState,
   NoProject,
   PageHeader,
+  StatCard,
   TableSkeleton,
 } from "@/components/app/page-parts";
+import { navItem } from "@/components/app/nav";
+import { CopyIcon } from "@/components/app/copy-icon";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
@@ -51,6 +72,7 @@ import {
   formatCost,
   formatCount,
   formatDuration,
+  formatPercent,
   formatRelative,
   formatTokens,
 } from "@/lib/format";
@@ -59,6 +81,91 @@ import { trpc } from "@/utils/trpc";
 const PAGE_SIZE = 25;
 
 type TraceSortKey = "when" | "cost" | "duration" | "tokens" | "spans";
+
+/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
+ * Always keeps the first/last page and the current page ±1 in view, e.g.
+ * `1 … 4 5 6 … 20`. */
+function pageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const middle: number[] = [];
+  for (
+    let i = Math.max(2, current - 1);
+    i <= Math.min(total - 1, current + 1);
+    i++
+  ) {
+    middle.push(i);
+  }
+  const out: (number | "ellipsis")[] = [1];
+  if (middle[0] > 2) out.push("ellipsis");
+  out.push(...middle);
+  if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
+  out.push(total);
+  return out;
+}
+
+// Human label for the active sort, shown in the toolbar summary.
+const SORT_LABELS: Record<TraceSortKey, string> = {
+  when: "time",
+  cost: "cost",
+  duration: "duration",
+  tokens: "tokens",
+  spans: "spans",
+};
+
+// Heatmap: tint cost and duration by each trace's percentile within the whole
+// (filtered) result set — not just this page. The API returns global quintile
+// thresholds; a traffic-light scale runs green (cheapest/fastest 20%) → yellow →
+// red (priciest/slowest 20%), so each shade holds ~1/5 of traces regardless of
+// skew. Light uses 600 / dark uses 400 for contrast. Literal classes so Tailwind
+// keeps them.
+const HEAT_SHADES = [
+  "text-green-600 dark:text-green-400",
+  "text-yellow-600 dark:text-yellow-400",
+  "text-amber-600 dark:text-amber-400",
+  "text-orange-600 dark:text-orange-400",
+  "text-red-600 dark:text-red-400",
+] as const;
+
+// Labels for the five quintile buckets, shown in the cost/duration cell tooltip.
+const PCT_RANGE = [
+  "0–20th",
+  "20–40th",
+  "40–60th",
+  "60–80th",
+  "80–100th",
+] as const;
+
+/** Which quintile bucket (0..4) `value` falls in against the global `thresholds`
+ * (the 20/40/60/80th percentiles). null when there's nothing to place. */
+function percentileBucket(
+  value: number | null | undefined,
+  thresholds: number[]
+) {
+  if (!value || value <= 0 || thresholds.length === 0) return null;
+  // Bucket = how many thresholds the value exceeds (0..thresholds.length).
+  let i = 0;
+  for (const t of thresholds) if (value > t) i += 1;
+  return Math.min(i, HEAT_SHADES.length - 1);
+}
+
+/** Tooltip copy for a bucketed cell, e.g. "80–100th percentile by cost · priciest". */
+function percentileTip(bucket: number, metric: "cost" | "duration") {
+  const extreme =
+    metric === "cost"
+      ? bucket === 0
+        ? " · cheapest"
+        : bucket === 4
+          ? " · priciest"
+          : ""
+      : bucket === 0
+        ? " · fastest"
+        : bucket === 4
+          ? " · slowest"
+          : "";
+  return `${PCT_RANGE[bucket]} percentile by ${metric}${extreme}`;
+}
 
 export function TracesClient() {
   const { projectId } = useProject();
@@ -69,20 +176,44 @@ export function TracesClient() {
   // Filters + sorting (applied server-side across the full result set).
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState("");
+  const [workflowFilter, setWorkflowFilter] = useState("");
   const [errorsOnly, setErrorsOnly] = useState(false);
   const { sort, toggle } = useTableSort<TraceSortKey>();
   const debouncedSearch = useDebouncedValue(search);
-  const hasFilters = !!(debouncedSearch.trim() || agentFilter || errorsOnly);
+  const hasFilters = !!(
+    debouncedSearch.trim() ||
+    agentFilter ||
+    workflowFilter ||
+    errorsOnly
+  );
 
   // Reset to the first page when the project, range, filters, or sort change.
   useEffect(
     () => setPage(0),
-    [projectId, range, debouncedSearch, agentFilter, errorsOnly, sort]
+    [
+      projectId,
+      range,
+      debouncedSearch,
+      agentFilter,
+      workflowFilter,
+      errorsOnly,
+      sort,
+    ]
   );
 
   // Agent names for the filter dropdown.
   const agentsList = useQuery({
-    ...trpc.agents.list.queryOptions({
+    ...trpc.agents.names.queryOptions({
+      projectId: projectId!,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+    }),
+    enabled: !!projectId,
+  });
+
+  // Workflow names for the filter dropdown.
+  const workflowsList = useQuery({
+    ...trpc.workflows.names.queryOptions({
       projectId: projectId!,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
@@ -96,6 +227,7 @@ export function TracesClient() {
       from: range.from.toISOString(),
       to: range.to.toISOString(),
       agentName: agentFilter || undefined,
+      workflowName: workflowFilter || undefined,
       traceName: debouncedSearch.trim() || undefined,
       errorsOnly: errorsOnly || undefined,
       sort: sort ? { field: sort.key, dir: sort.dir } : undefined,
@@ -112,28 +244,53 @@ export function TracesClient() {
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Traces" />
+        <PageHeader
+          title="Traces"
+          icon={navItem("/traces")?.icon}
+          iconClassName={navItem("/traces")?.iconClassName}
+        />
         <NoProject />
       </>
     );
   }
 
-  const rows = traces.data ?? [];
-  const hasMore = rows.length === PAGE_SIZE;
-  const agentOptions = (agentsList.data ?? []).map((a) => ({
-    value: a.agentName,
-    label: a.agentName,
-    icon: IconGhost,
+  const rows = traces.data?.traces ?? [];
+  const costQuantiles = traces.data?.costQuantiles ?? [];
+  const durationQuantiles = traces.data?.durationQuantiles ?? [];
+  const summary = traces.data?.summary;
+  // Total pages from the filtered count (all pages), so we can render numbered
+  // page links. Falls back to "at least the current page" before the count loads.
+  const totalPages = Math.max(
+    page + 1,
+    Math.ceil((summary?.traceCount ?? 0) / PAGE_SIZE) || 1
+  );
+  const currentPage = page + 1;
+  const pages = pageWindow(currentPage, totalPages);
+  const agentOptions = (agentsList.data ?? []).map((name) => ({
+    value: name,
+    label: name,
+    icon: (p: { className?: string }) => (
+      <AgentIcon name={name} className={p.className} />
+    ),
+  }));
+  const workflowOptions = (workflowsList.data ?? []).map((name) => ({
+    value: name,
+    label: name,
+    icon: IconSitemapFilled,
   }));
 
   return (
     <>
       <PageHeader
         title="Traces"
+        icon={navItem("/traces")?.icon}
+        iconClassName={navItem("/traces")?.iconClassName}
         description="Each trace is one top-level generateText / streamText call."
       />
       {traces.isLoading ? (
-        showSkeleton ? <TableSkeleton /> : null
+        showSkeleton ? (
+          <TableSkeleton />
+        ) : null
       ) : rows.length === 0 && page === 0 && !hasFilters ? (
         <EmptyState
           icon={IconAffiliateFilled}
@@ -142,6 +299,48 @@ export function TracesClient() {
         />
       ) : (
         <div className="flex flex-col gap-4">
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard
+              icon={IconAffiliateFilled}
+              iconClassName="text-[#c9a888] dark:text-[#8b5e34]"
+              size="sm"
+              label="Traces"
+              value={formatCount(summary?.traceCount ?? 0)}
+            />
+            <StatCard
+              icon={IconAlertTriangleFilled}
+              iconClassName="text-rose-300 dark:text-rose-700"
+              size="sm"
+              label="Errored traces"
+              value={
+                <>
+                  {formatCount(summary?.errorTraceCount ?? 0)}
+                  {summary?.traceCount ? (
+                    <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                      {formatPercent(
+                        summary.errorTraceCount / summary.traceCount
+                      )}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
+            <StatCard
+              icon={IconClockFilled}
+              iconClassName="text-sky-300 dark:text-sky-700"
+              size="sm"
+              label="Duration p95"
+              value={formatDuration(summary?.durationP95 ?? 0)}
+            />
+            <StatCard
+              icon={IconCoinFilled}
+              iconClassName="text-yellow-300 dark:text-yellow-600"
+              size="sm"
+              label="Total cost"
+              value={formatCost(summary?.totalCost ?? 0)}
+            />
+          </section>
+
           <Toolbar>
             <SearchInput
               value={search}
@@ -155,6 +354,13 @@ export function TracesClient() {
               icon={IconGhost}
               options={agentOptions}
             />
+            <FilterSelect
+              value={workflowFilter}
+              onChange={setWorkflowFilter}
+              allLabel="Any workflow"
+              icon={IconSitemap}
+              options={workflowOptions}
+            />
             <ToggleChip
               active={errorsOnly}
               onClick={() => setErrorsOnly((v) => !v)}
@@ -163,14 +369,19 @@ export function TracesClient() {
               Errors only
             </ToggleChip>
             <ClearFiltersButton
-              show={!!(search || agentFilter || errorsOnly)}
+              show={!!(search || agentFilter || workflowFilter || errorsOnly)}
               onClick={() => {
                 setSearch("");
                 setAgentFilter("");
+                setWorkflowFilter("");
                 setErrorsOnly(false);
               }}
             />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden whitespace-nowrap text-sm text-muted-foreground/50 tabular-nums sm:inline">
+                {formatCount(summary?.traceCount ?? 0)}{" "}
+                {(summary?.traceCount ?? 0) === 1 ? "trace" : "traces"}
+              </span>
               <RangePicker value={range} onChange={setRange} />
             </div>
           </Toolbar>
@@ -183,106 +394,190 @@ export function TracesClient() {
             />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-fit">Trace</TableHead>
-                    <TableHead>Name</TableHead>
-                    <SortableHead
-                      sortKey="spans"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-28"
-                    >
-                      Spans
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="tokens"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-28"
-                    >
-                      Tokens
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="duration"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-32"
-                    >
-                      Duration
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="cost"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-36"
-                    >
-                      Cost
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="when"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-32"
-                    >
-                      When
-                    </SortableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((t) => (
-                    <TableRow
-                      key={t.traceId}
-                      interactive
-                      onClick={() =>
-                        router.push(`/traces/${encodeURIComponent(t.traceId)}`)
-                      }
-                    >
-                      <TableCell className="font-mono text-xs text-muted-foreground w-fit">
-                        <div className="flex items-center gap-0">
-                          {t.traceId.slice(0, 48)}
-                          {t.errorCount > 0 && (
-                            <Badge variant="rose" className="ml-auto font-sans">
-                              <IconAlertTriangle />
-                              {t.errorCount}
-                              {t.errorCount === 1 ? "error" : "errors"}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{t.traceName ?? t.agentName ?? "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCount(t.spanCount)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatTokens(t.totalTokens)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatDuration(t.durationMs)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">
-                        {formatCost(t.totalCost)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatRelative(t.startTime)}
-                      </TableCell>
+              <TooltipProvider delay={150}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Trace</TableHead>
+                      <SortableHead
+                        sortKey="spans"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-28"
+                      >
+                        Spans
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="tokens"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-28"
+                      >
+                        Tokens
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="duration"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-32"
+                      >
+                        Duration
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="cost"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-36"
+                      >
+                        Cost
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="when"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-32"
+                      >
+                        When
+                      </SortableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((t) => (
+                      <TableRow
+                        key={t.traceId}
+                        interactive
+                        onClick={() =>
+                          router.push(
+                            `/traces/${encodeURIComponent(t.traceId)}`
+                          )
+                        }
+                        className={cn(
+                          // Left accent bar on errored traces — scannable at a glance.
+                          t.errorCount > 0 &&
+                            "shadow-[inset_1px_0_0_0_var(--color-rose-500)]"
+                        )}
+                      >
+                        <TableCell>
+                          <div className="min-w-0 flex justify-between items-center">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-medium">
+                                  {t.traceName ??
+                                    t.agentName ??
+                                    "Untitled trace"}
+                                </span>
+                              </div>
+                              <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                                <div className="flex items-center">
+                                  <span className="truncate font-mono text-[10px] max-w-36">
+                                    {t.traceId}
+                                  </span>
+
+                                  <CopyIdButton id={t.traceId} />
+                                </div>
+                                {t.sessionId && (
+                                  <Link
+                                    href={`/sessions/${encodeURIComponent(
+                                      t.sessionId
+                                    )}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="View session"
+                                    className="inline-flex shrink-0 items-center gap-1 transition-colors hover:text-foreground cursor-pointer"
+                                  >
+                                    <IconMessage2Filled className="size-3 text-sky-500" />
+                                    Session
+                                  </Link>
+                                )}
+                                {t.agentName && (
+                                  <Link
+                                    href={`/agents/${encodeURIComponent(
+                                      t.agentName
+                                    )}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="View agent"
+                                    className="inline-flex min-w-0 shrink items-center gap-1 transition-colors hover:text-foreground"
+                                  >
+                                    <AgentIcon
+                                      name={t.agentName}
+                                      className="size-3 shrink-0"
+                                    />
+                                    <span className="truncate">
+                                      {t.agentName}
+                                    </span>
+                                  </Link>
+                                )}
+                                {t.workflowName && (
+                                  <Link
+                                    href={`/workflows/${encodeURIComponent(
+                                      t.workflowName
+                                    )}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="View workflow"
+                                    className="inline-flex min-w-0 shrink items-center gap-1 transition-colors hover:text-foreground"
+                                  >
+                                    <IconSitemapFilled className="size-3 shrink-0 text-emerald-500" />
+                                    <span className="truncate">
+                                      {t.workflowName}
+                                    </span>
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                            {t.errorCount > 0 && (
+                              <Badge
+                                variant="rose"
+                                className="shrink-0 font-sans"
+                              >
+                                <IconAlertTriangle />
+                                {t.errorCount}
+                                {t.errorCount === 1 ? "error" : "errors"}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCount(t.spanCount)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatTokens(t.totalTokens)}
+                        </TableCell>
+                        <HeatCell
+                          value={t.durationMs}
+                          thresholds={durationQuantiles}
+                          metric="duration"
+                        >
+                          {formatDuration(t.durationMs)}
+                        </HeatCell>
+                        <HeatCell
+                          value={t.totalCost}
+                          thresholds={costQuantiles}
+                          metric="cost"
+                          bold
+                        >
+                          {formatCost(t.totalCost)}
+                        </HeatCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatRelative(t.startTime)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
 
               <div className="flex items-center justify-between px-1">
-                <p className="text-sm text-muted-foreground/50 tabular-nums">
+                <span className="text-sm text-muted-foreground/50 tabular-nums">
                   {rows.length > 0
-                    ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
+                    ? `Showing ${page * PAGE_SIZE + 1}–${
+                        page * PAGE_SIZE + rows.length
+                      } of ${formatCount(summary?.traceCount ?? 0)}`
                     : "No more traces"}
-                </p>
+                </span>
                 <Pagination className="mx-0 w-auto justify-end">
                   <PaginationContent>
                     <PaginationItem>
@@ -295,14 +590,33 @@ export function TracesClient() {
                         onClick={() => setPage((p) => Math.max(0, p - 1))}
                       />
                     </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink isActive>{page + 1}</PaginationLink>
-                    </PaginationItem>
+                    {pages.map((p, i) =>
+                      p === "ellipsis" ? (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: positional separator
+                        <PaginationItem key={`ellipsis-${i}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={p}>
+                          <PaginationLink
+                            isActive={p === currentPage}
+                            className={cn(
+                              traces.isFetching && "pointer-events-none"
+                            )}
+                            onClick={() => setPage(p - 1)}
+                          >
+                            {p}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
                     <PaginationItem>
                       <PaginationNext
-                        aria-disabled={!hasMore || traces.isFetching}
+                        aria-disabled={
+                          currentPage >= totalPages || traces.isFetching
+                        }
                         className={cn(
-                          (!hasMore || traces.isFetching) &&
+                          (currentPage >= totalPages || traces.isFetching) &&
                             "pointer-events-none opacity-50"
                         )}
                         onClick={() => setPage((p) => p + 1)}
@@ -316,5 +630,73 @@ export function TracesClient() {
         </div>
       )}
     </>
+  );
+}
+
+/** A right-aligned numeric cell tinted by its percentile bucket, with a tooltip
+ * naming the bucket (e.g. "60–80th percentile by cost"). Unbucketed values
+ * (null cost, zero duration) render plain — muted for unpriced cost. */
+function HeatCell({
+  value,
+  thresholds,
+  metric,
+  bold,
+  children,
+}: {
+  value: number | null | undefined;
+  thresholds: number[];
+  metric: "cost" | "duration";
+  bold?: boolean;
+  children: ReactNode;
+}) {
+  const bucket = percentileBucket(value, thresholds);
+  const className = cn(
+    "text-right tabular-nums",
+    bold && "font-medium",
+    value == null
+      ? "text-muted-foreground/40"
+      : bucket != null && HEAT_SHADES[bucket]
+  );
+  if (bucket == null) {
+    return <TableCell className={className}>{children}</TableCell>;
+  }
+  return (
+    <TableCell className={className}>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="cursor-default" />}
+          // The row navigates on click; let the trigger ignore clicks so a
+          // mis-aimed tap on the number still opens the trace.
+        >
+          {children}
+        </TooltipTrigger>
+        <TooltipContent>{percentileTip(bucket, metric)}</TooltipContent>
+      </Tooltip>
+    </TableCell>
+  );
+}
+
+/** Copy a trace id to the clipboard, with a brief check-mark confirmation.
+ * Stops propagation so it doesn't trigger the row's navigate-on-click. */
+function CopyIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title="Copy trace ID"
+      onClick={(e) => {
+        e.stopPropagation();
+        void navigator.clipboard.writeText(id);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="inline-flex shrink-0 items-center justify-center rounded p-0.5 text-muted-foreground/50 cursor-pointer transition-colors hover:text-foreground"
+    >
+      <CopyIcon
+        copied={copied}
+        className="size-3"
+        checkClassName="size-3 text-green-600 dark:text-green-400"
+      />
+    </button>
   );
 }

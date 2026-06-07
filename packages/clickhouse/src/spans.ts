@@ -51,6 +51,7 @@ export type SpanRow = {
   metadata: Record<string, string>;
   input: string;
   output: string;
+  tool_catalog: string; // JSON catalog of tools offered to the model (llm/agent spans)
 };
 
 /** Format epoch milliseconds as a ClickHouse DateTime64(3) literal (UTC). */

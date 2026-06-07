@@ -73,8 +73,10 @@ FOGLAMP_INGEST_URL=http://your-host:4000/ingest
 
 ## Operations
 
-- **Retention** — `FOGLAMP_SPANS_RETENTION_DAYS` (default 30) is applied via
-  `ALTER TABLE … MODIFY TTL` on boot. Change it and restart to adjust.
+- **Retention** — span retention is plan-driven: each span is stamped with a
+  `retention_days` value at ingest (from the org's plan) and a per-row TTL
+  expires it automatically. Hosts running with billing off keep spans
+  effectively forever.
 - **Pricing** — model prices come from the OpenRouter models API, cached and
   refreshed every 24h. For air-gapped hosts, supply a local JSON file with
   `FOGLAMP_PRICING_FILE`.

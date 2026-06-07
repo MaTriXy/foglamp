@@ -4,8 +4,6 @@ import {
   IconAffiliateFilled,
   IconAlertTriangle,
   IconAlertTriangleFilled,
-  IconBriefcase,
-  IconBriefcaseFilled,
   IconCoin,
   IconCoinFilled,
   IconGauge,
@@ -14,12 +12,14 @@ import {
   IconGhostFilled,
   IconKey,
   IconKeyFilled,
+  IconLock,
+  IconLockFilled,
   IconMessage2,
   IconMessage2Filled,
   IconMichelinStar,
   IconMichelinStarFilled,
-  IconShieldLock,
-  IconShieldLockFilled,
+  IconSettings,
+  IconSettingsFilled,
   IconSitemap,
   IconSitemapFilled,
 } from "@tabler/icons-react";
@@ -70,20 +70,20 @@ export const nav: NavItem[] = [
       "bg-sky-100 dark:bg-sky-950 rounded-xl p-0.5 corner-squircle text-sky-500 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.14),0_2px_6px_-2px_rgba(14,165,233,0.25)] dark:shadow-(--custom-shadow)",
   },
   {
-    href: "/evals",
-    label: "Evals",
-    icon: IconGauge,
-    activeIcon: IconGaugeFilled,
-    iconClassName:
-      "bg-fuchsia-100 dark:bg-fuchsia-950 rounded-xl p-0.5 corner-squircle text-fuchsia-500 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.14),0_2px_6px_-2px_rgba(217,70,239,0.25)] dark:shadow-(--custom-shadow)",
-  },
-  {
     href: "/traces",
     label: "Traces",
     icon: IconAffiliate,
     activeIcon: IconAffiliateFilled,
     iconClassName:
       "bg-[#ede0d4] dark:bg-[#2e211b] rounded-xl p-0.5 corner-squircle text-[#8b5e34] dark:text-[#c9a888] shadow-[inset_0_0_0_1px_rgba(139,94,52,0.14),0_2px_6px_-2px_rgba(139,94,52,0.25)] dark:shadow-(--custom-shadow)",
+  },
+  {
+    href: "/evals",
+    label: "Evals",
+    icon: IconGauge,
+    activeIcon: IconGaugeFilled,
+    iconClassName:
+      "bg-fuchsia-100 dark:bg-fuchsia-950 rounded-xl p-0.5 corner-squircle text-fuchsia-500 shadow-[inset_0_0_0_1px_rgba(217,70,239,0.14),0_2px_6px_-2px_rgba(217,70,239,0.25)] dark:shadow-(--custom-shadow)",
   },
 
   {
@@ -107,15 +107,15 @@ export const account: NavItem[] = [
   {
     href: "/settings/provider-keys",
     label: "Provider Keys",
-    icon: IconShieldLock,
-    activeIcon: IconShieldLockFilled,
+    icon: IconLock,
+    activeIcon: IconLockFilled,
     iconClassName: "dark:text-neutral-500 text-neutral-400",
   },
   {
     href: "/settings/org",
-    label: "Organization",
-    icon: IconBriefcase,
-    activeIcon: IconBriefcaseFilled,
+    label: "Settings",
+    icon: IconSettings,
+    activeIcon: IconSettingsFilled,
     iconClassName: "dark:text-neutral-500 text-neutral-400",
   },
   {

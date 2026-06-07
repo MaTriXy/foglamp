@@ -101,6 +101,7 @@ export function buildSpanRows(args: {
         metadata: { ...traceMeta, ...(span.metadata ?? {}) },
         input: span.input ?? "",
         output: span.output ?? "",
+        tool_catalog: span.toolCatalog ?? "",
       });
     }
   }

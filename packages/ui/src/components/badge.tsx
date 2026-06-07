@@ -21,9 +21,11 @@ const badgeVariants = cva(
         blue: "bg-blue-500/10 text-blue-700 shadow-[var(--custom-shadow-blue)] focus-visible:ring-blue-500/20 dark:bg-blue-500/15 dark:text-blue-300 dark:focus-visible:ring-blue-500/40 [a]:hover:bg-blue-500/20",
         amber:
           "bg-amber-500/10 text-amber-700 shadow-[var(--custom-shadow-amber)] focus-visible:ring-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300 dark:focus-visible:ring-amber-500/40 [a]:hover:bg-amber-500/20",
+        orange:
+          "bg-orange-500/10 text-orange-700 shadow-[var(--custom-shadow-orange)] focus-visible:ring-orange-500/20 dark:bg-orange-500/15 dark:text-orange-300 dark:focus-visible:ring-orange-500/40 [a]:hover:bg-orange-500/20",
         emerald:
           "bg-emerald-500/10 text-emerald-700 shadow-[var(--custom-shadow-emerald)] focus-visible:ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:focus-visible:ring-emerald-500/40 [a]:hover:bg-emerald-500/20",
-        rose: "bg-rose-500/10 text-rose-700 shadow-[var(--custom-shadow-rose)] focus-visible:ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:focus-visible:ring-rose-500/40 [a]:hover:bg-rose-500/20",
+        rose: "bg-rose-500/10 text-rose-700 shadow-[var(--custom-shadow-rose)] focus-visible:ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-400 dark:focus-visible:ring-rose-500/40 [a]:hover:bg-rose-500/20",
         violet:
           "bg-violet-500/10 text-violet-700 shadow-[var(--custom-shadow-violet)] focus-visible:ring-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300 dark:focus-visible:ring-violet-500/40 [a]:hover:bg-violet-500/20",
         outline:

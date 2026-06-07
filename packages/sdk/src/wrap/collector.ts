@@ -1,7 +1,7 @@
 import { uuidv7 } from "uuidv7";
 
 import { extractWebSearchCount } from "../providerUsage";
-import { coerceMetadata, serialize } from "../serialize";
+import { coerceMetadata, serialize, toolCatalogJson } from "../serialize";
 import type { Transport } from "../transport";
 import type { IntegrationContext, ResolvedConfig } from "../types";
 import type { Span, Trace, Usage } from "../wire";
@@ -111,6 +111,8 @@ export class WrapCollector {
   private endTime = this.startTime;
 
   private readonly rootInput: string | undefined;
+  // JSON catalog of tools offered to the model; stamped on every llm + root span.
+  private readonly toolCatalog: string | undefined;
   private finalOutput: string | undefined;
   private error: string | undefined;
   private provider: string | undefined;
@@ -132,7 +134,13 @@ export class WrapCollector {
     transport: Transport,
     config: ResolvedConfig,
     context: IntegrationContext,
-    init: { operation: string; provider?: string; modelId?: string; promptRaw?: unknown },
+    init: {
+      operation: string;
+      provider?: string;
+      modelId?: string;
+      promptRaw?: unknown;
+      toolsRaw?: unknown;
+    },
   ) {
     this.transport = transport;
     this.config = config;
@@ -142,6 +150,9 @@ export class WrapCollector {
     this.modelId = init.modelId;
     this.rootInput = config.recordInputs
       ? serialize(init.promptRaw, config.maxPayloadChars)
+      : undefined;
+    this.toolCatalog = config.recordInputs
+      ? toolCatalogJson(init.toolsRaw, config.maxPayloadChars)
       : undefined;
   }
 
@@ -332,6 +343,7 @@ export class WrapCollector {
       output: this.config.recordOutputs
         ? serialize(s.output, this.config.maxPayloadChars)
         : undefined,
+      toolCatalog: this.toolCatalog,
       metadata,
     });
     if (end > this.endTime) this.endTime = end;
@@ -383,6 +395,7 @@ export class WrapCollector {
       modelId: this.modelId,
       input: this.rootInput,
       output: this.finalOutput,
+      toolCatalog: this.toolCatalog,
     };
 
     let spans = [root, ...this.spans];

@@ -14,6 +14,7 @@ export const tracesRouter = router({
         // Filters.
         agentName: z.string().optional(),
         traceName: z.string().optional(),
+        workflowName: z.string().optional(),
         errorsOnly: z.boolean().optional(),
         sort: z
           .object({

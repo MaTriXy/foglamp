@@ -34,6 +34,9 @@ export function formatTps(value: number | null | undefined): string {
 /** Milliseconds → human duration (µs/ms/s/m/h/d). */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms)) return "—";
+  // Exact zero reads as "0s" (not "0µs") everywhere — e.g. latency axes anchored
+  // at the origin.
+  if (ms === 0) return "0s";
   if (ms < 1) return `${Math.round(ms * 1000)}µs`;
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(2)}s`;
@@ -68,6 +71,8 @@ export function formatDateTime(value: string | Date | null | undefined): string 
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    // Always 24-hour, regardless of the viewer's locale default.
+    hour12: false,
   });
 }
 

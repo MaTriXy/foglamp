@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "../index";
 import {
   createEval,
   deleteEval,
+  getEvalScore,
   getEvalTimeseries,
   getTraceScores,
   listEvals,
@@ -40,9 +41,15 @@ export const evalsRouter = router({
   presets: protectedProcedure.query(() => listPresets()),
 
   list: protectedProcedure
-    .input(z.object({ projectId: z.string() }))
+    .input(
+      z.object({
+        projectId: z.string(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }),
+    )
     .query(({ ctx, input }) =>
-      listEvals(ctx.db, ctx.session.user.id, input.projectId),
+      listEvals(ctx.db, ctx.ch, ctx.session.user.id, input),
     ),
 
   create: protectedProcedure
@@ -87,7 +94,15 @@ export const evalsRouter = router({
     ),
 
   recentScores: protectedProcedure
-    .input(z.object({ evalId: z.string(), limit: z.number().int().min(1).max(200).optional() }))
+    .input(
+      z.object({
+        evalId: z.string(),
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+      }),
+    )
     .query(({ ctx, input }) =>
       listRecentScores(ctx.db, ctx.ch, ctx.session.user.id, input),
     ),
@@ -96,5 +111,11 @@ export const evalsRouter = router({
     .input(z.object({ projectId: z.string(), traceId: z.string() }))
     .query(({ ctx, input }) =>
       getTraceScores(ctx.db, ctx.ch, ctx.session.user.id, input),
+    ),
+
+  score: protectedProcedure
+    .input(z.object({ evalId: z.string(), scoreId: z.string() }))
+    .query(({ ctx, input }) =>
+      getEvalScore(ctx.db, ctx.ch, ctx.session.user.id, input),
     ),
 });

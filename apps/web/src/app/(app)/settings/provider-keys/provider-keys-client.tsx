@@ -39,7 +39,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   anthropic: "Anthropic (Claude)",
 };
 // Providers a key can be added for (judge-capable). The saved list shows all.
-const ADDABLE: Provider[] = ["google", "openai"];
+const ADDABLE: Provider[] = ["google", "openai", "anthropic"];
 const ALL_PROVIDERS: Provider[] = ["google", "openai", "anthropic"];
 
 export function ProviderKeysClient() {

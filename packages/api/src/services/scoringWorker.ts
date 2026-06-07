@@ -15,7 +15,7 @@ import {
   type EvalModel,
 } from "@foglamp/db/schema/eval";
 import { env } from "@foglamp/env/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { buildContext, type ContextSpec } from "../evals/context";
 import { runCodeScorer } from "../evals/codeScorers";
@@ -24,6 +24,10 @@ import { getPreset, type Preset } from "../evals/presets";
 import { decryptSecret } from "../lib/crypto";
 import type { Ch, Db, Log } from "../types";
 import type { ScoringTarget, SiblingSpan } from "../evals/types";
+
+// The transaction handle drizzle hands to `db.transaction(async (tx) => …)`.
+// Derived from Db so it tracks the schema without importing drizzle internals.
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 // The scoring worker: the eval-side sibling of the alert evaluator. Each sweep
 // finds new traces/spans matching each enabled eval (since its watermark),
@@ -112,35 +116,74 @@ async function scoreOneEval(
     return;
   }
 
-  const filters = (ev.filters ?? {}) as EvalFilters;
+  const filters = { ...(ev.filters ?? {}) } as EvalFilters;
+  // Scope tool presets to tool spans unless the eval set its own span-type
+  // filter — otherwise they'd fire on every span (e.g. flagging an LLM span's
+  // message-array input as "not a JSON object").
+  if (preset.spanType && !filters.spanType) filters.spanType = preset.spanType;
   const sampleRate = Number(ev.sampleRate);
-  const candidates = await queryEvalCandidates(ch, {
-    projectId: ev.projectId,
-    level: ev.targetLevel,
-    filters,
-    since: toClickHouseDateTime64(since.getTime()),
-    until: toClickHouseDateTime64(until.getTime()),
-    sampleThousandths: Math.max(0, Math.min(1000, Math.round(sampleRate * 1000))),
-    limit: env.EVAL_SCORING_BATCH,
+
+  // Claim the [since, newWatermark) window before any judge call. The worker
+  // has no cross-process lock — the `running` guard in scoringCron is per-process
+  // only — so multiple instances (replicas, or dev hot-reloads each firing an
+  // immediate tick) read the same watermark, build the same batch, and each one
+  // independently calls (and pays for) the judge. Scores collapse in storage
+  // (ReplacingMergeTree on score_id), so the redundant work was invisible except
+  // as wasted spend: the "2 spans → 84 LLM calls" blowup.
+  //
+  // Two layers, both inside one short Postgres transaction that never spans an
+  // LLM call:
+  //   1. A per-eval advisory lock (fast path). A concurrent sweep that can't grab
+  //      it bails immediately — skipping even the candidate read. The lock is
+  //      transaction-scoped so the pool can't unlock it on the wrong connection,
+  //      and it auto-releases at commit, well before scoring.
+  //   2. A compare-and-swap on the watermark (correctness). Even if two sweeps
+  //      somehow both reach the CAS, only one advances the watermark and wins.
+  // Trade-off: the watermark moves before scores are written, so a hard crash
+  // mid-sweep skips that window rather than risk re-scoring (and re-billing) it.
+  const claim = await db.transaction(async (tx) => {
+    const lock = await tx.execute<{ locked: boolean }>(
+      sql`SELECT pg_try_advisory_xact_lock(hashtext(${ev.id})) AS locked`,
+    );
+    if (!lock.rows[0]?.locked) return null;
+
+    const candidates = await queryEvalCandidates(ch, {
+      projectId: ev.projectId,
+      level: ev.targetLevel,
+      filters,
+      since: toClickHouseDateTime64(since.getTime()),
+      until: toClickHouseDateTime64(until.getTime()),
+      sampleThousandths: Math.max(0, Math.min(1000, Math.round(sampleRate * 1000))),
+      limit: env.EVAL_SCORING_BATCH,
+    });
+
+    // When the batch is capped, trim trailing rows that share the last row's
+    // ingested_at so we never end mid-millisecond: the watermark lands on a clean
+    // boundary and strict `ingested_at > watermark` re-fetches the trimmed ties
+    // next sweep — no skipped spans, no re-scored (re-judged) spans. If the whole
+    // batch is one millisecond (pathological), score it all and advance past it.
+    let batch = candidates;
+    let newWatermark = until;
+    if (candidates.length === env.EVAL_SCORING_BATCH) {
+      const lastTs = candidates[candidates.length - 1]!.ingested_at;
+      const trimmed = candidates.filter((c) => c.ingested_at !== lastTs);
+      if (trimmed.length > 0) {
+        batch = trimmed;
+        newWatermark = new Date(trimmed[trimmed.length - 1]!.ingested_at + "Z");
+      } else {
+        newWatermark = new Date(lastTs + "Z");
+      }
+    }
+
+    if (!(await claimScoringWindow(tx, ev.id, since, newWatermark))) return null;
+    return { batch };
   });
 
-  // When the batch is capped, trim trailing rows that share the last row's
-  // ingested_at so we never end mid-millisecond: the watermark lands on a clean
-  // boundary and strict `ingested_at > watermark` re-fetches the trimmed ties
-  // next sweep — no skipped spans, no re-scored (re-judged) spans. If the whole
-  // batch is one millisecond (pathological), score it all and advance past it.
-  let batch = candidates;
-  let newWatermark = until;
-  if (candidates.length === env.EVAL_SCORING_BATCH) {
-    const lastTs = candidates[candidates.length - 1]!.ingested_at;
-    const trimmed = candidates.filter((c) => c.ingested_at !== lastTs);
-    if (trimmed.length > 0) {
-      batch = trimmed;
-      newWatermark = new Date(trimmed[trimmed.length - 1]!.ingested_at + "Z");
-    } else {
-      newWatermark = new Date(lastTs + "Z");
-    }
+  if (!claim) {
+    log.info("eval.sweep_skipped_concurrent", { evalId: ev.id, since });
+    return;
   }
+  const { batch } = claim;
 
   if (batch.length > 0) {
     const config = (ev.config ?? {}) as EvalConfig;
@@ -156,15 +199,21 @@ async function scoreOneEval(
         try {
           const target = await buildTarget(ch, ev, c, preset, siblingCache);
           const extracted = buildContext(target, preset, contextSpec);
-          const { result, cost } =
+          const { result, cost, truncated } =
             preset.source === "code"
-              ? { result: runCodeScorer(preset.id, extracted, params), cost: null }
+              ? {
+                  result: runCodeScorer(preset.id, extracted, params),
+                  cost: null,
+                  truncated: false,
+                }
               : await runJudge({
                   provider: model!.provider,
                   apiKey: apiKey!,
                   modelId: model!.modelId,
                   preset,
                   extracted,
+                  maxInputChars: env.EVAL_JUDGE_MAX_INPUT_CHARS,
+                  promptOverride: config.promptOverride,
                 });
           return {
             project_id: ev.projectId,
@@ -177,7 +226,9 @@ async function scoreOneEval(
             label: "",
             score: result.score,
             passed: toScore(result.passed),
-            reason: result.reason,
+            reason: truncated
+              ? `[judged on truncated payload] ${result.reason}`
+              : result.reason,
             model_id: preset.source === "llm" ? model!.modelId : "",
             cost,
             scored_at: now,
@@ -196,7 +247,7 @@ async function scoreOneEval(
     await insertScores(ch, results.filter((r): r is ScoreRow => r !== null));
   }
 
-  await setState(db, ev.id, newWatermark, "ok", null);
+  // Watermark was already advanced by the claim above — no second write here.
   log.info("eval.scored", { evalId: ev.id, scored: batch.length });
 }
 
@@ -208,7 +259,7 @@ async function buildTarget(
   siblingCache: Map<string, SiblingSpan[]>,
 ): Promise<ScoringTarget> {
   let siblings: SiblingSpan[] = [];
-  if (preset.needsContext) {
+  if (preset.needsContext || preset.needsTools) {
     siblings = siblingCache.get(c.trace_id) ?? [];
     if (!siblingCache.has(c.trace_id)) {
       const rows = await queryTraceSiblings(ch, {
@@ -220,6 +271,7 @@ async function buildTarget(
         spanType: r.span_type,
         output: r.output,
         startTimeMs: r.start_time_ms,
+        toolCatalog: r.tool_catalog,
       }));
       siblingCache.set(c.trace_id, siblings);
     }
@@ -235,6 +287,43 @@ async function buildTarget(
     metadata: c.metadata ?? {},
     siblings,
   };
+}
+
+/**
+ * Atomically advance the watermark from its observed value (`since`) to
+ * `newWatermark`, claiming the window for this sweep. Returns false when a
+ * concurrent sweep already advanced it — the caller then skips scoring and makes
+ * zero judge calls. This is the worker's only cross-process mutual exclusion:
+ * a single conditional UPDATE, serialized by Postgres row locking.
+ *
+ * The compare is `date_trunc('milliseconds', watermark) = since` rather than a
+ * plain equality because `eval_state.watermark` defaults to `now()` (microsecond
+ * precision) while every value we read/write round-trips through a JS `Date`
+ * (millisecond precision). A raw `=` would never match a microsecond-tailed
+ * default, silently wedging the eval so it never scores.
+ */
+async function claimScoringWindow(
+  db: Db | Tx,
+  evalId: string,
+  since: Date,
+  newWatermark: Date,
+): Promise<boolean> {
+  const claimed = await db
+    .update(evalState)
+    .set({
+      watermark: newWatermark,
+      status: "ok",
+      lastError: null,
+      lastScoredAt: new Date(),
+    })
+    .where(
+      and(
+        eq(evalState.evalId, evalId),
+        sql`date_trunc('milliseconds', ${evalState.watermark}) = ${since}`,
+      ),
+    )
+    .returning({ evalId: evalState.evalId });
+  return claimed.length > 0;
 }
 
 async function setState(

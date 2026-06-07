@@ -37,6 +37,7 @@ import {
 	IconGhost,
 	IconMailFilled,
 	IconRefresh,
+	IconRocket,
 	IconSend2,
 	IconSparkles,
 	IconTimeline,
@@ -58,7 +59,7 @@ import { trpc } from "@/utils/trpc";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-type Kind = "bare" | "agent" | "workflow" | "tool" | "full" | "mega";
+type Kind = "bare" | "agent" | "workflow" | "tool" | "full" | "mega" | "ultra";
 
 const TESTS: {
 	kind: Kind;
@@ -106,6 +107,13 @@ const TESTS: {
 		description:
 			"400+ traces over 2 weeks — long multi-turn conversations, many workflow runs/sessions, tool loops, embeddings, evals, and errors.",
 		icon: IconDatabaseImport,
+	},
+	{
+		kind: "ultra",
+		label: "Ultra dataset",
+		description:
+			"~800 traces over 30 days on the latest frontier models (GPT-5.5, Opus 4.8, Gemini 3.1 Pro) — exercises every span/cost dimension: reasoning tokens, cache read/write, vision, web search, multi-request, tool catalogs, plus a full eval suite and seeded alerts.",
+		icon: IconRocket,
 	},
 ];
 

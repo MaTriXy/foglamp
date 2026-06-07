@@ -26,19 +26,55 @@ async function appliedIds(client: ClickHouseClient): Promise<Set<string>> {
 }
 
 /**
+ * A migration boundary, surfaced to `onProgress` so operators can watch a long
+ * upgrade advance. `index`/`total` count only the *pending* migrations this run
+ * (already-applied ones are skipped before counting), so on a fully-migrated DB
+ * no events fire at all.
+ */
+export type MigrationProgress =
+  | { phase: "start"; id: string; index: number; total: number }
+  | { phase: "done"; id: string; index: number; total: number; statements: number };
+
+export type RunMigrationsOptions = {
+  /** Called at the start and end of each pending migration. */
+  onProgress?: (event: MigrationProgress) => void;
+};
+
+/**
  * Apply all pending DDL migrations in order. Idempotent: previously-applied
  * ids are skipped and every statement is itself IF NOT EXISTS. Safe to call on
  * every ingest boot and from the docker entrypoint.
+ *
+ * Not transactional — ClickHouse has no multi-DDL transaction. An id is
+ * recorded only after *all* of its statements succeed, so a crash mid-migration
+ * leaves that migration un-recorded and the next run retries it from the top;
+ * because every statement is individually idempotent, the already-run prefix is
+ * a no-op. Recovery is therefore resume-by-retry, not rollback. A failing
+ * statement aborts the run with the migration id and statement position, so a
+ * partial upgrade is diagnosable rather than a silent half-state.
  */
-export async function runMigrations(client: ClickHouseClient): Promise<string[]> {
+export async function runMigrations(
+  client: ClickHouseClient,
+  options: RunMigrationsOptions = {},
+): Promise<string[]> {
   await ensureMigrationsTable(client);
   const done = await appliedIds(client);
+  const pending = MIGRATIONS.filter((m) => !done.has(m.id));
   const applied: string[] = [];
 
-  for (const migration of MIGRATIONS) {
-    if (done.has(migration.id)) continue;
-    for (const statement of migration.statements) {
-      await client.command({ query: statement });
+  for (let index = 0; index < pending.length; index++) {
+    const migration = pending[index]!;
+    const total = pending.length;
+    options.onProgress?.({ phase: "start", id: migration.id, index, total });
+    for (let i = 0; i < migration.statements.length; i++) {
+      try {
+        await client.command({ query: migration.statements[i]! });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `migration ${migration.id} failed at statement ${i + 1}/${migration.statements.length}: ${message}`,
+        );
+      }
     }
     await client.insert({
       table: MIGRATIONS_TABLE,
@@ -46,31 +82,27 @@ export async function runMigrations(client: ClickHouseClient): Promise<string[]>
       format: "JSONEachRow",
     });
     applied.push(migration.id);
+    options.onProgress?.({
+      phase: "done",
+      id: migration.id,
+      index,
+      total,
+      statements: migration.statements.length,
+    });
   }
   return applied;
 }
 
 /**
- * Reassert the per-row spans TTL on boot. Retention is now plan-driven via the
+ * Reassert the per-row spans TTL on boot. Retention is plan-driven via the
  * `retention_days` column (stamped at ingest from the org's plan), so the TTL
- * is a column expression rather than a fixed global window. The `days` argument
- * is kept for the call-site signature but only matters as a fallback: <= 0
- * removes the TTL entirely (self-host opting out of retention).
- *
- * Set the spans retention window via ALTER … MODIFY TTL (mutable, online).
- * Called on boot with FOGLAMP_SPANS_RETENTION_DAYS. A value <= 0 removes
- * the TTL (keep forever).
+ * is a column expression rather than a fixed global window. Idempotent — safe
+ * to run on every boot. Self-hosters who want no expiry run with billing off,
+ * which stamps an effectively-infinite retention at ingest.
  */
 export async function applySpansRetention(
   client: ClickHouseClient,
-  days: number,
 ): Promise<void> {
-  // Retention is plan-driven via the per-row `retention_days` column (stamped at
-  // ingest), so this always reasserts the per-row TTL and ignores `days`. We do
-  // NOT honor days<=0 as "remove TTL" anymore — that would wipe every org's
-  // plan-driven retention (a footgun). Self-hosters who want no expiry run with
-  // billing off, which stamps an effectively-infinite retention at ingest.
-  void days;
   await client.command({
     query: `ALTER TABLE spans MODIFY TTL toDateTime(start_time) + toIntervalDay(retention_days)`,
   });

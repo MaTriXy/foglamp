@@ -120,6 +120,7 @@ type EvilLineChartBaseProps<
   curveType?: CurveType; // default curve interpolation for every <Line />
   animationType?: LineAnimationType; // default intro reveal for every <Line />
   defaultSelectedDataKey?: string | null; // series selected on first render
+  selectedDataKey?: string | null; // controlled selected series — drives selection from outside the chart
   onSelectionChange?: (selectedDataKey: string | null) => void; // fires when the selected series changes
   isLoading?: boolean; // shows the animated loading skeleton
   loadingPoints?: number; // number of points in the loading skeleton
@@ -153,6 +154,7 @@ export function EvilLineChart<
   curveType = "linear",
   animationType = "left-to-right",
   defaultSelectedDataKey = null,
+  selectedDataKey: controlledSelectedDataKey,
   onSelectionChange,
   isLoading = false,
   loadingPoints,
@@ -163,19 +165,26 @@ export function EvilLineChart<
   onBrushChange,
 }: EvilLineChartProps<TData, TConfig>) {
   const chartId = useId().replace(/:/g, ""); // colon-free id keeps CSS/SVG selectors valid
-  const [selectedDataKey, setSelectedDataKey] = useState<string | null>(defaultSelectedDataKey);
+  const [internalSelectedDataKey, setInternalSelectedDataKey] =
+    useState<string | null>(defaultSelectedDataKey);
   const { loadingData, onShimmerExit } = useLoadingData(isLoading, loadingPoints);
   const { visibleData, brushProps } = useEvilBrush({ data });
+
+  // Controlled when a `selectedDataKey` prop is passed, otherwise self-managed.
+  const isControlled = controlledSelectedDataKey !== undefined;
+  const selectedDataKey = isControlled
+    ? controlledSelectedDataKey
+    : internalSelectedDataKey;
 
   const displayData = showBrush && !isLoading ? visibleData : data;
 
   // Updates selection state and notifies the parent
   const selectDataKey = useCallback(
     (newSelectedDataKey: string | null) => {
-      setSelectedDataKey(newSelectedDataKey);
+      if (!isControlled) setInternalSelectedDataKey(newSelectedDataKey);
       onSelectionChange?.(newSelectedDataKey);
     },
-    [onSelectionChange],
+    [isControlled, onSelectionChange],
   );
 
   const contextValue = useMemo<LineChartContextValue>(
@@ -451,13 +460,27 @@ type TooltipProps = {
   roundness?: TooltipRoundness; // border-radius of the tooltip
   defaultIndex?: number; // data index shown by default with no hover
   cursor?: boolean; // whether the vertical cursor line follows the pointer
+  // Formats the tooltip's heading (the x value), e.g. a raw bucket → a date.
+  labelFormatter?: ComponentProps<typeof ChartTooltipContent>["labelFormatter"];
+  // Formats each row's numeric value, e.g. raw ms → "1.70s".
+  valueFormatter?: ComponentProps<typeof ChartTooltipContent>["valueFormatter"];
+  // Lists the rows in reverse series order (top series first).
+  reverse?: ComponentProps<typeof ChartTooltipContent>["reverse"];
 };
 
 /**
  * The hover tooltip. Reads the chart's selection from context so its content
  * dims unselected series. Hidden automatically while the chart is loading.
  */
-export function Tooltip({ variant, roundness, defaultIndex, cursor = true }: TooltipProps) {
+export function Tooltip({
+  variant,
+  roundness,
+  defaultIndex,
+  cursor = true,
+  labelFormatter,
+  valueFormatter,
+  reverse,
+}: TooltipProps) {
   const { isLoading, selectedDataKey } = useLineChart();
 
   if (isLoading) return null;
@@ -467,7 +490,14 @@ export function Tooltip({ variant, roundness, defaultIndex, cursor = true }: Too
       defaultIndex={defaultIndex}
       cursor={cursor ? { strokeDasharray: "3 3", strokeWidth: STROKE_WIDTH } : false}
       content={
-        <ChartTooltipContent selected={selectedDataKey} roundness={roundness} variant={variant} />
+        <ChartTooltipContent
+          selected={selectedDataKey}
+          roundness={roundness}
+          variant={variant}
+          labelFormatter={labelFormatter}
+          valueFormatter={valueFormatter}
+          reverse={reverse}
+        />
       }
     />
   );

@@ -1,7 +1,7 @@
 import type { Telemetry } from "ai";
 
 import { extractWebSearchCount } from "./providerUsage";
-import { coerceMetadata, serialize } from "./serialize";
+import { coerceMetadata, serialize, toolCatalogJson } from "./serialize";
 import { Transport } from "./transport";
 import type {
   IntegrationContext,
@@ -36,6 +36,8 @@ interface StartView {
   recordInputs?: boolean;
   recordOutputs?: boolean;
   messages?: unknown;
+  // The tool catalog offered to the model for this call (name → definition).
+  tools?: unknown;
 }
 interface StepStartView {
   callId?: string;
@@ -91,6 +93,9 @@ interface TraceBuilder {
   provider: string | undefined;
   modelId: string | undefined;
   rootInput: string | undefined;
+  // JSON catalog of tools offered to the model (stable across the call); stamped
+  // onto every llm step span and the root agent span.
+  toolCatalog: string | undefined;
   finalOutput: string | undefined;
   error: string | undefined;
   spans: Span[];
@@ -199,6 +204,7 @@ export class Collector implements Telemetry {
         provider: e.provider,
         modelId: e.modelId,
         rootInput: recordInputs ? serialize(e.messages, this.config.maxPayloadChars) : undefined,
+        toolCatalog: recordInputs ? toolCatalogJson(e.tools, this.config.maxPayloadChars) : undefined,
         finalOutput: undefined,
         error: undefined,
         spans: [],
@@ -337,6 +343,7 @@ export class Collector implements Telemetry {
         chunkTokens: chunks?.chunkTokens,
         input: builder.recordInputs ? builder.stepInput.get(e.stepNumber) : undefined,
         output: builder.recordOutputs ? this.stepOutput(e) : undefined,
+        toolCatalog: builder.toolCatalog,
         metadata,
       });
       if (now > builder.endTime) builder.endTime = now;
@@ -484,6 +491,7 @@ export class Collector implements Telemetry {
       modelId: builder.modelId,
       input: builder.rootInput,
       output: builder.finalOutput,
+      toolCatalog: builder.toolCatalog,
     };
 
     let spans = [root, ...builder.spans];

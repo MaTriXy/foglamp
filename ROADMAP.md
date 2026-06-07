@@ -42,7 +42,7 @@ them — a regression suite before deploy.
 A review UI to thumbs/score traces, feeding the eval datasets above.
 Closes the loop between production data and eval ground truth.
 
-### Model recommendations (cost × eval) — _Enterprise-only_
+### Model recommendations (cost × eval) — *Enterprise-only*
 
 "Agent X passes eval Z on a cheaper model — switch and save N%." Join scores ↔
 spans by subject model. Listed on pricing; built on request.
@@ -90,6 +90,13 @@ The chunk-sampling groundwork is already done.
 Aggregate view over `tool` spans: per-tool call volume, p50/p95 latency, error
 rate, cost contribution. Mirrors the Agents/Workflows pages.
 
+### Tool diagnosis (dead & misused tools)
+
+Diff the captured tool catalog against the tools actually called across a
+project's traces: surface tools that are offered but never invoked (dead weight
+in the prompt), and tools the model picks wrongly (low `tool_selection` scores).
+Built on the per-span `tool_catalog` column.
+
 ### Error clustering (Sentry-style)
 
 Group failing traces by error signature into "issues" with counts and trends,
@@ -130,11 +137,6 @@ Slack / Discord / PagerDuty / generic webhook delivery, alongside the existing
 email channel.
 
 ## AI-native (Foggy)
-
-### Natural-language analytics
-
-Give Foggy analytics tools over ClickHouse: "why did costs spike yesterday?",
-"show me the slowest agent this week."
 
 ### Auto-RCA on alerts
 

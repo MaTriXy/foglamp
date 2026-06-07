@@ -12,7 +12,6 @@ import {
 import { TableHead } from "@foglamp/ui/components/table";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
-  type Icon,
   IconArrowDown,
   IconArrowsSort,
   IconArrowUp,
@@ -21,6 +20,7 @@ import {
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  type ComponentType,
   createContext,
   useContext,
   useEffect,
@@ -242,10 +242,14 @@ export function FilterSelect<T extends string>({
   onChange: (value: T | "") => void;
   /** Label for the reset option and the empty-state placeholder, e.g. "Any status". */
   allLabel: string;
-  options: { value: T; label: string; icon?: Icon }[];
+  options: {
+    value: T;
+    label: string;
+    icon?: ComponentType<{ className?: string }>;
+  }[];
   /** Leading icon for the trigger; shown for the "all" state and as the
    * fallback for options that don't define their own. */
-  icon?: Icon;
+  icon?: ComponentType<{ className?: string }>;
   className?: string;
 }) {
   // The trigger leads with the selected option's icon, falling back to the

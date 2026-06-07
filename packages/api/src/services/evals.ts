@@ -1,6 +1,9 @@
 import { getOrgPlan } from "@foglamp/billing";
 import {
   getTraceScores as chGetTraceScores,
+  countEvalScores,
+  evalListSummary,
+  getEvalScore as chGetEvalScore,
   listEvalScores,
   queryScoreTimeseries,
 } from "@foglamp/clickhouse";
@@ -58,33 +61,66 @@ export function listPresets() {
     needsReference: p.needsReference ?? false,
     defaultModel: p.defaultModel ?? null,
     defaultParams: p.defaultParams ?? null,
+    // The judge template, so the edit/create UI can prefill the prompt editor
+    // with the preset default (null for code presets).
+    prompt: p.prompt ?? null,
   }));
 }
 
-export async function listEvals(db: Db, userId: string, projectId: string) {
-  await requireProjectAccess(db, userId, projectId);
-  const rows = await db
-    .select({ ev: evalDefinition, st: evalState })
-    .from(evalDefinition)
-    .leftJoin(evalState, eq(evalState.evalId, evalDefinition.id))
-    .where(eq(evalDefinition.projectId, projectId))
-    .orderBy(desc(evalDefinition.createdAt));
+export async function listEvals(
+  db: Db,
+  ch: Ch,
+  userId: string,
+  input: { projectId: string; from?: Date; to?: Date },
+) {
+  await requireProjectAccess(db, userId, input.projectId);
+  // Definitions (Postgres) + per-eval score rollups for the window (ClickHouse),
+  // in parallel. The rollup feeds the list's scored/pass-rate/avg/spend columns
+  // and stat strip — date-windowed, mirroring the single eval page's cards.
+  const [rows, summaryRows] = await Promise.all([
+    db
+      .select({ ev: evalDefinition, st: evalState })
+      .from(evalDefinition)
+      .leftJoin(evalState, eq(evalState.evalId, evalDefinition.id))
+      .where(eq(evalDefinition.projectId, input.projectId))
+      .orderBy(desc(evalDefinition.createdAt)),
+    input.from && input.to
+      ? evalListSummary(ch, {
+          projectId: input.projectId,
+          from: toCh(input.from),
+          to: toCh(input.to),
+        })
+      : Promise.resolve([]),
+  ]);
 
-  return rows.map(({ ev, st }) => ({
-    id: ev.id,
-    name: ev.name,
-    presetId: ev.presetId,
-    scorerSource: ev.scorerSource,
-    targetLevel: ev.targetLevel,
-    filters: ev.filters ?? null,
-    sampleRate: Number(ev.sampleRate),
-    model: ev.model ?? null,
-    enabled: ev.enabled,
-    status: st?.status ?? "ok",
-    lastScoredAt: st?.lastScoredAt ?? null,
-    lastError: st?.lastError ?? null,
-    createdAt: ev.createdAt,
-  }));
+  const byEval = new Map(summaryRows.map((s) => [s.eval_id, s]));
+
+  return rows.map(({ ev, st }) => {
+    const s = byEval.get(ev.id);
+    const scoreCount = s ? num(s.score_count) : 0;
+    const passCount = s ? num(s.pass_count) : 0;
+    return {
+      id: ev.id,
+      name: ev.name,
+      presetId: ev.presetId,
+      scorerSource: ev.scorerSource,
+      targetLevel: ev.targetLevel,
+      filters: ev.filters ?? null,
+      sampleRate: Number(ev.sampleRate),
+      model: ev.model ?? null,
+      config: ev.config ?? null,
+      enabled: ev.enabled,
+      status: st?.status ?? "ok",
+      lastScoredAt: st?.lastScoredAt ?? null,
+      lastError: st?.lastError ?? null,
+      createdAt: ev.createdAt,
+      // Windowed score metrics (0 / null when the eval didn't score in range).
+      scoreCount,
+      passRate: scoreCount > 0 ? passCount / scoreCount : null,
+      avgScore: s && scoreCount > 0 ? num(s.score_sum) / scoreCount : null,
+      cost: s ? num(s.cost) : 0,
+    };
+  });
 }
 
 export async function createEval(db: Db, userId: string, input: EvalInput) {
@@ -198,15 +234,34 @@ export async function listRecentScores(
   db: Db,
   ch: Ch,
   userId: string,
-  input: { evalId: string; limit?: number },
+  input: {
+    evalId: string;
+    limit?: number;
+    offset?: number;
+    from?: Date;
+    to?: Date;
+  },
 ) {
   const ev = await requireEvalAccess(db, userId, input.evalId);
-  const rows = await listEvalScores(ch, {
-    projectId: ev.projectId,
-    evalId: input.evalId,
-    limit: input.limit,
-  });
-  return rows.map(mapScore);
+  const from = input.from ? toCh(input.from) : undefined;
+  const to = input.to ? toCh(input.to) : undefined;
+  const [rows, total] = await Promise.all([
+    listEvalScores(ch, {
+      projectId: ev.projectId,
+      evalId: input.evalId,
+      limit: input.limit,
+      offset: input.offset,
+      from,
+      to,
+    }),
+    countEvalScores(ch, {
+      projectId: ev.projectId,
+      evalId: input.evalId,
+      from,
+      to,
+    }),
+  ]);
+  return { scores: rows.map(mapScore), total };
 }
 
 /** Scores for a single trace and its spans — for the trace detail view. */
@@ -219,6 +274,23 @@ export async function getTraceScores(
   await requireProjectAccess(db, userId, input.projectId);
   const rows = await chGetTraceScores(ch, input);
   return rows.map(mapScore);
+}
+
+/** A single score by its id — backs the eval-page deep link so a targeted run
+ * renders regardless of the active range or page. */
+export async function getEvalScore(
+  db: Db,
+  ch: Ch,
+  userId: string,
+  input: { evalId: string; scoreId: string },
+) {
+  const ev = await requireEvalAccess(db, userId, input.evalId);
+  const row = await chGetEvalScore(ch, {
+    projectId: ev.projectId,
+    evalId: input.evalId,
+    scoreId: input.scoreId,
+  });
+  return row ? mapScore(row) : null;
 }
 
 function mapScore(s: {

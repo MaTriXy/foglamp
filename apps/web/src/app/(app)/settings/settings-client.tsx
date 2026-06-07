@@ -40,7 +40,6 @@ import {
   IconCheckFilled,
   IconCircleCheckFilled,
   IconCircleXFilled,
-  IconCopyFilled,
   IconKeyFilled,
   IconPlusFilled,
   IconTrashFilled,
@@ -50,6 +49,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { CopyIcon } from "@/components/app/copy-icon";
 import { useDelayedLoading } from "@/components/app/data-table";
 import {
   EmptyState,
@@ -173,11 +173,10 @@ export function SettingsClient() {
                               setTimeout(() => setCopied(false), 2000);
                             }}
                           >
-                            {copied ? (
-                              <IconCircleCheckFilled />
-                            ) : (
-                              <IconCopyFilled />
-                            )}
+                            <CopyIcon
+                              copied={copied}
+                              checkClassName="text-green-600 dark:text-green-400"
+                            />
                           </Button>
                         </InputGroupAddon>
                       </InputGroup>
@@ -238,7 +237,9 @@ export function SettingsClient() {
       ) : (
         <>
           {keys.isLoading ? (
-            showSkeleton ? <TableSkeleton /> : null
+            showSkeleton ? (
+              <TableSkeleton />
+            ) : null
           ) : keyRows.length === 0 ? (
             <EmptyState
               icon={IconKeyFilled}
@@ -258,7 +259,7 @@ export function SettingsClient() {
               </TableHeader>
               <TableBody>
                 {keyRows.map((k) => (
-                  <TableRow key={k.id} className="h-13">
+                  <TableRow key={k.id}>
                     <TableCell className="font-medium">{k.name}</TableCell>
                     <TableCell>
                       <span className="font-mono text-xs text-muted-foreground">
@@ -283,11 +284,11 @@ export function SettingsClient() {
                         addSuffix: true,
                       })}
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" className="py-0">
                       {!k.revokedAt && (
                         <Button
-                          size="icon-sm"
-                          variant="ghost"
+                          variant="ghost-destructive"
+                          className="size-7"
                           onClick={() => {
                             lastRevokeName.current = k.name;
                             setRevokeTarget({ id: k.id, name: k.name });

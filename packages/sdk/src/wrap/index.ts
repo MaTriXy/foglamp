@@ -145,6 +145,10 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
       provider,
       modelId,
       promptRaw: clean.prompt ?? clean.messages,
+      // Capture the catalog from the original tool defs — `newCollector` runs
+      // before `clean.tools` is replaced by `wrapTools` (which only swaps
+      // `execute`, leaving descriptions/schemas intact either way).
+      toolsRaw: clean.tools,
     });
   };
 

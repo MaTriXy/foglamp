@@ -41,6 +41,17 @@ export function resolveRange(from?: Date, to?: Date): { from: Date; to: Date } {
   return { from: start, to: end };
 }
 
+/** Bucket width (seconds) for ~50 points across the window, snapped to a
+ * friendly interval (1m … 1d) so bucket edges land on round times. Keeps the
+ * time-series charts readable instead of one noisy point per minute. */
+export function pickBucketSec(windowMs: number): number {
+  const target = windowMs / 1000 / 50;
+  const steps = [
+    60, 120, 300, 600, 900, 1800, 3600, 7200, 10_800, 21_600, 43_200, 86_400,
+  ];
+  return steps.find((s) => s >= target) ?? 86_400;
+}
+
 // --- Numeric coercion ------------------------------------------------------
 // ClickHouse returns UInt64/Decimal as strings in JSONEachRow. Parse for DTOs;
 // display precision is sufficient for the dashboard.

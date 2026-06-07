@@ -16,7 +16,6 @@ import {
   runMigrations,
 } from "@foglamp/clickhouse";
 import { db } from "@foglamp/db";
-import { env } from "@foglamp/env/server";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -29,11 +28,15 @@ console.log("✓ Postgres migrations applied");
 
 console.log("▶ ClickHouse: applying DDL migrations + retention…");
 const ch = createClickHouseClient(await clickHouseConfigFromEnv());
-const applied = await runMigrations(ch);
-await applySpansRetention(ch, env.FOGLAMP_SPANS_RETENTION_DAYS);
+const applied = await runMigrations(ch, {
+  onProgress: (e) => {
+    if (e.phase === "start") console.log(`  • ${e.id} (${e.index + 1}/${e.total})…`);
+  },
+});
+await applySpansRetention(ch);
 await ch.close();
 console.log(
-  `✓ ClickHouse ready (${applied.length ? `applied ${applied.join(", ")}` : "already up to date"}; retention ${env.FOGLAMP_SPANS_RETENTION_DAYS}d)`,
+  `✓ ClickHouse ready (${applied.length ? `applied ${applied.join(", ")}` : "already up to date"})`,
 );
 
 console.log("▶ Seeding…");

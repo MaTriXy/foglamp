@@ -30,6 +30,8 @@ function ChartTooltipContent({
   labelFormatter,
   labelClassName,
   formatter,
+  valueFormatter,
+  reverse = false,
   nameKey,
   labelKey,
   selected,
@@ -45,6 +47,18 @@ function ChartTooltipContent({
     selected?: string | null;
     roundness?: TooltipRoundness;
     variant?: TooltipVariant;
+    // Formats just the numeric value (the right-hand figure of each row),
+    // leaving the color dot, icon, and label layout intact. Also receives the
+    // full data row, so e.g. a stacked band chart (which plots deltas) can map
+    // back to the absolute value it represents.
+    valueFormatter?: (
+      value: ValueType,
+      dataKey: string,
+      payload: Record<string, unknown>,
+    ) => React.ReactNode;
+    // Lists the rows in reverse payload order (e.g. so a stacked p50/p95/p99
+    // chart reads p99 → p50 top-to-bottom).
+    reverse?: boolean;
   } & Omit<
     RechartsPrimitive.DefaultTooltipContentProps<ValueType, NameType>,
     "accessibilityLayer"
@@ -93,8 +107,10 @@ function ChartTooltipContent({
     >
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
-        {payload
-          .filter((item) => item.type !== "none")
+        {(() => {
+          const rows = payload.filter((item) => item.type !== "none");
+          return reverse ? rows.slice().reverse() : rows;
+        })()
           .map((item, index) => {
             // For pie charts, item.name contains the sector name (e.g., "chrome")
             // For radial charts, the name is in item.payload[nameKey]
@@ -122,22 +138,19 @@ function ChartTooltipContent({
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
                   <>
-                    {itemConfig?.icon ? (
-                      <itemConfig.icon />
-                    ) : (
-                      !hideIndicator && (
-                        <div
-                          className={cn("shrink-0 rounded-[2px]", {
-                            "h-2.5 w-2.5": indicator === "dot",
-                            "w-1": indicator === "line",
-                            "w-0 border-[1.5px] border-dashed bg-transparent!":
-                              indicator === "dashed",
-                            "my-0.5": nestLabel && indicator === "dashed",
-                          })}
-                          style={getIndicatorColorStyle(key, colorsCount)}
-                        />
-                      )
+                    {!hideIndicator && (
+                      <div
+                        className={cn("shrink-0 rounded-[2px]", {
+                          "h-2.5 w-2.5": indicator === "dot",
+                          "w-1": indicator === "line",
+                          "w-0 border-[1.5px] border-dashed bg-transparent!":
+                            indicator === "dashed",
+                          "my-0.5": nestLabel && indicator === "dashed",
+                        })}
+                        style={getIndicatorColorStyle(key, colorsCount)}
+                      />
                     )}
+                    {itemConfig?.icon && <itemConfig.icon />}
                     <div
                       className={cn(
                         "flex flex-1 justify-between gap-4 leading-none",
@@ -152,9 +165,15 @@ function ChartTooltipContent({
                       </div>
                       {item.value != null && (
                         <span className="text-foreground font-mono font-medium tabular-nums">
-                          {typeof item.value === "number"
-                            ? item.value.toLocaleString()
-                            : String(item.value)}
+                          {valueFormatter
+                            ? valueFormatter(
+                                item.value,
+                                key,
+                                (item.payload ?? {}) as Record<string, unknown>,
+                              )
+                            : typeof item.value === "number"
+                              ? item.value.toLocaleString()
+                              : String(item.value)}
                         </span>
                       )}
                     </div>

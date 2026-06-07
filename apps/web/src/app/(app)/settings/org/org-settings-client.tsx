@@ -40,6 +40,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@foglamp/ui/components/tabs";
+import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangleFilled,
   IconFolderFilled,
@@ -96,7 +97,7 @@ export function OrgSettingsClient() {
 
   return (
     <>
-      <PageHeader title="Organization" description={orgName} />
+      <PageHeader title="Settings" description={orgName} />
       <Tabs defaultValue="general" className="gap-6">
         <TabsList variant="line">
           <TabsTrigger value="general">General</TabsTrigger>
@@ -702,11 +703,14 @@ function BillingTab({ orgId }: { orgId: string }) {
 function UsageBar({
   label,
   icon: Icon,
+  iconClassName,
   used,
   limit,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
+  // Tailwind text color matching the nav palette (see app-shell.tsx / nav.ts).
+  iconClassName?: string;
   used: number;
   limit: number | null;
 }) {
@@ -716,7 +720,9 @@ function UsageBar({
     <div className="flex flex-col gap-3.5">
       <div className="flex justify-between text-sm">
         <span className="flex items-center gap-2">
-          <Icon className="size-4 text-muted-foreground" />
+          <Icon
+            className={cn("size-4", iconClassName ?? "text-muted-foreground")}
+          />
           {label}
         </span>
         <span className="tabular-nums text-muted-foreground">
@@ -756,24 +762,28 @@ function UsageTab({ orgId }: { orgId: string }) {
             <UsageBar
               label="Spans this period"
               icon={IconStack2Filled}
+              iconClassName="text-sky-500"
               used={d.spans.used}
               limit={d.spans.limit}
             />
             <UsageBar
               label="Projects"
               icon={IconFolderFilled}
+              iconClassName="text-emerald-500"
               used={d.projects.used}
               limit={d.projects.limit}
             />
             <UsageBar
               label="Alerts"
               icon={IconAlertTriangleFilled}
+              iconClassName="text-yellow-500"
               used={d.alerts.used}
               limit={d.alerts.limit}
             />
             <UsageBar
               label="Evals"
               icon={IconGaugeFilled}
+              iconClassName="text-fuchsia-500"
               used={d.evals.used}
               limit={d.evals.limit}
             />

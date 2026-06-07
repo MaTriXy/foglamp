@@ -7,11 +7,43 @@
 // Only ORDER BY and PARTITION BY are irreversible in ClickHouse. Everything
 // else (columns, skip indexes, MVs, TTL) is an online ALTER — so new migrations
 // append here; existing ones are never edited once shipped.
+//
+// Changing what a materialized view computes is the one sharp edge: an MV only
+// processes rows inserted while it exists, so the old DROP VIEW + CREATE dance
+// loses every span ingested in between (a permanent hole in the aggregate on a
+// live system). Use modifyMaterializedViewQuery() instead — it swaps the SELECT
+// atomically via ALTER TABLE … MODIFY QUERY, with no such window. The first
+// migration, 0005_trace_name, predates this rule and is grandfathered; a unit
+// test (migrate.test.ts) keeps every later migration honest.
 
 export type Migration = {
   id: string;
   statements: string[];
 };
+
+/**
+ * Build the gap-free statement that changes a materialized view's SELECT.
+ *
+ * The naive way to change an MV is DROP VIEW + CREATE MATERIALIZED VIEW, but an
+ * MV only aggregates rows inserted *while it exists*: any span that lands
+ * between the drop and the recreate never reaches the target table. On a live
+ * ingest path that's an unrecoverable gap in the rollup.
+ *
+ * `ALTER TABLE <mv> MODIFY QUERY` swaps the query in place — the MV keeps firing
+ * on every insert and simply starts using the new SELECT. This is the
+ * "contract" half of an expand-contract MV change; the "expand" half is adding
+ * any new columns to the source + target tables first (online, idempotent
+ * `ADD COLUMN IF NOT EXISTS`) so the new SELECT's output already matches the
+ * target's layout. Re-running is harmless: setting the same query twice is a
+ * no-op, which keeps migrations idempotent.
+ */
+export function modifyMaterializedViewQuery(view: string, select: string): string {
+  return `ALTER TABLE ${view} MODIFY QUERY ${select.trim()}`;
+}
+
+// The sole migration permitted to DROP a materialized view — it shipped before
+// the MODIFY QUERY convention. migrate.test.ts asserts nothing newer does.
+export const LEGACY_MV_DROP_MIGRATION = "0005_trace_name";
 
 const DECIMAL = "Decimal(18, 10)";
 const SUMMED_DECIMAL = "Decimal(38, 10)"; // sum() widens precision
@@ -337,6 +369,16 @@ SELECT
 FROM spans
 WHERE org_id != ''
 GROUP BY org_id, day`,
+    ],
+  },
+  {
+    // The tool catalog offered to the model (name → {description, params}),
+    // captured by the SDK and stamped on llm + agent spans. ZSTD-compressed —
+    // the same catalog repeats across a trace's llm spans, so it compresses to
+    // near-nothing. Empty on tool/embedding/other spans.
+    id: "0009_tool_catalog",
+    statements: [
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS tool_catalog String DEFAULT '' CODEC(ZSTD(3))`,
     ],
   },
 ];

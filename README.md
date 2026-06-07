@@ -223,7 +223,6 @@ Backend (`apps/server`, `apps/ingest`) — see [`apps/server/.env.example`](./ap
 | `CLICKHOUSE_URL` / `_USER` / `_PASSWORD` / `_DATABASE` | `localhost:8123` / `default` / — / `foglamp` | ClickHouse connection. |
 | `OPENROUTER_MODELS_URL` | OpenRouter models API | Pricing source (cached, 24h refresh). |
 | `FOGLAMP_PRICING_FILE` | — | Local pricing JSON for air-gapped deploys. |
-| `FOGLAMP_SPANS_RETENTION_DAYS` | `30` | Spans TTL; applied via `ALTER … MODIFY TTL` on boot. |
 | `INGEST_PORT` / `INGEST_FLUSH_INTERVAL_MS` / `INGEST_FLUSH_MAX_ROWS` / `INGEST_RATE_LIMIT_RPS` | `4000` / `1000` / `1000` / `100` | Ingest tuning. |
 | `API_KEY_CACHE_TTL_MS` | `60000` | In-memory API-key cache TTL. |
 | `ALERT_EVAL_INTERVAL_MS` / `ALERT_RENOTIFY_MS` | `60000` / `3600000` | Alert evaluator cadence + re-notify cooldown. |

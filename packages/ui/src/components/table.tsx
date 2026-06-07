@@ -135,7 +135,7 @@ function TableRow({
       onKeyDown={handleKeyDown}
       className={cn(
         "border-b dark:border-[#1E1E1E] border-[#EBEBEB] data-[state=selected]:bg-muted has-aria-expanded:bg-muted/50",
-        "data-interactive:cursor-pointer data-interactive:hover:bg-muted/50 data-interactive:outline-none data-interactive:focus-visible:bg-muted/50 data-interactive:focus-visible:ring-[1.5px] data-interactive:focus-visible:ring-inset data-interactive:focus-visible:ring-ring/50",
+        "data-interactive:cursor-pointer data-interactive:hover:[&>td]:border-neutral-200  data-interactive:dark:hover:[&>td]:border-neutral-800 data-interactive:hover:bg-muted/50 data-interactive:outline-none data-interactive:focus-visible:bg-muted/50 data-interactive:focus-visible:ring-[1.5px] data-interactive:focus-visible:ring-inset data-interactive:focus-visible:ring-ring/50",
         className
       )}
       {...props}

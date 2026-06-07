@@ -1,8 +1,8 @@
 "use client";
 
-import { IconPlayerPlayFilled } from "@tabler/icons-react";
 import { Badge } from "@foglamp/ui/components/badge";
 import { Button } from "@foglamp/ui/components/button";
+import { Skeleton } from "@foglamp/ui/components/skeleton";
 
 import { cn } from "@/lib/utils";
 import { formatDateTime, formatDuration } from "@/lib/format";
@@ -28,17 +28,14 @@ export type FlowNode = {
  * A horizontal flow of nodes — icon boxes joined by lines, with a status-coloured
  * pill and timestamp under each. Used for a workflow run's agent steps and an
  * agent trace's LLM/tool steps. Scrolls horizontally when it overflows. When
- * `onNodeClick` is given, the icon/label area is a button; `onNodeReplay` adds a
- * separate ▶ control under each node (kept a sibling so buttons never nest).
+ * `onNodeClick` is given, the icon/label area is a button.
  */
 export function NodeFlow({
   nodes,
   onNodeClick,
-  onNodeReplay,
 }: {
   nodes: FlowNode[];
   onNodeClick?: (id: string) => void;
-  onNodeReplay?: (id: string) => void;
 }) {
   if (nodes.length === 0) return null;
   return (
@@ -52,19 +49,25 @@ export function NodeFlow({
                   boxes read as joined regardless of horizontal scroll. */}
               <div className="relative flex w-full items-center justify-center">
                 {i > 0 && (
-                  <div className="absolute top-1/2 right-1/2 left-0 h-px -translate-y-1/2 bg-border" />
+                  <div className="absolute top-1/2 right-1/2 -left-1 h-px -translate-y-1/2 bg-border" />
                 )}
                 {i < nodes.length - 1 && (
-                  <div className="absolute top-1/2 right-0 left-1/2 h-px -translate-y-1/2 bg-border" />
+                  <div className="absolute top-1/2 -right-1 left-1/2 h-px -translate-y-1/2 bg-border" />
                 )}
-                <div className="relative flex size-12 items-center justify-center rounded-xl border bg-background shadow-(--custom-shadow)">
+                <div
+                  className={cn(
+                    "relative flex size-12 items-center dark:text-emerald-600 text-emerald-400 justify-center rounded-3xl corner-squircle border dark:bg-background bg-neutral-50",
+                    node.status === "error" &&
+                      "border-rose-500/40 dark:text-rose-600 text-rose-400"
+                  )}
+                >
                   {node.icon}
                 </div>
               </div>
 
               <Badge
                 variant={node.status === "error" ? "rose" : "emerald"}
-                className="max-w-full"
+                className="max-w-full mt-0.5"
               >
                 <span className="truncate">{node.label}</span>
               </Badge>
@@ -75,10 +78,11 @@ export function NodeFlow({
                 </span>
               )}
 
-              <span className="text-center text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-center text-[10px] text-muted-foreground/70 tabular-nums mt-0.5">
                 {formatDateTime(node.timestamp)}
+                <br />
                 {node.durationMs != null && (
-                  <> · {formatDuration(node.durationMs)}</>
+                  <>{formatDuration(node.durationMs)}</>
                 )}
               </span>
             </>
@@ -92,27 +96,57 @@ export function NodeFlow({
                 <button
                   type="button"
                   onClick={() => onNodeClick(node.id)}
-                  className={cn(inner, "rounded-lg py-1 hover:bg-accent/50")}
+                  className={cn(
+                    inner,
+                    "rounded-lg py-1 hover:bg-accent/50 cursor-pointer"
+                  )}
                 >
                   {column}
                 </button>
               ) : (
                 <div className={inner}>{column}</div>
               )}
-              {onNodeReplay && (
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label="Replay trace"
-                  onClick={() => onNodeReplay(node.id)}
-                >
-                  <IconPlayerPlayFilled />
-                </Button>
-              )}
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Loading placeholder shaped like {@link NodeFlow} — same column width, icon
+ * box, connector lines, pill, and timestamp — so swapping it in for a loading
+ * run doesn't shift the layout or flicker the card height. `count` should track
+ * the run's trace count when known so the skeleton's width roughly matches the
+ * flow that's about to replace it.
+ */
+export function NodeFlowSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="flex w-max min-w-full items-start">
+        {Array.from({ length: Math.max(1, count) }, (_, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length placeholder
+            key={i}
+            className="flex w-32 shrink-0 flex-col items-center gap-2 px-1 py-1"
+          >
+            <div className="relative flex w-full items-center justify-center">
+              {i > 0 && (
+                <div className="absolute top-1/2 right-1/2 -left-1 h-px -translate-y-1/2 bg-border" />
+              )}
+              {i < count - 1 && (
+                <div className="absolute top-1/2 -right-1 left-1/2 h-px -translate-y-1/2 bg-border" />
+              )}
+              <div className="relative flex size-12 items-center justify-center rounded-xl border bg-background shadow-(--custom-shadow)">
+                <Skeleton className="size-5 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="h-5.5 w-20 rounded-md mt-0.5" />
+            <Skeleton className="h-3 w-16 rounded-sm" />
+            <Skeleton className="h-1.5 w-8 rounded-sm mt-0.5" />
+          </div>
+        ))}
       </div>
     </div>
   );

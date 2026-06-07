@@ -8,7 +8,12 @@ import {
   queryProjectSummary,
 } from "@foglamp/clickhouse";
 
-import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
+import {
+  decimalOrNull,
+  num,
+  pickBucketSec,
+  toClickHouseDateTime,
+} from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
 
@@ -36,6 +41,7 @@ export async function getTimeseries(
     projectId: input.projectId,
     from: toClickHouseDateTime(input.from),
     to: toClickHouseDateTime(input.to),
+    bucketSec: pickBucketSec(input.to.getTime() - input.from.getTime()),
     spanType: input.spanType,
     modelId: input.modelId,
     agentName: input.agentName,
@@ -159,6 +165,7 @@ export async function getCostTimeseriesByModel(
     projectId: input.projectId,
     from: toClickHouseDateTime(input.from),
     to: toClickHouseDateTime(input.to),
+    bucketSec: pickBucketSec(input.to.getTime() - input.from.getTime()),
   });
   return rows.map((r) => ({
     bucket: r.bucket,

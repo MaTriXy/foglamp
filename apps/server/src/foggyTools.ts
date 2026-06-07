@@ -51,19 +51,49 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
 
     listTraces: tool({
       description:
-        "List recent traces (one trace = one top-level generateText/streamText call) in a window, newest first. Each row includes a `link` to open it in the dashboard.",
+        "List traces (one trace = one top-level generateText/streamText call) in a window. Newest first by default; filter by agent name, trace name, or errors-only, and sort/paginate. Each row includes a `link` to open it in the dashboard.",
       inputSchema: z.object({
         ...windowInput,
+        agentName: z
+          .string()
+          .optional()
+          .describe("Only traces for this agent (exact match)."),
+        traceName: z
+          .string()
+          .optional()
+          .describe("Only traces with this name (exact match)."),
+        errorsOnly: z
+          .boolean()
+          .optional()
+          .describe("Only traces that had at least one error."),
+        sort: z
+          .object({
+            field: z.enum(["when", "cost", "duration", "tokens", "spans"]),
+            dir: z.enum(["asc", "desc"]),
+          })
+          .optional()
+          .describe("Sort order. Defaults to newest first."),
         limit: z.number().int().min(1).max(50).optional().describe("Default 15."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Rows to skip, for paging. Default 0."),
       }),
-      execute: async ({ from, to, limit }) => {
+      execute: async ({ from, to, agentName, traceName, errorsOnly, sort, limit, offset }) => {
         const w = resolveWindow(from, to);
-        const rows = await getTraceList(db, ch, userId, {
+        const { traces } = await getTraceList(db, ch, userId, {
           projectId,
           ...w,
+          agentName,
+          traceName,
+          errorsOnly,
+          sort,
           limit: limit ?? 15,
+          offset,
         });
-        return rows.map((t) => ({
+        return traces.map((t) => ({
           traceId: t.traceId,
           name: t.traceName ?? t.agentName ?? null,
           workflowName: t.workflowName,
@@ -116,8 +146,8 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
       inputSchema: z.object(windowInput),
       execute: async ({ from, to }) => {
         const w = resolveWindow(from, to);
-        const rows = await getAgentList(db, ch, userId, { projectId, ...w });
-        return rows.map((a) => ({
+        const { agents } = await getAgentList(db, ch, userId, { projectId, ...w });
+        return agents.map((a) => ({
           ...a,
           link: `/agents/${encodeURIComponent(a.agentName)}`,
         }));
@@ -130,8 +160,8 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
       inputSchema: z.object(windowInput),
       execute: async ({ from, to }) => {
         const w = resolveWindow(from, to);
-        const rows = await getWorkflowList(db, ch, userId, { projectId, ...w });
-        return rows.map((wf) => ({
+        const { workflows } = await getWorkflowList(db, ch, userId, { projectId, ...w });
+        return workflows.map((wf) => ({
           ...wf,
           link: wf.workflowName
             ? `/workflows/${encodeURIComponent(wf.workflowName)}`

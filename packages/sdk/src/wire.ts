@@ -45,6 +45,8 @@ export interface Span {
   chunkTokens?: number[];
   input?: string;
   output?: string;
+  /** JSON catalog of tools offered to the model (name → {description, params}). */
+  toolCatalog?: string;
   metadata?: Metadata;
 }
 

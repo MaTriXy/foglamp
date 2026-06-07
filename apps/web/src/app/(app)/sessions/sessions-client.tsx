@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  IconAlertTriangle,
-  IconGhost,
-  IconMessage2Filled,
-} from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { cn } from "@foglamp/ui/lib/utils";
 import { Badge } from "@foglamp/ui/components/badge";
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -24,8 +18,24 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@foglamp/ui/components/tooltip";
+import { cn } from "@foglamp/ui/lib/utils";
+import {
+  IconAlertTriangle,
+  IconAlertTriangleFilled,
+  IconCoinFilled,
+  IconGhost,
+  IconMessage2Filled,
+  IconStack2Filled,
+} from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import {
   ClearFiltersButton,
@@ -38,19 +48,24 @@ import {
   useDelayedLoading,
   useTableSort,
 } from "@/components/app/data-table";
+import { AgentIcon } from "@/components/app/agent-icon";
 import { InstrumentEmptyState } from "@/components/app/instrument-empty-state";
 import {
   EmptyState,
   NoProject,
   PageHeader,
+  StatCard,
   TableSkeleton,
 } from "@/components/app/page-parts";
+import { navItem } from "@/components/app/nav";
+import { CopyIcon } from "@/components/app/copy-icon";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
 import {
   formatCost,
   formatCount,
+  formatPercent,
   formatRelative,
   formatTokens,
 } from "@/lib/format";
@@ -60,13 +75,43 @@ const PAGE_SIZE = 25;
 
 type SessionSortKey = "last" | "cost" | "tokens" | "turns";
 
+/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
+ * Always keeps the first/last page and the current page ±1 in view, e.g.
+ * `1 … 4 5 6 … 20`. */
+function pageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const middle: number[] = [];
+  for (
+    let i = Math.max(2, current - 1);
+    i <= Math.min(total - 1, current + 1);
+    i++
+  ) {
+    middle.push(i);
+  }
+  const out: (number | "ellipsis")[] = [1];
+  if (middle[0] > 2) out.push("ellipsis");
+  out.push(...middle);
+  if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
+  out.push(total);
+  return out;
+}
+
+// Human label for the active sort, shown in the toolbar summary.
+const SORT_LABELS: Record<SessionSortKey, string> = {
+  last: "last activity",
+  cost: "cost",
+  tokens: "tokens",
+  turns: "turns",
+};
+
 // Cost heatmap: tint each session's cost by its percentile within the whole
 // (filtered) result set — not just this page. The API returns global quintile
 // thresholds; a traffic-light scale runs green (cheapest 20%) → yellow → red
 // (priciest 20%), so each shade holds ~1/5 of sessions regardless of skew. Light
-// uses 600 / dark uses 400 for contrast on either background. Literal classes so
-// Tailwind keeps them.
-const COST_SHADES = [
+// uses 600 / dark uses 400 for contrast. Literal classes so Tailwind keeps them.
+const HEAT_SHADES = [
   "text-green-600 dark:text-green-400",
   "text-yellow-600 dark:text-yellow-400",
   "text-amber-600 dark:text-amber-400",
@@ -74,14 +119,33 @@ const COST_SHADES = [
   "text-red-600 dark:text-red-400",
 ] as const;
 
-/** Traffic-light shade for `cost` bucketed against the global quintile
- * `thresholds` (green = cheap → red = pricey). undefined when nothing to scale. */
-function costShade(cost: number | null | undefined, thresholds: number[]) {
-  if (!cost || cost <= 0 || thresholds.length === 0) return undefined;
-  // Bucket = how many thresholds the cost exceeds (0..thresholds.length).
+// Labels for the five quintile buckets, shown in the cost cell tooltip.
+const PCT_RANGE = [
+  "0–20th",
+  "20–40th",
+  "40–60th",
+  "60–80th",
+  "80–100th",
+] as const;
+
+/** Which quintile bucket (0..4) `value` falls in against the global `thresholds`
+ * (the 20/40/60/80th percentiles). null when there's nothing to place. */
+function percentileBucket(
+  value: number | null | undefined,
+  thresholds: number[]
+) {
+  if (!value || value <= 0 || thresholds.length === 0) return null;
+  // Bucket = how many thresholds the value exceeds (0..thresholds.length).
   let i = 0;
-  for (const t of thresholds) if (cost > t) i += 1;
-  return COST_SHADES[Math.min(i, COST_SHADES.length - 1)];
+  for (const t of thresholds) if (value > t) i += 1;
+  return Math.min(i, HEAT_SHADES.length - 1);
+}
+
+/** Tooltip copy for a bucketed cost cell, e.g. "80–100th percentile by cost · priciest". */
+function percentileTip(bucket: number) {
+  const extreme =
+    bucket === 0 ? " · cheapest" : bucket === 4 ? " · priciest" : "";
+  return `${PCT_RANGE[bucket]} percentile by cost${extreme}`;
 }
 
 export function SessionsClient() {
@@ -105,7 +169,7 @@ export function SessionsClient() {
 
   // Agent names for the filter dropdown.
   const agentsList = useQuery({
-    ...trpc.agents.list.queryOptions({
+    ...trpc.agents.names.queryOptions({
       projectId: projectId!,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
@@ -134,26 +198,42 @@ export function SessionsClient() {
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Sessions" />
+        <PageHeader
+          title="Sessions"
+          icon={navItem("/sessions")?.icon}
+          iconClassName={navItem("/sessions")?.iconClassName}
+        />
         <NoProject />
       </>
     );
   }
 
   const rows = sessions.data?.sessions ?? [];
-  const hasMore = rows.length === PAGE_SIZE;
   // Global cost quintile thresholds (from the API) drive the cost heatmap.
   const costQuantiles = sessions.data?.costQuantiles ?? [];
-  const agentOptions = (agentsList.data ?? []).map((a) => ({
-    value: a.agentName,
-    label: a.agentName,
-    icon: IconGhost,
+  const summary = sessions.data?.summary;
+  // Total pages from the filtered count (all pages), so we can render numbered
+  // page links. Falls back to "at least the current page" before the count loads.
+  const totalPages = Math.max(
+    page + 1,
+    Math.ceil((summary?.sessionCount ?? 0) / PAGE_SIZE) || 1
+  );
+  const currentPage = page + 1;
+  const pages = pageWindow(currentPage, totalPages);
+  const agentOptions = (agentsList.data ?? []).map((name) => ({
+    value: name,
+    label: name,
+    icon: (p: { className?: string }) => (
+      <AgentIcon name={name} className={p.className} />
+    ),
   }));
 
   return (
     <>
       <PageHeader
         title="Sessions"
+        icon={navItem("/sessions")?.icon}
+        iconClassName={navItem("/sessions")?.iconClassName}
         description="Multi-turn conversations grouped by sessionId."
       />
       {sessions.isLoading ? (
@@ -169,6 +249,48 @@ export function SessionsClient() {
         />
       ) : (
         <div className="flex flex-col gap-4">
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard
+              icon={IconMessage2Filled}
+              iconClassName="text-sky-300 dark:text-sky-700"
+              size="sm"
+              label="Sessions"
+              value={formatCount(summary?.sessionCount ?? 0)}
+            />
+            <StatCard
+              icon={IconAlertTriangleFilled}
+              iconClassName="text-rose-300 dark:text-rose-700"
+              size="sm"
+              label="Errored sessions"
+              value={
+                <>
+                  {formatCount(summary?.errorSessionCount ?? 0)}
+                  {summary?.sessionCount ? (
+                    <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                      {formatPercent(
+                        summary.errorSessionCount / summary.sessionCount
+                      )}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
+            <StatCard
+              icon={IconStack2Filled}
+              iconClassName="text-fuchsia-300 dark:text-fuchsia-700"
+              size="sm"
+              label="Total tokens"
+              value={formatTokens(summary?.totalTokens ?? 0)}
+            />
+            <StatCard
+              icon={IconCoinFilled}
+              iconClassName="text-yellow-300 dark:text-yellow-600"
+              size="sm"
+              label="Total cost"
+              value={formatCost(summary?.totalCost ?? 0)}
+            />
+          </section>
+
           <Toolbar>
             <SearchInput
               value={search}
@@ -197,7 +319,11 @@ export function SessionsClient() {
                 setErrorsOnly(false);
               }}
             />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden whitespace-nowrap text-sm text-muted-foreground/50 tabular-nums sm:inline">
+                {formatCount(summary?.sessionCount ?? 0)}{" "}
+                {(summary?.sessionCount ?? 0) === 1 ? "session" : "sessions"}
+              </span>
               <RangePicker value={range} onChange={setRange} />
             </div>
           </Toolbar>
@@ -210,105 +336,115 @@ export function SessionsClient() {
             />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-md">Session</TableHead>
-                    <TableHead className="w-72">Agent</TableHead>
-                    <SortableHead
-                      sortKey="turns"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-36"
-                    >
-                      Turns
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="tokens"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-36"
-                    >
-                      Tokens
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="cost"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-48"
-                    >
-                      Cost
-                    </SortableHead>
-                    <SortableHead
-                      sortKey="last"
-                      sort={sort}
-                      onSort={toggle}
-                      align="right"
-                      className="w-48"
-                    >
-                      Last activity
-                    </SortableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((s) => (
-                    <TableRow
-                      key={s.sessionId}
-                      interactive
-                      onClick={() =>
-                        router.push(
-                          `/sessions/${encodeURIComponent(s.sessionId)}`
-                        )
-                      }
-                    >
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate max-w-72">
-                            {s.sessionId}
-                          </span>
-                          {s.errorCount > 0 && (
-                            <Badge variant="rose" className="font-sans ml-auto">
-                              <IconAlertTriangle />
-                              {s.errorCount}
-                              {s.errorCount === 1 ? "error" : "errors"}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{s.agentName ?? "—"}</TableCell>
-                      <TableCell align="right">
-                        {formatCount(s.turnCount)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatTokens(s.totalTokens)}
-                      </TableCell>
-                      <TableCell
+              <TooltipProvider delay={150}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-md">Session</TableHead>
+                      <TableHead className="w-72">Agent</TableHead>
+                      <SortableHead
+                        sortKey="turns"
+                        sort={sort}
+                        onSort={toggle}
                         align="right"
+                        className="w-36"
+                      >
+                        Turns
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="tokens"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-36"
+                      >
+                        Tokens
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="cost"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-48"
+                      >
+                        Cost
+                      </SortableHead>
+                      <SortableHead
+                        sortKey="last"
+                        sort={sort}
+                        onSort={toggle}
+                        align="right"
+                        className="w-48"
+                      >
+                        Last activity
+                      </SortableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((s) => (
+                      <TableRow
+                        key={s.sessionId}
+                        interactive
+                        onClick={() =>
+                          router.push(
+                            `/sessions/${encodeURIComponent(s.sessionId)}`
+                          )
+                        }
                         className={cn(
-                          "font-medium",
-                          costShade(s.totalCost, costQuantiles)
+                          // Left accent bar on errored sessions — scannable at a glance.
+                          s.errorCount > 0 &&
+                            "shadow-[inset_1px_0_0_0_var(--color-rose-500)]"
                         )}
                       >
-                        {formatCost(s.totalCost)}
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        className="text-muted-foreground "
-                      >
-                        {formatRelative(s.lastSeen)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate max-w-72">
+                              {s.sessionId}
+                            </span>
+                            <CopyIdButton id={s.sessionId} />
+                            {s.errorCount > 0 && (
+                              <Badge
+                                variant="rose"
+                                className="font-sans ml-auto"
+                              >
+                                <IconAlertTriangle />
+                                {s.errorCount}
+                                {s.errorCount === 1 ? "error" : "errors"}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{s.agentName ?? "—"}</TableCell>
+                        <TableCell align="right">
+                          {formatCount(s.turnCount)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {formatTokens(s.totalTokens)}
+                        </TableCell>
+                        <HeatCell
+                          value={s.totalCost}
+                          thresholds={costQuantiles}
+                        >
+                          {formatCost(s.totalCost)}
+                        </HeatCell>
+                        <TableCell
+                          align="right"
+                          className="text-muted-foreground "
+                        >
+                          {formatRelative(s.lastSeen)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
 
               <div className="flex items-center justify-between px-1">
                 <p className="text-sm text-muted-foreground/50 tabular-nums">
                   {rows.length > 0
-                    ? `Showing ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + rows.length}`
+                    ? `Showing ${page * PAGE_SIZE + 1}–${
+                        page * PAGE_SIZE + rows.length
+                      } of ${formatCount(summary?.sessionCount ?? 0)}`
                     : "No more sessions"}
                 </p>
                 <Pagination className="mx-0 w-auto justify-end">
@@ -323,14 +459,33 @@ export function SessionsClient() {
                         onClick={() => setPage((p) => Math.max(0, p - 1))}
                       />
                     </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink isActive>{page + 1}</PaginationLink>
-                    </PaginationItem>
+                    {pages.map((p, i) =>
+                      p === "ellipsis" ? (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: positional separator
+                        <PaginationItem key={`ellipsis-${i}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={p}>
+                          <PaginationLink
+                            isActive={p === currentPage}
+                            className={cn(
+                              sessions.isFetching && "pointer-events-none"
+                            )}
+                            onClick={() => setPage(p - 1)}
+                          >
+                            {p}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
                     <PaginationItem>
                       <PaginationNext
-                        aria-disabled={!hasMore || sessions.isFetching}
+                        aria-disabled={
+                          currentPage >= totalPages || sessions.isFetching
+                        }
                         className={cn(
-                          (!hasMore || sessions.isFetching) &&
+                          (currentPage >= totalPages || sessions.isFetching) &&
                             "pointer-events-none opacity-50"
                         )}
                         onClick={() => setPage((p) => p + 1)}
@@ -344,5 +499,68 @@ export function SessionsClient() {
         </div>
       )}
     </>
+  );
+}
+
+/** A right-aligned cost cell tinted by its percentile bucket, with a tooltip
+ * naming the bucket (e.g. "60–80th percentile by cost"). Unpriced sessions
+ * render plain and muted. */
+function HeatCell({
+  value,
+  thresholds,
+  children,
+}: {
+  value: number | null | undefined;
+  thresholds: number[];
+  children: ReactNode;
+}) {
+  const bucket = percentileBucket(value, thresholds);
+  const className = cn(
+    "text-right tabular-nums font-medium",
+    value == null || value <= 0
+      ? "text-muted-foreground/40"
+      : bucket != null && HEAT_SHADES[bucket]
+  );
+  if (bucket == null) {
+    return <TableCell className={className}>{children}</TableCell>;
+  }
+  return (
+    <TableCell className={className}>
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="cursor-default" />}
+          // The row navigates on click; let the trigger ignore clicks so a
+          // mis-aimed tap on the number still opens the session.
+        >
+          {children}
+        </TooltipTrigger>
+        <TooltipContent>{percentileTip(bucket)}</TooltipContent>
+      </Tooltip>
+    </TableCell>
+  );
+}
+
+/** Copy a session id to the clipboard, with a brief check-mark confirmation.
+ * Stops propagation so it doesn't trigger the row's navigate-on-click. */
+function CopyIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title="Copy session ID"
+      onClick={(e) => {
+        e.stopPropagation();
+        void navigator.clipboard.writeText(id);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="inline-flex shrink-0 items-center justify-center rounded p-0.5 text-muted-foreground/50 cursor-pointer transition-colors hover:text-foreground"
+    >
+      <CopyIcon
+        copied={copied}
+        className="size-3"
+        checkClassName="size-3 text-green-600 dark:text-green-400"
+      />
+    </button>
   );
 }

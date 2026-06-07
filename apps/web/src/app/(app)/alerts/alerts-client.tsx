@@ -66,6 +66,7 @@ import {
   PageHeader,
   TableSkeleton,
 } from "@/components/app/page-parts";
+import { navItem } from "@/components/app/nav";
 import { useProject } from "@/components/app/project-context";
 import { formatDuration } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
@@ -226,7 +227,11 @@ export function AlertsClient() {
   if (!projectId) {
     return (
       <>
-        <PageHeader title="Alerts" />
+        <PageHeader
+          title="Alerts"
+          icon={navItem("/alerts")?.icon}
+          iconClassName={navItem("/alerts")?.iconClassName}
+        />
         <NoProject />
       </>
     );
@@ -283,6 +288,8 @@ export function AlertsClient() {
     <>
       <PageHeader
         title="Alerts"
+        icon={navItem("/alerts")?.icon}
+        iconClassName={navItem("/alerts")?.iconClassName}
         description="Threshold rules evaluated against your metrics."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
@@ -460,7 +467,9 @@ export function AlertsClient() {
         }
       />
       {alerts.isLoading ? (
-        showSkeleton ? <TableSkeleton /> : null
+        showSkeleton ? (
+          <TableSkeleton />
+        ) : null
       ) : rows.length === 0 ? (
         <EmptyState
           icon={IconAlertTriangleFilled}
@@ -476,8 +485,7 @@ export function AlertsClient() {
               <TableHead>Condition</TableHead>
               <TableHead>Window</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Enabled</TableHead>
-              <TableHead align="right" />
+              <TableHead className="w-32" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -510,23 +518,25 @@ export function AlertsClient() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Switch
-                      checked={r.enabled}
-                      onCheckedChange={(checked) =>
-                        update.mutate({ ruleId: r.id, enabled: checked })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setDeleteTarget({ id: r.id, name: r.name })
-                      }
-                    >
-                      <IconTrashFilled />
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Switch
+                        checked={r.enabled}
+                        size="sm"
+                        onCheckedChange={(checked) =>
+                          update.mutate({ ruleId: r.id, enabled: checked })
+                        }
+                      />
+                      <Button
+                        size="icon-sm"
+                        variant="ghost-destructive"
+                        className="size-7"
+                        onClick={() =>
+                          setDeleteTarget({ id: r.id, name: r.name })
+                        }
+                      >
+                        <IconTrashFilled />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

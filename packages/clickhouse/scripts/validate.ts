@@ -4,6 +4,7 @@
 // (needs a live server); invoked manually during Phase 4 verification.
 import { createClickHouseClient } from "../src/client";
 import { runMigrations, applySpansRetention } from "../src/migrate";
+import { MIGRATIONS } from "../src/migrations";
 import { insertSpans, updateOrgRetention, type SpanRow } from "../src/spans";
 import { insertScores, type ScoreRow } from "../src/scores";
 import {
@@ -71,6 +72,7 @@ const blank = {
   metadata: {} as Record<string, string>,
   input: "",
   output: "",
+  tool_catalog: "",
 } satisfies Partial<SpanRow>;
 
 const PID = "proj_test";
@@ -157,11 +159,14 @@ const rows: SpanRow[] = [
 console.log("running migrations...");
 const applied = await runMigrations(client);
 console.log("  applied:", applied);
-assert(applied.length === 8, "8 migrations applied on first run");
+assert(
+  applied.length === MIGRATIONS.length,
+  `all ${MIGRATIONS.length} migrations applied on first run (got ${applied.length})`,
+);
 const second = await runMigrations(client);
 assert(second.length === 0, "re-running migrations is a no-op (idempotent)");
 
-await applySpansRetention(client, 30);
+await applySpansRetention(client);
 console.log("  ✓ retention TTL applied");
 
 console.log("inserting spans...");
