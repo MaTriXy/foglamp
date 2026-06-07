@@ -29,10 +29,8 @@ import {
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 
-import Header from "@/components/header";
-
 export const metadata: Metadata = {
-  title: "Pricing · Foglamp",
+  title: "Pricing",
   description: "Simple, usage-based pricing for AI observability.",
 };
 
@@ -208,37 +206,33 @@ function PlanCard({ plan }: { plan: Plan }) {
 
 export default function PricingPage() {
   return (
-    <div className="overflow-y-auto px-8">
-      <Header />
-      <div className="mx-auto max-w-5xl pb-24">
-        <div className="mx-auto mt-20 max-w-2xl text-center">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Pricing that scales with you
-          </h1>
-          <p className="mt-3 text-muted-foreground">
-            Start free, upgrade when you need more. Agents, workflows, traces,
-            and teammates are always unlimited — you only meter what you store.
-          </p>
-        </div>
-
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {PLANS.map((plan) => (
-            <PlanCard key={plan.name} plan={plan} />
-          ))}
-        </div>
-
-        <p className="mt-10 text-center text-sm text-muted-foreground">
-          All plans include unlimited agents, workflows, and traces. Need
-          something custom?{" "}
-          <a
-            href="mailto:sales@foglamp.dev"
-            className="font-medium text-foreground underline"
-          >
-            Talk to us
-          </a>
-          .
+    <div className="mx-auto max-w-5xl px-5 pb-24 sm:px-8">
+      <div className="mx-auto mt-20 max-w-2xl text-center">
+        <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+          Pricing that scales with you
+        </h1>
+        <p className="mt-3 text-muted-foreground text-pretty">
+          Start free, upgrade when you need more. Agents, workflows, traces, and teammates are
+          always unlimited — you only meter what you store.
         </p>
       </div>
+
+      <div className="mt-14 grid gap-6 md:grid-cols-3">
+        {PLANS.map((plan) => (
+          <PlanCard key={plan.name} plan={plan} />
+        ))}
+      </div>
+
+      <p className="mt-10 text-center text-sm text-muted-foreground">
+        All plans include unlimited agents, workflows, and traces. Need something custom?{" "}
+        <a
+          href="mailto:sales@foglamp.dev"
+          className="font-medium text-foreground underline"
+        >
+          Talk to us
+        </a>
+        .
+      </p>
     </div>
   );
 }

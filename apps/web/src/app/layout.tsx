@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Host_Grotesk, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
 import Providers from "@/components/providers";
@@ -13,9 +13,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Display face for marketing headings only (applied via the `font-display`
+// utility defined in index.css). The app dashboard keeps Inter for everything.
+const hostGrotesk = Host_Grotesk({
+  variable: "--font-host-grotesk",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "Foglamp",
-  description: "AI o11y",
+  title: {
+    default: "Foglamp — Observability for the Vercel AI SDK",
+    template: "%s · Foglamp",
+  },
+  description:
+    "The missing observability layer for the Vercel AI SDK. Costs, latency, tokens, distributed traces, evals, and alerts for every generateText / streamText call — in two lines.",
 };
 
 export default function RootLayout({
@@ -29,10 +40,18 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("font-sans", inter.variable)}
     >
-      <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <div className="grid grid-rows-[auto_1fr] h-svh">{children}</div>
-        </Providers>
+      {/* The viewport-height shell that used to wrap everything here now lives
+          inside (app)/layout via <AppShell> (SidebarProvider is h-svh). Marketing
+          pages, login, and pricing manage their own document flow. */}
+      <body
+        className={cn(
+          inter.variable,
+          geistMono.variable,
+          hostGrotesk.variable,
+          "antialiased",
+        )}
+      >
+        <Providers>{children}</Providers>
         <Analytics />
       </body>
     </html>
