@@ -26,6 +26,15 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 100 ? 0 : 1)} ${unit}`;
 }
 
+function formatMrr(cents: number | null): string {
+  if (cents === null) return "—";
+  const dollars = cents / 100;
+  return `$${dollars.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: dollars % 1 === 0 ? 0 : 2,
+  })}/mo`;
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Card>
@@ -67,6 +76,14 @@ export function PlatformClient() {
     );
   }
 
+  const funnelSteps = [
+    { label: "Signed up", value: d.funnel.users },
+    { label: "Org with a project", value: d.funnel.orgsWithProjects },
+    { label: "Sent spans (30d)", value: d.funnel.orgsActive30d },
+    { label: "Paying", value: d.funnel.paidOrgs },
+  ];
+  const funnelMax = Math.max(1, ...funnelSteps.map((s) => s.value));
+
   return (
     <>
       <PageHeader
@@ -74,7 +91,8 @@ export function PlatformClient() {
         description="Cross-org numbers for the hosted deployment. Refreshes every minute."
       />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
+        <Stat label="MRR" value={formatMrr(d.mrrCents)} />
         <Stat label="Users" value={formatCount(d.totals.users)} />
         <Stat label="New users (7d)" value={formatCount(d.totals.usersLast7d)} />
         <Stat label="Organizations" value={formatCount(d.totals.orgs)} />
@@ -84,6 +102,84 @@ export function PlatformClient() {
           value={formatCount(d.totals.activeSubscriptions)}
         />
         <Stat label="Spans (24h)" value={formatCount(d.spans.last24h)} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Signup funnel</CardTitle>
+            <CardDescription>Signup → project → usage → paid</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {funnelSteps.map((step) => (
+              <div key={step.label} className="flex flex-col gap-1">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span>{step.label}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatCount(step.value)}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded bg-muted">
+                  <div
+                    className="h-1.5 rounded bg-primary"
+                    style={{
+                      width: `${Math.min(100, (step.value / funnelMax) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Plans</CardTitle>
+            <CardDescription>Organizations by plan</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <tbody>
+                {d.plans.map((p) => (
+                  <tr key={p.plan} className="border-t border-border/50">
+                    <td className="py-1 capitalize">{p.plan}</td>
+                    <td className="py-1 text-right tabular-nums">
+                      {formatCount(p.orgs)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Signups, last 30 days</CardTitle>
+            <CardDescription>New users per day</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <tbody>
+                {[...d.signupsByDay].reverse().map((row) => (
+                  <tr key={row.day} className="border-t border-border/50">
+                    <td className="py-1 tabular-nums">{row.day}</td>
+                    <td className="py-1 text-right tabular-nums">
+                      {formatCount(row.users)}
+                    </td>
+                  </tr>
+                ))}
+                {d.signupsByDay.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-center text-muted-foreground">
+                      No signups in the last 30 days.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -100,6 +196,8 @@ export function PlatformClient() {
                 <tr className="text-left text-xs text-muted-foreground">
                   <th className="py-1 font-medium">Day</th>
                   <th className="py-1 text-right font-medium">Spans</th>
+                  <th className="py-1 text-right font-medium">Errors</th>
+                  <th className="py-1 text-right font-medium">Error rate</th>
                   <th className="py-1 text-right font-medium">Active orgs</th>
                 </tr>
               </thead>
@@ -111,6 +209,16 @@ export function PlatformClient() {
                       {formatCount(row.spans)}
                     </td>
                     <td className="py-1 text-right tabular-nums">
+                      {formatCount(row.errors)}
+                    </td>
+                    <td
+                      className={`py-1 text-right tabular-nums ${
+                        row.errorRate > 0.05 ? "text-destructive" : ""
+                      }`}
+                    >
+                      {(row.errorRate * 100).toFixed(1)}%
+                    </td>
+                    <td className="py-1 text-right tabular-nums">
                       {row.activeOrgs}
                     </td>
                   </tr>
@@ -118,7 +226,7 @@ export function PlatformClient() {
                 {d.usageByDay.length === 0 && (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={5}
                       className="py-3 text-center text-muted-foreground"
                     >
                       No usage yet.
@@ -159,7 +267,7 @@ export function PlatformClient() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>ClickHouse storage</CardTitle>
@@ -181,6 +289,35 @@ export function PlatformClient() {
                     <td className="py-1 text-right tabular-nums">
                       {formatCount(t.rows)}
                     </td>
+                    <td className="py-1 text-right tabular-nums">
+                      {formatBytes(t.bytes)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Postgres storage</CardTitle>
+            <CardDescription>
+              {formatBytes(d.postgres.totalBytes)} total · heaviest tables
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="py-1 font-medium">Table</th>
+                  <th className="py-1 text-right font-medium">Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.postgres.tables.map((t) => (
+                  <tr key={t.table} className="border-t border-border/50">
+                    <td className="py-1 font-mono text-xs">{t.table}</td>
                     <td className="py-1 text-right tabular-nums">
                       {formatBytes(t.bytes)}
                     </td>

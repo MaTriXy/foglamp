@@ -2047,3 +2047,28 @@ export async function queryClickHouseDisks(
 		{},
 	);
 }
+
+export type PlatformErrorDayRow = {
+	day: string;
+	span_count: string;
+	error_count: string;
+};
+
+/** Platform-wide span error counts per day (status = 'error'), from raw spans. */
+export async function queryPlatformErrorsByDay(
+	client: ClickHouseClient,
+	from: string,
+): Promise<PlatformErrorDayRow[]> {
+	return rows<PlatformErrorDayRow>(
+		client,
+		`SELECT
+       toString(toDate(start_time)) AS day,
+       count() AS span_count,
+       countIf(status = 'error') AS error_count
+     FROM spans
+     WHERE start_time >= {from:Date}
+     GROUP BY day
+     ORDER BY day`,
+		{ from },
+	);
+}
