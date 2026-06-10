@@ -30,6 +30,9 @@ export const organization = pgTable("organization", {
   // self-serve checkout. Takes precedence over any subscription in getOrgPlan.
   planOverride: text("plan_override"),
   limitsOverride: jsonb("limits_override").$type<LimitsOverride>(),
+  // When set, the override above only applies until this instant (timed comp
+  // grants from the platform admin page). Null = no expiry.
+  overrideExpiresAt: timestamp("override_expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

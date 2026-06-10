@@ -85,14 +85,20 @@ export async function getOrgPlan(orgId: string): Promise<OrgPlan> {
     .select({
       planOverride: organization.planOverride,
       limitsOverride: organization.limitsOverride,
+      overrideExpiresAt: organization.overrideExpiresAt,
     })
     .from(organization)
     .where(eq(organization.id, orgId))
     .limit(1);
   const org = orgRows[0];
 
-  // 1. Enterprise / manual override (sales-led) — wins over everything.
-  if (org?.planOverride) {
+  // 1. Enterprise / manual override (sales-led or timed comp grant) — wins
+  // over everything while live. Expiry is checked at read time, so lapsed
+  // grants fall through to subscription/free with no cleanup job.
+  const overrideLive =
+    org?.planOverride &&
+    (!org.overrideExpiresAt || org.overrideExpiresAt > new Date());
+  if (overrideLive) {
     return {
       plan: "enterprise",
       limits: { ...PLAN_LIMITS.enterprise, ...(org.limitsOverride ?? {}) },

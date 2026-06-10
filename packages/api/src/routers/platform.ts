@@ -1,7 +1,15 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
-import { getPlatformStats, isPlatformAdmin } from "../services/platform";
+import {
+  getPlatformStats,
+  grantOrgAccess,
+  isPlatformAdmin,
+  listAccessGrants,
+  revokeOrgAccess,
+  searchOrgs,
+} from "../services/platform";
 
 // Operator-only platform stats. Allowlist by email (PLATFORM_ADMIN_EMAILS);
 // unset → hidden for everyone (the self-host default).
@@ -21,4 +29,26 @@ export const platformRouter = router({
   stats: platformAdminProcedure.query(({ ctx }) =>
     getPlatformStats(ctx.db, ctx.ch),
   ),
+
+  searchOrgs: platformAdminProcedure
+    .input(z.object({ query: z.string().min(1).max(100) }))
+    .query(({ ctx, input }) => searchOrgs(ctx.db, input.query)),
+
+  accessGrants: platformAdminProcedure.query(({ ctx }) =>
+    listAccessGrants(ctx.db),
+  ),
+
+  grantAccess: platformAdminProcedure
+    .input(
+      z.object({
+        orgId: z.string().min(1),
+        // Days from now; null = no expiry.
+        days: z.number().int().min(1).max(3650).nullable(),
+      }),
+    )
+    .mutation(({ ctx, input }) => grantOrgAccess(ctx.db, input)),
+
+  revokeAccess: platformAdminProcedure
+    .input(z.object({ orgId: z.string().min(1) }))
+    .mutation(({ ctx, input }) => revokeOrgAccess(ctx.db, input.orgId)),
 });

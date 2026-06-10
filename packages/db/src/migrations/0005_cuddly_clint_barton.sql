@@ -1,0 +1,1 @@
+ALTER TABLE "organization" ADD COLUMN "override_expires_at" timestamp;

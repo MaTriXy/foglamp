@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
   CardContent,
@@ -7,7 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
-import { useQuery } from "@tanstack/react-query";
+import { Input } from "@foglamp/ui/components/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@foglamp/ui/components/native-select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/page-parts";
 import { formatCount } from "@/lib/format";
@@ -42,6 +50,161 @@ function Stat({ label, value }: { label: string; value: string }) {
         <CardDescription>{label}</CardDescription>
         <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
       </CardHeader>
+    </Card>
+  );
+}
+
+// Comp an org to enterprise limits for a chosen window. Grants are enforced at
+// plan-resolution time (getOrgPlan), so revocations/expiries apply within ~60s
+// (the ingest plan cache TTL).
+function AccessGrantsCard() {
+  const qc = useQueryClient();
+  const [query, setQuery] = useState("");
+  const [days, setDays] = useState("30");
+
+  const search = useQuery({
+    ...trpc.platform.searchOrgs.queryOptions({ query }),
+    enabled: query.trim().length > 0,
+  });
+  const grants = useQuery(trpc.platform.accessGrants.queryOptions());
+
+  const refresh = () => {
+    void qc.invalidateQueries({
+      queryKey: trpc.platform.accessGrants.queryKey(),
+    });
+    void qc.invalidateQueries({
+      queryKey: trpc.platform.searchOrgs.queryKey(),
+    });
+  };
+
+  const grant = useMutation(
+    trpc.platform.grantAccess.mutationOptions({
+      onSuccess: () => {
+        toast.success("Unlimited access granted.");
+        refresh();
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+  const revoke = useMutation(
+    trpc.platform.revokeAccess.mutationOptions({
+      onSuccess: () => {
+        toast.success("Access grant revoked.");
+        refresh();
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+
+  const grantLabel = (expiresAt: Date | string | null) => {
+    if (!expiresAt) return "no expiry";
+    const d = new Date(expiresAt);
+    return d.getTime() < Date.now()
+      ? `expired ${d.toLocaleDateString()}`
+      : `until ${d.toLocaleDateString()}`;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Access grants</CardTitle>
+        <CardDescription>
+          Comp an org to enterprise limits (unlimited spans, 90-day retention)
+          for a period. Takes effect within a minute.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Search orgs by name or slug…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <NativeSelect
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            className="w-32 shrink-0"
+          >
+            <NativeSelectOption value="7">7 days</NativeSelectOption>
+            <NativeSelectOption value="30">30 days</NativeSelectOption>
+            <NativeSelectOption value="90">90 days</NativeSelectOption>
+            <NativeSelectOption value="365">1 year</NativeSelectOption>
+            <NativeSelectOption value="forever">No expiry</NativeSelectOption>
+          </NativeSelect>
+        </div>
+
+        {query.trim().length > 0 && (
+          <div className="flex flex-col">
+            {(search.data ?? []).map((org) => (
+              <div
+                key={org.id}
+                className="flex items-center justify-between border-t border-border/50 py-1.5 text-sm"
+              >
+                <div className="min-w-0">
+                  <span className="truncate">{org.name}</span>{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {org.slug}
+                    {org.planOverride
+                      ? ` · comped (${grantLabel(org.overrideExpiresAt)})`
+                      : ""}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={grant.isPending}
+                  onClick={() =>
+                    grant.mutate({
+                      orgId: org.id,
+                      days: days === "forever" ? null : Number(days),
+                    })
+                  }
+                >
+                  Grant
+                </Button>
+              </div>
+            ))}
+            {search.isSuccess && search.data.length === 0 && (
+              <p className="py-2 text-sm text-muted-foreground">
+                No orgs match.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">
+            Active grants
+          </p>
+          {(grants.data ?? []).map((org) => (
+            <div
+              key={org.id}
+              className="flex items-center justify-between border-t border-border/50 py-1.5 text-sm"
+            >
+              <div className="min-w-0">
+                <span className="truncate">{org.name}</span>{" "}
+                <span className="text-xs text-muted-foreground">
+                  {org.slug} · {grantLabel(org.overrideExpiresAt)}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive"
+                disabled={revoke.isPending}
+                onClick={() => revoke.mutate({ orgId: org.id })}
+              >
+                Revoke
+              </Button>
+            </div>
+          ))}
+          {grants.isSuccess && grants.data.length === 0 && (
+            <p className="py-2 text-sm text-muted-foreground">
+              No orgs are comped right now.
+            </p>
+          )}
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -103,6 +266,8 @@ export function PlatformClient() {
         />
         <Stat label="Spans (24h)" value={formatCount(d.spans.last24h)} />
       </div>
+
+      <AccessGrantsCard />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

@@ -1,0 +1,104 @@
+# Auto-deploy the hosted backend (Cloud Run) on push to master.
+#
+# Auth is keyless: GitHub's OIDC token is exchanged for the github-deployer
+# service account via Workload Identity Federation — no JSON keys in secrets.
+# Web (apps/web) is not deployed here; Vercel builds it on the same push.
+#
+# Ordering: if the push touches packages/db/src/migrations, the migrate job
+# runs (and must succeed) before the new server/ingest revisions take traffic.
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/server/**"
+      - "apps/ingest/**"
+      - "packages/**"
+      - "Dockerfile"
+      - "bun.lock"
+      - ".github/workflows/deploy-gcp.yml"
+
+concurrency:
+  group: deploy-gcp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT: foglamp-prod
+  REGION: us-central1
+  REPO: us-central1-docker.pkg.dev/foglamp-prod/foglamp
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect schema changes
+        id: changes
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q '^packages/db/src/migrations/'; then
+            echo "migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/354884250609/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@foglamp-prod.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build images
+        run: |
+          docker build --target server  -t "$REPO/server:latest"  -t "$REPO/server:$GITHUB_SHA"  .
+          docker build --target ingest  -t "$REPO/ingest:latest"  -t "$REPO/ingest:$GITHUB_SHA"  .
+          if [ "${{ steps.changes.outputs.migrations }}" = "true" ]; then
+            docker build --target migrate -t "$REPO/migrate:latest" -t "$REPO/migrate:$GITHUB_SHA" .
+          fi
+
+      - name: Push images
+        run: |
+          docker push --all-tags "$REPO/server"
+          docker push --all-tags "$REPO/ingest"
+          if [ "${{ steps.changes.outputs.migrations }}" = "true" ]; then
+            docker push --all-tags "$REPO/migrate"
+          fi
+
+      - name: Run migrations
+        if: steps.changes.outputs.migrations == 'true'
+        run: |
+          gcloud run jobs update foglamp-migrate \
+            --project "$PROJECT" --region "$REGION" \
+            --image "$REPO/migrate:$GITHUB_SHA"
+          gcloud run jobs execute foglamp-migrate \
+            --project "$PROJECT" --region "$REGION" --wait
+
+      # Image-only updates: env vars, secrets, scaling carry over from the
+      # live revision (same semantics as scripts/deploy-gcp.sh).
+      - name: Deploy server
+        run: |
+          gcloud run deploy foglamp-server \
+            --project "$PROJECT" --region "$REGION" \
+            --image "$REPO/server:$GITHUB_SHA"
+
+      - name: Deploy ingest
+        run: |
+          gcloud run deploy foglamp-ingest \
+            --project "$PROJECT" --region "$REGION" \
+            --image "$REPO/ingest:$GITHUB_SHA"
+
+      - name: Verify
+        run: |
+          curl -sf https://api.foglamp.dev/api/auth/ok
+          curl -sf -o /dev/null -w "ingest %{http_code}\n" https://ingest.foglamp.dev/health || true

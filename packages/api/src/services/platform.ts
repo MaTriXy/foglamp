@@ -11,7 +11,18 @@ import { member, organization } from "@foglamp/db/schema/organization";
 import { project } from "@foglamp/db/schema/project";
 import { subscription } from "@foglamp/db/schema/subscription";
 import { env } from "@foglamp/env/server";
-import { count, countDistinct, gte, inArray, sql } from "drizzle-orm";
+import {
+  count,
+  countDistinct,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import Stripe from "stripe";
 
 import type { Ch, Db } from "../types";
@@ -102,6 +113,68 @@ async function getPostgresStats(db: Db) {
       bytes: Number(r.bytes),
     })),
   };
+}
+
+/** Org lookup for the access-grant UI (name or slug, case-insensitive). */
+export async function searchOrgs(db: Db, query: string) {
+  const pattern = `%${query}%`;
+  return db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      planOverride: organization.planOverride,
+      overrideExpiresAt: organization.overrideExpiresAt,
+      createdAt: organization.createdAt,
+    })
+    .from(organization)
+    .where(
+      or(ilike(organization.name, pattern), ilike(organization.slug, pattern)),
+    )
+    .limit(10);
+}
+
+/** All orgs with a plan override, live or lapsed (the UI labels expired ones). */
+export async function listAccessGrants(db: Db) {
+  return db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      planOverride: organization.planOverride,
+      overrideExpiresAt: organization.overrideExpiresAt,
+    })
+    .from(organization)
+    .where(isNotNull(organization.planOverride))
+    .orderBy(desc(organization.createdAt));
+}
+
+/**
+ * Comp an org up to enterprise limits (unlimited spans/projects/alerts/evals,
+ * 90d retention), optionally time-boxed. Expiry is enforced at read time in
+ * getOrgPlan, so the grant lapses on its own. Ingest caches plans for ~60s,
+ * so grants/revocations take effect within a minute.
+ */
+export async function grantOrgAccess(
+  db: Db,
+  params: { orgId: string; days: number | null },
+) {
+  const overrideExpiresAt = params.days
+    ? new Date(Date.now() + params.days * 86_400_000)
+    : null;
+  // limitsOverride is left untouched so a sales-led custom-limits org keeps
+  // its negotiated levers if we extend its grant.
+  await db
+    .update(organization)
+    .set({ planOverride: "comp", overrideExpiresAt })
+    .where(eq(organization.id, params.orgId));
+}
+
+export async function revokeOrgAccess(db: Db, orgId: string) {
+  await db
+    .update(organization)
+    .set({ planOverride: null, limitsOverride: null, overrideExpiresAt: null })
+    .where(eq(organization.id, orgId));
 }
 
 /** Cross-org platform snapshot for the operator dashboard. */
