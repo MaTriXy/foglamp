@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  IconBuilding,
+  IconCoinFilled,
+  IconCreditCard,
+  IconFolderFilled,
+  IconStack2Filled,
+  IconUserFilled,
+  IconUserPlus,
+} from "@tabler/icons-react";
 import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
@@ -17,7 +26,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/app/page-parts";
+import { PageHeader, StatCard } from "@/components/app/page-parts";
 import { formatCount } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
 
@@ -43,16 +52,6 @@ function formatMrr(cents: number | null): string {
   })}/mo`;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-      </CardHeader>
-    </Card>
-  );
-}
 
 // Comp an org to enterprise limits for a chosen window. Grants are enforced at
 // plan-resolution time (getOrgPlan), so revocations/expiries apply within ~60s
@@ -116,7 +115,7 @@ function AccessGrantsCard() {
       <CardContent className="flex flex-col gap-4">
         <div className="flex gap-2">
           <Input
-            placeholder="Search orgs by name or slug…"
+            placeholder="Search orgs by name, slug, or owner email…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -143,7 +142,7 @@ function AccessGrantsCard() {
                 <div className="min-w-0">
                   <span className="truncate">{org.name}</span>{" "}
                   <span className="text-xs text-muted-foreground">
-                    {org.slug}
+                    {org.ownerEmail ?? "no owner"}
                     {org.planOverride
                       ? ` · comped (${grantLabel(org.overrideExpiresAt)})`
                       : ""}
@@ -151,7 +150,6 @@ function AccessGrantsCard() {
                 </div>
                 <Button
                   size="sm"
-                  variant="outline"
                   disabled={grant.isPending}
                   onClick={() =>
                     grant.mutate({
@@ -184,7 +182,8 @@ function AccessGrantsCard() {
               <div className="min-w-0">
                 <span className="truncate">{org.name}</span>{" "}
                 <span className="text-xs text-muted-foreground">
-                  {org.slug} · {grantLabel(org.overrideExpiresAt)}
+                  {org.ownerEmail ?? "no owner"} ·{" "}
+                  {grantLabel(org.overrideExpiresAt)}
                 </span>
               </div>
               <Button
@@ -240,10 +239,30 @@ export function PlatformClient() {
   }
 
   const funnelSteps = [
-    { label: "Signed up", value: d.funnel.users },
-    { label: "Org with a project", value: d.funnel.orgsWithProjects },
-    { label: "Sent spans (30d)", value: d.funnel.orgsActive30d },
-    { label: "Paying", value: d.funnel.paidOrgs },
+    {
+      label: "Signed up",
+      value: d.funnel.users,
+      icon: IconUserFilled,
+      iconClassName: "text-sky-500",
+    },
+    {
+      label: "Org with a project",
+      value: d.funnel.orgsWithProjects,
+      icon: IconFolderFilled,
+      iconClassName: "text-emerald-500",
+    },
+    {
+      label: "Sent spans (30d)",
+      value: d.funnel.orgsActive30d,
+      icon: IconStack2Filled,
+      iconClassName: "text-fuchsia-500",
+    },
+    {
+      label: "Paying",
+      value: d.funnel.paidOrgs,
+      icon: IconCoinFilled,
+      iconClassName: "text-amber-500",
+    },
   ];
   const funnelMax = Math.max(1, ...funnelSteps.map((s) => s.value));
 
@@ -255,16 +274,55 @@ export function PlatformClient() {
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
-        <Stat label="MRR" value={formatMrr(d.mrrCents)} />
-        <Stat label="Users" value={formatCount(d.totals.users)} />
-        <Stat label="New users (7d)" value={formatCount(d.totals.usersLast7d)} />
-        <Stat label="Organizations" value={formatCount(d.totals.orgs)} />
-        <Stat label="Projects" value={formatCount(d.totals.projects)} />
-        <Stat
-          label="Paid subscriptions"
-          value={formatCount(d.totals.activeSubscriptions)}
+        <StatCard
+          label="MRR"
+          size="sm"
+          value={formatMrr(d.mrrCents)}
+          icon={IconCoinFilled}
+          iconClassName="text-amber-500"
         />
-        <Stat label="Spans (24h)" value={formatCount(d.spans.last24h)} />
+        <StatCard
+          label="Users"
+          size="sm"
+          value={formatCount(d.totals.users)}
+          icon={IconUserFilled}
+          iconClassName="text-sky-500"
+        />
+        <StatCard
+          label="New users (7d)"
+          size="sm"
+          value={formatCount(d.totals.usersLast7d)}
+          icon={IconUserPlus}
+          iconClassName="text-emerald-500"
+        />
+        <StatCard
+          label="Organizations"
+          size="sm"
+          value={formatCount(d.totals.orgs)}
+          icon={IconBuilding}
+          iconClassName="text-violet-500"
+        />
+        <StatCard
+          label="Projects"
+          size="sm"
+          value={formatCount(d.totals.projects)}
+          icon={IconFolderFilled}
+          iconClassName="text-teal-500"
+        />
+        <StatCard
+          label="Paid subscriptions"
+          size="sm"
+          value={formatCount(d.totals.activeSubscriptions)}
+          icon={IconCreditCard}
+          iconClassName="text-rose-500"
+        />
+        <StatCard
+          label="Spans (24h)"
+          size="sm"
+          value={formatCount(d.spans.last24h)}
+          icon={IconStack2Filled}
+          iconClassName="text-fuchsia-500"
+        />
       </div>
 
       <AccessGrantsCard />
@@ -275,18 +333,21 @@ export function PlatformClient() {
             <CardTitle>Signup funnel</CardTitle>
             <CardDescription>Signup → project → usage → paid</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
+          <CardContent className="mt-2 flex flex-col gap-6">
             {funnelSteps.map((step) => (
-              <div key={step.label} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between text-sm">
-                  <span>{step.label}</span>
+              <div key={step.label} className="flex flex-col gap-3.5">
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <step.icon className={`size-4 ${step.iconClassName}`} />
+                    {step.label}
+                  </span>
                   <span className="tabular-nums text-muted-foreground">
                     {formatCount(step.value)}
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded bg-muted">
+                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-1.5 rounded bg-primary"
+                    className="h-full rounded-full bg-primary"
                     style={{
                       width: `${Math.min(100, (step.value / funnelMax) * 100)}%`,
                     }}

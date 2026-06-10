@@ -12,6 +12,7 @@ import { project } from "@foglamp/db/schema/project";
 import { subscription } from "@foglamp/db/schema/subscription";
 import { env } from "@foglamp/env/server";
 import {
+  and,
   count,
   countDistinct,
   desc,
@@ -55,13 +56,20 @@ function getStripe(): Stripe | null {
 
 /**
  * MRR in cents, summed from live Stripe subscriptions (amounts live in Stripe,
- * not our subscription mirror). Annual prices are normalized to per-month.
- * Null when billing is disabled or Stripe is unreachable — the page shows "—"
- * rather than a fake zero.
+ * not our subscription mirror). Only items on our configured price IDs count,
+ * so unrelated products in the same Stripe account can't skew the number.
+ * Annual prices are normalized to per-month. Null when billing is disabled or
+ * Stripe is unreachable — the page shows "—" rather than a fake zero.
  */
 async function getMrrCents(): Promise<number | null> {
   const stripe = getStripe();
   if (!stripe) return null;
+  const ourPriceIds = new Set(
+    [env.STRIPE_PRICE_ID_PRO_MONTHLY, env.STRIPE_PRICE_ID_PRO_ANNUAL].filter(
+      Boolean,
+    ),
+  );
+  if (ourPriceIds.size === 0) return null;
   try {
     let total = 0;
     for await (const sub of stripe.subscriptions.list({
@@ -71,6 +79,7 @@ async function getMrrCents(): Promise<number | null> {
       for (const item of sub.items.data) {
         const price = item.price;
         if (!price?.unit_amount || !price.recurring) continue;
+        if (!ourPriceIds.has(price.id)) continue;
         const amount = price.unit_amount * (item.quantity ?? 1);
         const { interval, interval_count: n } = price.recurring;
         const months =
@@ -115,6 +124,9 @@ async function getPostgresStats(db: Db) {
   };
 }
 
+// min() collapses the (rare) multi-owner case to one deterministic email.
+const ownerEmail = sql<string | null>`min(${user.email})`;
+
 /** Org lookup for the access-grant UI (name or slug, case-insensitive). */
 export async function searchOrgs(db: Db, query: string) {
   const pattern = `%${query}%`;
@@ -122,15 +134,28 @@ export async function searchOrgs(db: Db, query: string) {
     .select({
       id: organization.id,
       name: organization.name,
-      slug: organization.slug,
+      ownerEmail,
       planOverride: organization.planOverride,
       overrideExpiresAt: organization.overrideExpiresAt,
       createdAt: organization.createdAt,
     })
     .from(organization)
-    .where(
-      or(ilike(organization.name, pattern), ilike(organization.slug, pattern)),
+    .leftJoin(
+      member,
+      and(
+        eq(member.organizationId, organization.id),
+        eq(member.role, "owner"),
+      ),
     )
+    .leftJoin(user, eq(user.id, member.userId))
+    .where(
+      or(
+        ilike(organization.name, pattern),
+        ilike(organization.slug, pattern),
+        ilike(user.email, pattern),
+      ),
+    )
+    .groupBy(organization.id)
     .limit(10);
 }
 
@@ -140,12 +165,21 @@ export async function listAccessGrants(db: Db) {
     .select({
       id: organization.id,
       name: organization.name,
-      slug: organization.slug,
+      ownerEmail,
       planOverride: organization.planOverride,
       overrideExpiresAt: organization.overrideExpiresAt,
     })
     .from(organization)
+    .leftJoin(
+      member,
+      and(
+        eq(member.organizationId, organization.id),
+        eq(member.role, "owner"),
+      ),
+    )
+    .leftJoin(user, eq(user.id, member.userId))
     .where(isNotNull(organization.planOverride))
+    .groupBy(organization.id)
     .orderBy(desc(organization.createdAt));
 }
 
