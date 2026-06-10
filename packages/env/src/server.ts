@@ -82,6 +82,11 @@ const serverSchema = {
     .optional()
     .transform((v) => v === "true" || v === "1"),
 
+  // --- Platform admin (hosted-operator dashboard) ---
+  // Comma-separated emails allowed to see platform-wide stats. Unset (the
+  // self-host default) → the feature is hidden for everyone.
+  PLATFORM_ADMIN_EMAILS: z.string().optional(),
+
   // --- Seed script bootstrap (no static defaults; random if unset) ---
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),

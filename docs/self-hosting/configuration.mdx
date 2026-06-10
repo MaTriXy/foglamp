@@ -120,6 +120,12 @@ Google Cloud console to `<BETTER_AUTH_URL>/api/auth/callback/google`.
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret. |
 | `AUTH_DISABLE_EMAIL_PASSWORD` | Set to `true` to turn off email+password sign-in (e.g. Google + magic link only). Default: enabled. |
 
+## Platform admin (optional)
+
+| Variable | Description |
+| --- | --- |
+| `PLATFORM_ADMIN_EMAILS` | Comma-separated emails allowed to open the cross-org Platform stats page (instance totals, ingestion volume, ClickHouse storage). Unset: hidden for everyone. |
+
 ## Seed bootstrap
 
 Used once by the seed script. No static defaults — a random password is

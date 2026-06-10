@@ -17,10 +17,18 @@ import {
   IconCircleArrowDownFilled,
   IconCircleArrowUpFilled,
   IconFolderOff,
+  IconMailForward,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@foglamp/ui/components/button";
+
+import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
 
 import type { Delta } from "@/lib/format";
 import {
@@ -265,6 +273,69 @@ export function ScrollFade({
 }
 
 export function NoProject() {
+  // A user can land here with zero orgs when they signed up off an invitation
+  // (the signup hook skips the personal-workspace bootstrap) but never hit the
+  // accept page — surface their live invitations so they can recover.
+  const invites = useQuery(trpc.orgs.pendingInvitations.queryOptions());
+  const [accepting, setAccepting] = useState<string | null>(null);
+
+  const accept = async (invitationId: string) => {
+    setAccepting(invitationId);
+    const res = await authClient.organization.acceptInvitation({
+      invitationId,
+    });
+    if (res.error) {
+      toast.error(res.error.message ?? "This invitation is no longer valid.");
+      setAccepting(null);
+      return;
+    }
+    // Hard reload so the project list refetches with the new membership.
+    window.location.href = "/overview";
+  };
+
+  if (invites.data && invites.data.length > 0) {
+    return (
+      <Empty className="mt-12">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconMailForward />
+          </EmptyMedia>
+          <EmptyContent>
+            <EmptyTitle>You&apos;ve been invited</EmptyTitle>
+            <EmptyDescription>
+              Accept an invitation to join its workspace.
+            </EmptyDescription>
+          </EmptyContent>
+        </EmptyHeader>
+        <div className="flex flex-col gap-2">
+          {invites.data.map((invite) => (
+            <div
+              key={invite.id}
+              className="flex items-center justify-between gap-6 rounded-lg border px-4 py-3 text-left"
+            >
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium">
+                  {invite.orgName}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Invited by {invite.inviterName || invite.inviterEmail}
+                  {invite.role ? ` · ${invite.role}` : ""}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                disabled={accepting !== null}
+                onClick={() => accept(invite.id)}
+              >
+                {accepting === invite.id ? "Accepting…" : "Accept"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Empty>
+    );
+  }
+
   return (
     <Empty className="mt-12">
       <EmptyHeader>

@@ -1957,3 +1957,93 @@ export async function queryScoreAlertWindow(
 		}
 	);
 }
+
+// ---------------------------------------------------------------------------
+// Platform admin (hosted-operator view; not org-scoped)
+// ---------------------------------------------------------------------------
+
+export type PlatformUsageDayRow = {
+	day: string;
+	span_count: string;
+	active_orgs: string;
+};
+
+/** Platform-wide spans/day + distinct active orgs from the daily usage rollup. */
+export async function queryPlatformUsageByDay(
+	client: ClickHouseClient,
+	from: string,
+): Promise<PlatformUsageDayRow[]> {
+	return rows<PlatformUsageDayRow>(
+		client,
+		`SELECT
+       toString(day) AS day,
+       sum(span_count) AS span_count,
+       uniqExact(org_id) AS active_orgs
+     FROM usage_by_org_day
+     WHERE day >= {from:Date}
+     GROUP BY day
+     ORDER BY day`,
+		{ from },
+	);
+}
+
+export type PlatformTopOrgRow = { org_id: string; span_count: string };
+
+/** Highest-volume orgs by span count since `from` (YYYY-MM-DD). */
+export async function queryPlatformTopOrgs(
+	client: ClickHouseClient,
+	from: string,
+	limit = 10,
+): Promise<PlatformTopOrgRow[]> {
+	return rows<PlatformTopOrgRow>(
+		client,
+		`SELECT org_id, sum(span_count) AS span_count
+     FROM usage_by_org_day
+     WHERE day >= {from:Date} AND org_id != ''
+     GROUP BY org_id
+     ORDER BY span_count DESC
+     LIMIT {limit:UInt32}`,
+		{ from, limit },
+	);
+}
+
+export type ClickHouseTableStatRow = {
+	table: string;
+	row_count: string;
+	bytes_on_disk: string;
+};
+
+/** Per-table storage footprint of the active database (system.parts). */
+export async function queryClickHouseTableStats(
+	client: ClickHouseClient,
+): Promise<ClickHouseTableStatRow[]> {
+	return rows<ClickHouseTableStatRow>(
+		client,
+		`SELECT
+       table,
+       sum(rows) AS row_count,
+       sum(bytes_on_disk) AS bytes_on_disk
+     FROM system.parts
+     WHERE active AND database = currentDatabase()
+     GROUP BY table
+     ORDER BY bytes_on_disk DESC`,
+		{},
+	);
+}
+
+export type ClickHouseDiskRow = {
+	name: string;
+	free_space: string;
+	total_space: string;
+};
+
+/** Free/total bytes per ClickHouse disk (system.disks) — VM-fill o11y. */
+export async function queryClickHouseDisks(
+	client: ClickHouseClient,
+): Promise<ClickHouseDiskRow[]> {
+	return rows<ClickHouseDiskRow>(
+		client,
+		`SELECT name, free_space, total_space FROM system.disks`,
+		{},
+	);
+}

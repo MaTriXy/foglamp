@@ -21,11 +21,18 @@ export type AuthMethods = {
   google: boolean;
 };
 
-// After sign-in, land on the dashboard. A hard navigation (not router.push) so
-// the (app) layout's SSR session gate re-runs and sees the fresh cookie.
-const OVERVIEW_URL = `${env.NEXT_PUBLIC_APP_URL}/overview`;
-
-export default function LoginForm({ methods }: { methods: AuthMethods }) {
+export default function LoginForm({
+  methods,
+  next,
+}: {
+  methods: AuthMethods;
+  // Sanitized same-site path to return to after sign-in (e.g. an invitation
+  // link that bounced through /login); defaults to the dashboard.
+  next?: string | null;
+}) {
+  // After sign-in, land back where the user was headed. A hard navigation (not
+  // router.push) so SSR session gates re-run and see the fresh cookie.
+  const callbackUrl = `${env.NEXT_PUBLIC_APP_URL}${next ?? "/overview"}`;
   // Password first when available (the self-host floor); otherwise magic link.
   const [mode, setMode] = useState<"password" | "magic">(
     methods.emailPassword ? "password" : "magic"
@@ -42,7 +49,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
     // On success this navigates away to Google; we only return here on error.
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: OVERVIEW_URL,
+      callbackURL: callbackUrl,
     });
     if (error) {
       toast.error(error.message ?? "Google sign-in failed. Try again.");
@@ -56,13 +63,13 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
       const { error } = await authClient.signIn.email({
         email: value.email,
         password: value.password,
-        callbackURL: OVERVIEW_URL,
+        callbackURL: callbackUrl,
       });
       if (error) {
         toast.error(error.message ?? "Invalid email or password.");
         return;
       }
-      window.location.href = OVERVIEW_URL;
+      window.location.href = callbackUrl;
     },
     validators: {
       onSubmit: z.object({
@@ -77,7 +84,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
     onSubmit: async ({ value }) => {
       const { error } = await authClient.signIn.magicLink({
         email: value.email,
-        callbackURL: OVERVIEW_URL,
+        callbackURL: callbackUrl,
       });
       if (error) {
         toast.error(

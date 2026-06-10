@@ -27,11 +27,23 @@ async function fetchAuthMethods(): Promise<AuthMethods> {
   }
 }
 
-export default async function LoginPage() {
+// Only same-site relative paths survive (no "//host" or absolute URLs), so
+// ?next= can't be used as an open redirect.
+function sanitizeNext(next: string | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
   const methods = await fetchAuthMethods();
   return (
     <div className="flex min-h-svh items-center justify-center">
-      <LoginForm methods={methods} />
+      <LoginForm methods={methods} next={sanitizeNext(next)} />
     </div>
   );
 }

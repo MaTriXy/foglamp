@@ -5,6 +5,7 @@ import { alertsRouter } from "./alerts";
 import { evalsRouter } from "./evals";
 import { metricsRouter } from "./metrics";
 import { orgsRouter } from "./orgs";
+import { platformRouter } from "./platform";
 import { providerKeysRouter } from "./providerKeys";
 import { pricingRouter } from "./pricing";
 import { projectsRouter } from "./projects";
@@ -30,5 +31,6 @@ export const appRouter = router({
   providerKeys: providerKeysRouter,
   pricing: pricingRouter,
   admin: adminRouter,
+  platform: platformRouter,
 });
 export type AppRouter = typeof appRouter;

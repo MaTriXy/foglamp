@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
-import { getOrgUsage } from "../services/orgs";
+import { getOrgUsage, listPendingInvitations } from "../services/orgs";
 
 export const orgsRouter = router({
   usage: protectedProcedure
@@ -9,4 +9,9 @@ export const orgsRouter = router({
     .query(({ ctx, input }) =>
       getOrgUsage(ctx.db, ctx.ch, ctx.session.user.id, input),
     ),
+
+  // Live invitations addressed to the signed-in user's email.
+  pendingInvitations: protectedProcedure.query(({ ctx }) =>
+    listPendingInvitations(ctx.db, ctx.session.user.email),
+  ),
 });

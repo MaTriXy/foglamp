@@ -1,12 +1,41 @@
 import { getOrgPlan } from "@foglamp/billing";
 import { queryOrgSpanUsage } from "@foglamp/clickhouse";
 import { alertRule } from "@foglamp/db/schema/alert";
+import { user } from "@foglamp/db/schema/auth";
 import { evalDefinition } from "@foglamp/db/schema/eval";
+import { invitation, organization } from "@foglamp/db/schema/organization";
 import { project } from "@foglamp/db/schema/project";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, gt, sql } from "drizzle-orm";
 
 import type { Ch, Db } from "../types";
 import { requireOrgAccess } from "./access";
+
+/**
+ * Live invitations addressed to this email. The signup hook skips the personal
+ * workspace bootstrap for invited users, so the zero-org dashboard state needs
+ * this to offer the invite back to a user who lost the email link.
+ */
+export async function listPendingInvitations(db: Db, email: string) {
+  return db
+    .select({
+      id: invitation.id,
+      orgName: organization.name,
+      inviterName: user.name,
+      inviterEmail: user.email,
+      role: invitation.role,
+      expiresAt: invitation.expiresAt,
+    })
+    .from(invitation)
+    .innerJoin(organization, eq(organization.id, invitation.organizationId))
+    .innerJoin(user, eq(user.id, invitation.inviterId))
+    .where(
+      and(
+        eq(sql`lower(${invitation.email})`, email.toLowerCase()),
+        eq(invitation.status, "pending"),
+        gt(invitation.expiresAt, new Date()),
+      ),
+    );
+}
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);

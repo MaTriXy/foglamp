@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   type Icon,
+  IconChartBar,
   IconChevronDown,
   IconDotsVertical,
   IconFlask2,
@@ -11,6 +12,7 @@ import {
   IconLogout,
   IconPlus,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import {
@@ -40,6 +42,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { ThemeSubmenu } from "@/components/theme-switcher";
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
 
 import { Spinner } from "@foglamp/ui/components/spinner";
 
@@ -119,6 +122,12 @@ function ProjectSwitcher() {
 function NavUser() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  // Hosted-operator gate (PLATFORM_ADMIN_EMAILS) — false for everyone else,
+  // so the Platform item simply never renders for regular users.
+  const isPlatformAdmin = useQuery({
+    ...trpc.platform.isAdmin.queryOptions(),
+    staleTime: Infinity,
+  });
   // The session resolves synchronously on the client but is absent during SSR,
   // so gate the user-specific name on mount: SSR and the first client render
   // both show "Account" (matching), then it swaps to the real name. Avoids a
@@ -136,7 +145,8 @@ function NavUser() {
             <Avatar size="sm">
               <AvatarFallback>{initials(name)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-1 flex-col text-left text-sm ">
+            {/* min-w-0 lets the flex child shrink so the name can truncate. */}
+            <div className="flex min-w-0 flex-1 flex-col text-left text-sm">
               <span className="truncate font-medium">{name}</span>
             </div>
             <IconDotsVertical className="ml-auto size-4 opacity-20" />
@@ -147,8 +157,16 @@ function NavUser() {
             sideOffset={8}
             className="min-w-(--anchor-width)"
           >
-            <DropdownMenuLabel>{email}</DropdownMenuLabel>
+            <DropdownMenuLabel className="max-w-56 truncate">
+              {email}
+            </DropdownMenuLabel>
             <ThemeSubmenu />
+            {isPlatformAdmin.data && (
+              <DropdownMenuItem render={<Link href="/platform" />}>
+                <IconChartBar />
+                Platform
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
