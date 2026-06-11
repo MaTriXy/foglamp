@@ -68,12 +68,17 @@ describe("normalize", () => {
       "anthropic/claude-haiku-4-5",
       "anthropic/claude-haiku-4.5",
     ]);
-    // 3.x ids ("claude-3-5-haiku") match OpenRouter's canonical slug already —
-    // the dot transform only fires on a trailing "-N-M" version.
+    // 3.x ids get the dotted form too (OpenRouter's primary id), and the
+    // dashed form still matches its canonical slug.
     expect(modelIdCandidates("anthropic", "claude-3-5-haiku-20241022")).toEqual([
       "anthropic/claude-3-5-haiku-20241022",
       "anthropic/claude-3-5-haiku",
+      "anthropic/claude-3.5-haiku",
     ]);
+    // Variant suffixes after the version ("-fast") keep the dot transform.
+    expect(modelIdCandidates("anthropic", "claude-opus-4-8-fast")).toContain(
+      "anthropic/claude-opus-4.8-fast",
+    );
   });
   test("bedrock ids: region + creator prefix and -v1:0 suffix are handled", () => {
     expect(
@@ -87,6 +92,10 @@ describe("normalize", () => {
     expect(
       modelIdCandidates("bedrock", "eu.anthropic.claude-sonnet-4-20250514-v1:0"),
     ).toContain("anthropic/claude-sonnet-4");
+    // Bare numeric version segments (OpenAI's gpt-oss on Bedrock) drop too.
+    expect(modelIdCandidates("amazon-bedrock", "openai.gpt-oss-120b-1:0")).toContain(
+      "openai/gpt-oss-120b",
+    );
     // Unparseable bedrock id stays unresolved instead of guessing.
     expect(modelIdCandidates("amazon-bedrock", "mystery-model")).toEqual([]);
   });

@@ -34,7 +34,10 @@ const VENDOR_MAP: Record<string, string> = {
 
 // Curated overrides keyed by a normalized candidate or raw "vendor/model".
 // Add entries here when a provider's model id can't be derived mechanically.
-const ALIAS_MAP: Record<string, string> = {};
+const ALIAS_MAP: Record<string, string> = {
+  // Bedrock's "us.deepseek.r1-v1:0" → OpenRouter's doubled-vendor id.
+  "deepseek/r1": "deepseek/deepseek-r1",
+};
 
 // Trailing version markers OpenRouter usually omits from its canonical id.
 const VERSION_SUFFIX_RE =
@@ -44,7 +47,7 @@ const VERSION_SUFFIX_RE =
 // "apac.", "global.", …), the model's creator, then the model name carrying an
 // ARN-style version suffix — e.g. "us.anthropic.claude-haiku-4-5-20251001-v1:0".
 const BEDROCK_ID_RE =
-  /^(?:[a-z]{2,6}(?:-gov)?\.)?(anthropic|amazon|meta|mistral|cohere|ai21|deepseek|writer)\.(.+)$/;
+  /^(?:[a-z]{2,6}(?:-gov)?\.)?(anthropic|amazon|meta|mistral|cohere|ai21|deepseek|writer|openai|qwen|luma|stability|twelvelabs)\.(.+)$/;
 
 function pushCandidate(out: string[], vendor: string, model: string): void {
   if (!vendor || !model) return;
@@ -62,7 +65,7 @@ function expandModel(out: string[], vendor: string, model: string): void {
   const dateless = model.replace(VERSION_SUFFIX_RE, "");
   pushCandidate(out, vendor, dateless);
   if (vendor === "anthropic") {
-    pushCandidate(out, vendor, dateless.replace(/-(\d+)-(\d+)$/, "-$1.$2"));
+    pushCandidate(out, vendor, dateless.replace(/(\d)-(\d)/g, "$1.$2"));
   }
 }
 
@@ -71,12 +74,12 @@ function bedrockCandidates(out: string[], raw: string): void {
   if (!match) return;
   const creator = match[1]!;
   const vendor = creator in VENDOR_MAP ? VENDOR_MAP[creator]! : creator;
-  // Drop the ":0" revision everywhere; try the model both with "-v1" (Amazon's
-  // own ids keep it on OpenRouter, e.g. amazon/nova-pro-v1) and without it
-  // (Anthropic's don't).
+  // Drop the ":0" revision everywhere; try the model both with its version
+  // segment (Amazon's own ids keep "-v1" on OpenRouter, e.g. amazon/nova-pro-v1)
+  // and without it (Anthropic's don't; OpenAI's gpt-oss ids use a bare "-1").
   const base = match[2]!.replace(/:\d+$/, "");
   expandModel(out, vendor, base);
-  const versionless = base.replace(/-v\d+$/, "");
+  const versionless = base.replace(/-v?\d+$/, "");
   if (versionless !== base) expandModel(out, vendor, versionless);
 }
 
