@@ -52,7 +52,6 @@ function formatMrr(cents: number | null): string {
   })}/mo`;
 }
 
-
 // Comp an org to enterprise limits for a chosen window. Grants are enforced at
 // plan-resolution time (getOrgPlan), so revocations/expiries apply within ~60s
 // (the ingest plan cache TTL).
@@ -83,7 +82,7 @@ function AccessGrantsCard() {
         refresh();
       },
       onError: (e) => toast.error(e.message),
-    }),
+    })
   );
   const revoke = useMutation(
     trpc.platform.revokeAccess.mutationOptions({
@@ -92,7 +91,7 @@ function AccessGrantsCard() {
         refresh();
       },
       onError: (e) => toast.error(e.message),
-    }),
+    })
   );
 
   const grantLabel = (expiresAt: Date | string | null) => {
@@ -310,7 +309,7 @@ export function PlatformClient() {
           iconClassName="text-teal-500"
         />
         <StatCard
-          label="Paid subscriptions"
+          label="Paid subs"
           size="sm"
           value={formatCount(d.totals.activeSubscriptions)}
           icon={IconCreditCard}
