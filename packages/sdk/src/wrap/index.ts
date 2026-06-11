@@ -16,6 +16,10 @@
 //   // Untyped-context path (JS, or when you don't need the result types):
 //   await fog.generateText({ model, prompt, foglamp: { traceName: "summarize" } });
 //
+//   // Ambient path: attach run-scoped context (workflow/session/metadata) to
+//   // everything inside, however deeply nested — no parameter threading:
+//   await fog.run({ workflowName: "onboarding", workflowRunId: id }, () => handler());
+//
 // Mechanism: each tool's `execute` is wrapped for real per-tool timing, and our
 // telemetry callbacks are composed over any you pass (`onChunk`/`onStepFinish`/
 // `onFinish`/`onError`) — so the user's stream is never tee'd. Agent classes
@@ -25,6 +29,7 @@
 // into your app.
 
 import { resolveConfig } from "../config";
+import { ambientContext, mergeContext, runWithContext } from "../context";
 import { Transport } from "../transport";
 import type { FoglampConfig, IntegrationContext } from "../types";
 import { WrapCollector } from "./collector";
@@ -78,6 +83,14 @@ export interface WrapHandle {
   shutdown(): Promise<void>;
   /** Traces currently buffered (not yet POSTed). */
   readonly pending: number;
+  /**
+   * Run `fn` with `context` as the **ambient** trace context: every wrapped
+   * call inside it — however deeply nested — picks the context up without any
+   * parameter threading, and signatures stay untouched (singleton agents stay
+   * singletons, fully typed). Layering: wrap default → `run()` → `with()` →
+   * per-call `foglamp:`; nested `run()`s merge inner-over-outer.
+   */
+  run<T>(context: CallContext, fn: () => T): T;
 }
 
 export type WrappedAi<T extends AiModuleLike> = {
@@ -131,27 +144,19 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
     }
   };
 
-  // Layer contexts (wrap-time → with() → per-call), merging `metadata` deeply
-  // so a call-level metadata key adds to the bound metadata instead of
-  // replacing the whole map.
-  const mergeContext = (
-    base: IntegrationContext,
-    extra: IntegrationContext | undefined,
-  ): IntegrationContext => {
-    if (!extra) return base;
-    const merged: IntegrationContext = { ...base, ...extra };
-    if (base.metadata && extra.metadata) merged.metadata = { ...base.metadata, ...extra.metadata };
-    return merged;
-  };
-
-  // Split the foglamp-only `foglamp` key out of a call's args, returning a clean
-  // shallow copy to forward and the merged per-call context.
+  // Split the foglamp-only `foglamp` key out of a call's args, returning a
+  // clean shallow copy to forward and the fully-layered context. `layer` is
+  // the static binding (`with()` context or an agent's own context); the
+  // ambient `fog.run(...)` layer is read here — at call time, not bind time —
+  // so module-level singletons see the run context of whoever is calling them.
+  // Layering: wrap default → run() → with()/agent → per-call `foglamp:`.
   const prepare = (
     rawArgs: unknown,
-    base: IntegrationContext,
+    layer: IntegrationContext,
   ): { clean: Record<string, unknown>; context: IntegrationContext } => {
     const args = (rawArgs ?? {}) as Record<string, unknown>;
     const { foglamp, ...clean } = args;
+    const base = mergeContext(mergeContext(rootContext, ambientContext()), layer);
     return { clean, context: mergeContext(base, foglamp as IntegrationContext | undefined) };
   };
 
@@ -210,9 +215,9 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
     });
   };
 
-  // Build the four wrapped functions bound to a base context. `with(ctx)`
-  // calls this again with the merged context, so bound copies are cheap
-  // closures over the same transport.
+  // Build the four wrapped functions bound to a context layer (`{}` for the
+  // top-level handle, the `with(ctx)` context for bound copies). The wrap
+  // default and ambient `run()` layers are applied underneath by `prepare`.
   const makeFns = (base: IntegrationContext) => {
     // --- generateText (non-streaming, read result) -----------------------
     const generateText = (async (rawArgs: unknown) => {
@@ -333,8 +338,10 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
         this.#settings = rest;
         let ctx = mergeContext(baseContext, foglamp);
         // An agent is the canonical `agentName` carrier — default it from the
-        // class's own `id` when the user named the agent but not the trace.
-        if (!ctx.agentName && !ctx.traceName && typeof rest.id === "string") {
+        // class's own `id` when no static layer named the trace (the ambient
+        // `run()` layer is dynamic and shouldn't suppress the agent's identity).
+        const staticCtx = mergeContext(rootContext, ctx);
+        if (!staticCtx.agentName && !staticCtx.traceName && typeof rest.id === "string") {
           ctx = { ...ctx, agentName: rest.id };
         }
         this.#context = ctx;
@@ -424,12 +431,13 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
   };
 
   const handle = {
-    ...makeFns(rootContext),
-    ...makeAgentClasses(rootContext),
-    with: (context: CallContext) => {
-      const bound = mergeContext(rootContext, context);
-      return { ...makeFns(bound), ...makeAgentClasses(bound) };
-    },
+    ...makeFns({}),
+    ...makeAgentClasses({}),
+    with: (context: CallContext) => ({
+      ...makeFns(context),
+      ...makeAgentClasses(context),
+    }),
+    run: runWithContext,
     flush: () => transport.flush(),
     shutdown: () => transport.shutdown(),
     get pending() {

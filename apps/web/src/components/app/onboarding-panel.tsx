@@ -82,25 +82,43 @@ export function OnboardingPanel() {
         }),
     })
   );
-  const deleteKey = useMutation(trpc.projects.keys.delete.mutationOptions({}));
-
   // Once keys have loaded, ensure we hold a usable key to inline — no click.
-  // Plaintext can't be recovered, so drop any prior onboarding key and mint a
-  // fresh one (covers both first visit and reloads). Runs once per mount.
-  // We hard-delete rather than revoke: these are throwaway bootstrap keys, so
-  // soft-revoking would pile up dead rows on every reload before the first trace.
+  // The plaintext only exists at mint time, so we cache it in localStorage and
+  // reuse it while the key still exists server-side. NEVER delete or revoke a
+  // prior onboarding key here: the user may have already pasted it into an
+  // app, and invalidating it silently kills their traces.
   useEffect(() => {
     if (!projectId || keys.isLoading || mintedRef.current) return;
     mintedRef.current = true;
-    const stale = (keys.data ?? []).filter((k) => k.name === KEY_NAME);
+    const cacheKey = `foglamp:onboarding-key:${projectId}`;
     void (async () => {
-      for (const k of stale) {
-        await deleteKey.mutateAsync({ projectId, keyId: k.id });
+      try {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) ?? "null") as {
+          id: string;
+          key: string;
+        } | null;
+        if (
+          cached &&
+          (keys.data ?? []).some((k) => k.id === cached.id && !k.revokedAt)
+        ) {
+          setRevealedKey(cached.key);
+          return;
+        }
+      } catch {
+        // Corrupt cache — fall through and mint a fresh key.
       }
       const res = await createKey.mutateAsync({ projectId, name: KEY_NAME });
+      try {
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({ id: res.id, key: res.key })
+        );
+      } catch {
+        // Storage unavailable (private mode/quota) — the key still works this visit.
+      }
       setRevealedKey(res.key);
     })();
-  }, [projectId, keys.isLoading, keys.data, createKey, deleteKey]);
+  }, [projectId, keys.isLoading, keys.data, createKey]);
 
   const prompt = revealedKey ? buildPrompt(revealedKey) : null;
   const copy = () => {

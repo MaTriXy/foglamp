@@ -20,6 +20,7 @@ export class Transport {
   private timer: ReturnType<typeof setInterval> | undefined;
   private flushing: Promise<void> | undefined;
   private scheduled = false;
+  private warnedAuth = false;
   constructor(config: ResolvedConfig) {
     this.config = config;
     if (config.enabled && !config.serverless) {
@@ -168,6 +169,15 @@ export class Transport {
           keepalive: true,
         });
         if (res.ok) return;
+        // An auth rejection is a configuration error, never transient — every
+        // trace is being dropped. Surface it once even without `debug`, or a
+        // stale/revoked key fails completely silently.
+        if ((res.status === 401 || res.status === 403) && !this.warnedAuth) {
+          this.warnedAuth = true;
+          console.warn(
+            `[foglamp] ingest rejected the API key (${res.status}) — traces are being dropped. Check FOGLAMP_API_KEY.`,
+          );
+        }
         const retryable =
           res.status === 408 || res.status === 429 || res.status >= 500;
         if (!retryable || attempt >= maxAttempts) {

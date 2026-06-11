@@ -197,6 +197,68 @@ describe("wrap", () => {
     expect(trace.spans.some((s) => s.spanType === "llm")).toBe(true);
   });
 
+  test("run(): ambient context reaches nested calls and singleton agents", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    // Module-level singleton, constructed OUTSIDE any run() scope.
+    const Agent = fog.ToolLoopAgent as new (s: Record<string, unknown>) => {
+      generate: (o: Record<string, unknown>) => Promise<unknown>;
+    };
+    const agent = new Agent({ id: "thesis-agent", model: "gpt-4o" });
+
+    await fog.run(
+      { workflowName: "onboarding", workflowRunId: "run-1", metadata: { brandId: "b1" } },
+      async () => {
+        // Nested helper two awaits deep — no parameter threading.
+        const nested = async () => agent.generate({ prompt: "go" });
+        await Promise.resolve();
+        await nested();
+      },
+    );
+    await fog.flush();
+
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("thesis-agent"); // agent identity survives
+    expect(trace.workflowName).toBe("onboarding"); // ambient layer applied
+    expect(trace.workflowRunId).toBe("run-1");
+    expect(trace.metadata).toEqual({ brandId: "b1" });
+  });
+
+  test("run(): with()/per-call win over ambient; nested runs merge inner-over-outer", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+    const bound = fog.with({ agentName: "bound", metadata: { layer: "with" } });
+
+    await fog.run({ agentName: "ambient", metadata: { run: "outer", layer: "run" } }, () =>
+      fog.run({ metadata: { run: "inner" } }, async () => {
+        await (bound.generateText as (a: unknown) => Promise<unknown>)({ prompt: "p" });
+      }),
+    );
+    await fog.flush();
+
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("bound"); // with() beats ambient
+    // metadata merges across all layers; inner run beats outer, with() beats run
+    expect(trace.metadata).toEqual({ run: "inner", layer: "with" });
+  });
+
+  test("run(): calls outside the scope are unaffected", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    fog.run({ workflowName: "w", workflowRunId: "r" }, () => undefined);
+    await fog.generateText({ prompt: "p", foglamp: { traceName: "solo" } } as never);
+    await fog.flush();
+
+    const trace = traces()[0]!;
+    expect(trace.workflowName).toBeUndefined();
+    expect(trace.traceName).toBe("solo");
+  });
+
   test("no API key: passes through (foglamp stripped) and sends nothing", async () => {
     const { fake, calls } = makeFakeAi();
     const { fetchImpl, traces } = makeCapture();

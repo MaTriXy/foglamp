@@ -53,10 +53,34 @@ Each wrapped call becomes one trace, with the same shape as the v7 path:
 
 ## Per-call context
 
-Contexts layer: `wrap(ai, { context })` sets the default, `fog.with(context)`
-binds on top of it, and a call-time `foglamp` option wins over both.
-`metadata` maps merge across layers (inner keys win) instead of replacing each
-other.
+Contexts layer, later layers winning per field: `wrap(ai, { context })` sets
+the default, `fog.run(context, fn)` sets the ambient run context,
+`fog.with(context)` binds on top of both, and a call-time `foglamp` option
+wins over all three. `metadata` maps merge across layers (inner keys win)
+instead of replacing each other.
+
+**`fog.run()` is the no-plumbing path for run-scoped context** — workflow run
+ids, session ids, request metadata. It stores the context for the duration of
+the callback (via `AsyncLocalStorage`), so every wrapped call inside — however
+deeply nested — picks it up with **zero signature changes**: no parameters to
+thread through intermediate functions, and module-level singleton agents stay
+singletons.
+
+```ts
+// agent module: static identity, bound once
+const { ToolLoopAgent } = fog.with({ agentName: "brand-analysis" });
+const brandAnalysisAgent = new ToolLoopAgent({ model, tools, output });
+
+// request handler: dynamic run context, set at the boundary
+await fog.run(
+  { workflowName: "brand-onboarding", workflowRunId: brandId, metadata: { brandId } },
+  () => runOnboarding(brand) // every wrapped call inside is attributed, however deep
+);
+```
+
+Nested `run()`s merge inner-over-outer. Works on Node, Bun, Deno, and
+Vercel/Cloudflare edge runtimes (anywhere `node:async_hooks` exists). The v7
+collector has the same method: `fog.run()` layers under `fog.integration()`.
 
 **`with()` is the TypeScript-first path** — it returns the wrapped functions
 and agent classes typed *exactly* as the AI SDK's originals, so generics,

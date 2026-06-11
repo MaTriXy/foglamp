@@ -1,5 +1,6 @@
 import type { Telemetry } from "ai";
 
+import { ambientContext, mergeContext, runWithContext } from "./context";
 import { extractWebSearchCount } from "./providerUsage";
 import { coerceMetadata, serialize, toolCatalogJson } from "./serialize";
 import { Transport } from "./transport";
@@ -169,6 +170,16 @@ export class Collector implements Telemetry {
   }
 
   /**
+   * Run `fn` with `context` as the **ambient** trace context: every traced
+   * call inside it — however deeply nested — merges the context in without
+   * any parameter threading. Layering: ambient → integration()/per-call.
+   * Nested `run()`s merge inner-over-outer.
+   */
+  run<T>(context: IntegrationContext, fn: () => T): T {
+    return runWithContext(context, fn);
+  }
+
+  /**
    * Flush buffered traces now. Await this before a serverless handler returns
    * (or pass `waitUntil` so the SDK does it for you). The background flush
    * timer keeps running — the collector stays usable afterwards.
@@ -199,8 +210,12 @@ export class Collector implements Telemetry {
       if (!e.callId) return;
       const recordInputs = e.recordInputs ?? this.config.recordInputs;
       const recordOutputs = e.recordOutputs ?? this.config.recordOutputs;
-      // Per-call context wins; otherwise the global path maps functionId→agent.
-      const context: IntegrationContext = this.context ?? { agentName: e.functionId };
+      // Layering: ambient `fog.run(...)` context underneath, then the per-call
+      // integration context (or the global path's functionId→agent mapping).
+      const context: IntegrationContext = mergeContext(
+        ambientContext() ?? {},
+        this.context ?? { agentName: e.functionId },
+      );
       const now = Date.now();
       this.reapAbandoned(now);
       this.builders.set(e.callId, {

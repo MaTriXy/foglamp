@@ -97,8 +97,17 @@ How to decide, concretely:
 - **Find the pipelines.** A request handler or job that makes several model
   calls (or calls several agents) before producing its result is a workflow →
   same `workflowName` + `workflowRunId` on *every* call in it, including calls
-  made by nested agents. Thread the run id through rather than generating a new
-  one per call.
+  made by nested agents. **Use `fog.run(context, fn)` at the handler/job entry
+  point** — it sets the context ambiently for everything inside (however
+  deeply nested), so you don't thread a trace parameter through every function
+  signature between the handler and the AI calls:
+
+  ```ts
+  await fog.run(
+    { workflowName: "ticket-pipeline", workflowRunId: ticket.id, metadata: { userId } },
+    () => handleTicket(ticket) // every instrumented call inside is attributed
+  );
+  ```
 - **Find the threads.** If the app has conversations (a chat, a support thread),
   pass its id as `sessionId` on every call serving that thread.
 - **Don't overload the names.** High-cardinality values (user ids, dates,
