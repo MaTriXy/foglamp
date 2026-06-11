@@ -451,6 +451,13 @@ const PANEL_WIDTH = 420;
 // language across the app.
 const PANEL_EASE = [0.32, 0.72, 0, 1] as const;
 
+// Horizontal breathing room inside the aside's clip box so the card's shadow
+// (a 1px ring + ~4px blur, fully *outside* the card in light mode) isn't cut
+// off by overflow-x-clip. The aside grows by this much per side and pulls
+// itself back with an equal negative margin, so the card's resting position
+// and the layout's effective width are unchanged.
+const PANEL_GUTTER = 8;
+
 /**
  * The right-hand inspector — opens for either a single span or the whole trace.
  * Selecting one animates the panel's width open (squeezing the timeline beside
@@ -495,7 +502,10 @@ function DetailPanel({
 	return (
 		<motion.aside
 			initial={false}
-			animate={{ width: open ? PANEL_WIDTH : 0 }}
+			animate={{
+				width: open ? PANEL_WIDTH + PANEL_GUTTER * 2 : 0,
+				marginInline: open ? -PANEL_GUTTER : 0,
+			}}
 			transition={{ duration: 0.25, ease: PANEL_EASE }}
 			// Clip only the horizontal axis (all the width collapse needs); the
 			// vertical stays visible so the card's shadow isn't cut off top/bottom.
@@ -504,11 +514,10 @@ function DetailPanel({
 			aria-hidden={!open}
 		>
 			{/* Fixed-width inner so content doesn't reflow while the panel animates.
-          The horizontal padding is a gutter so the card's left/right shadow (a
-          1px ring + ~4px blur) isn't clipped by the aside's overflow-x-clip
-          (which exists to clip the width collapse). Vertical stays flush since
+          The PANEL_GUTTER inset keeps the card's left/right shadow inside the
+          aside's clip box (see PANEL_GUTTER). Vertical stays flush since
           overflow-y is visible. */}
-			<div style={{ width: PANEL_WIDTH }}>
+			<div style={{ width: PANEL_WIDTH, marginInline: PANEL_GUTTER }}>
 				{shown?.kind === "span" && (
 					<SpanDetail
 						span={shown.span}
