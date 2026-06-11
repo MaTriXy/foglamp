@@ -47,7 +47,8 @@ function buildPrompt(apiKey: string): string {
    wrap my generateText / streamText calls with fog.integration(...), and based
    on my codebase map each agent to \`agentName\`, any multi-step pipeline to a
    shared \`workflowName\` + \`workflowRunId\`, and any conversation thread to a
-   \`sessionId\` (one-off calls get a \`traceName\`). The docs explain how to pick
+   \`sessionId\` — real user conversations only; a batch/cron/pipeline run is a
+   workflow, not a session (one-off calls get a \`traceName\`). The docs explain how to pick
    good values — read the codebase and map it properly, don't just label
    everything with one name. Names (\`agentName\`/\`workflowName\`/\`traceName\`)
    must be static string literals — anything dynamic (an id, slug, URL, date)
