@@ -62,6 +62,34 @@ describe("normalize", () => {
       "openai/gpt-4o",
     ]);
   });
+  test("anthropic dashed versions gain the dotted OpenRouter form", () => {
+    expect(modelIdCandidates("anthropic", "claude-haiku-4-5-20251001")).toEqual([
+      "anthropic/claude-haiku-4-5-20251001",
+      "anthropic/claude-haiku-4-5",
+      "anthropic/claude-haiku-4.5",
+    ]);
+    // 3.x ids ("claude-3-5-haiku") match OpenRouter's canonical slug already —
+    // the dot transform only fires on a trailing "-N-M" version.
+    expect(modelIdCandidates("anthropic", "claude-3-5-haiku-20241022")).toEqual([
+      "anthropic/claude-3-5-haiku-20241022",
+      "anthropic/claude-3-5-haiku",
+    ]);
+  });
+  test("bedrock ids: region + creator prefix and -v1:0 suffix are handled", () => {
+    expect(
+      modelIdCandidates("amazon-bedrock", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    ).toContain("anthropic/claude-haiku-4.5");
+    // No region prefix, non-anthropic creator.
+    expect(modelIdCandidates("amazon-bedrock", "amazon.nova-pro-v1:0")).toContain(
+      "amazon/nova-pro-v1",
+    );
+    // Creator-prefixed ids parse even when the provider string is something else.
+    expect(
+      modelIdCandidates("bedrock", "eu.anthropic.claude-sonnet-4-20250514-v1:0"),
+    ).toContain("anthropic/claude-sonnet-4");
+    // Unparseable bedrock id stays unresolved instead of guessing.
+    expect(modelIdCandidates("amazon-bedrock", "mystery-model")).toEqual([]);
+  });
 });
 
 describe("resolveModelPrice", () => {
