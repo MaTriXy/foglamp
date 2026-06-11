@@ -49,7 +49,9 @@ function buildPrompt(apiKey: string): string {
    shared \`workflowName\` + \`workflowRunId\`, and any conversation thread to a
    \`sessionId\` (one-off calls get a \`traceName\`). The docs explain how to pick
    good values — read the codebase and map it properly, don't just label
-   everything with one name.
+   everything with one name. Names (\`agentName\`/\`workflowName\`/\`traceName\`)
+   must be static string literals — anything dynamic (an id, slug, URL, date)
+   goes in \`metadata\`, \`workflowRunId\`, or \`sessionId\`, never in a name.
 4. Do NOT write smoke tests, scripts, or demo endpoints to produce a first
    trace. When you're done, just tell me how to trigger my app's real AI flows
    (which command to run, which page to hit) — I'll run them and watch the
