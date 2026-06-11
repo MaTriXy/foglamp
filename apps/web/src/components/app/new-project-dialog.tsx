@@ -31,8 +31,10 @@ export function NewProjectDialog({
 
   const createProject = useMutation(
     trpc.projects.create.mutationOptions({
-      onSuccess: (data) => {
-        qc.invalidateQueries({ queryKey: trpc.projects.list.queryKey() });
+      onSuccess: async (data) => {
+        // Wait for the refetched list to include the new project, otherwise
+        // ProjectProvider's stale-selection fallback reverts to projects[0].
+        await qc.invalidateQueries({ queryKey: trpc.projects.list.queryKey() });
         setProjectId(data.id);
         onOpenChange(false);
         setName("");
