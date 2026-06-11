@@ -33,12 +33,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   // Restore last-used project once the list arrives; fall back to the first.
+  // Also re-runs when the selection goes stale (e.g. the active project was
+  // just deleted and dropped out of the refetched list) so the user lands on
+  // another project instead of a blank app.
   useEffect(() => {
-    if (selected || projects.length === 0) return;
+    if (projects.length === 0) return;
+    if (selected && projects.some((p) => p.id === selected)) return;
     const stored =
       typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    const exists = stored && projects.some((p) => p.id === stored);
-    setSelected(exists ? stored : projects[0]!.id);
+    const next =
+      stored && projects.some((p) => p.id === stored)
+        ? stored
+        : projects[0]!.id;
+    setSelected(next);
+    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, next);
   }, [projects, selected]);
 
   const setProjectId = (id: string) => {
