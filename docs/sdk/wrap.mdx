@@ -128,9 +128,9 @@ use them exactly as you would on the collector (see
 [Runtimes & flushing](/sdk/runtimes)). Serverless platforms are detected
 automatically (the `VERCEL` / `AWS_LAMBDA_FUNCTION_NAME` env vars, or a
 `waitUntil` you pass): the transport switches to per-call flushing, and on
-Vercel it keeps the invocation alive by loading `waitUntil` from
-`@vercel/functions` when that package is installed — add it as a dependency
-there. On other serverless platforms pass `waitUntil` in the config (e.g.
+Vercel it keeps the invocation alive by reading `waitUntil` straight from the
+runtime's request context — nothing to install or wire. On other serverless
+platforms pass `waitUntil` in the config (e.g.
 Cloudflare's `ctx.waitUntil`) or `await fog.flush()` before the handler
 returns.
 

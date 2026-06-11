@@ -4,9 +4,9 @@
 
 /**
  * Keeps a serverless invocation alive until the given promise settles. On
- * Vercel this is `waitUntil` from `@vercel/functions`; on Cloudflare Workers
- * pass `ctx.waitUntil`. Without it, a serverless function may freeze before a
- * fire-and-forget flush completes.
+ * Vercel the SDK picks this up automatically from the runtime's request
+ * context; on Cloudflare Workers pass `ctx.waitUntil`. Without it, a
+ * serverless function may freeze before a fire-and-forget flush completes.
  */
 export type WaitUntil = (promise: Promise<unknown>) => void;
 

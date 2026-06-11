@@ -27,21 +27,16 @@ process.on("SIGINT", () => fog.shutdown());
 
 ## Vercel functions
 
-The collector auto-detects Vercel and uses `waitUntil` to keep the function
-alive until the flush completes. If detection doesn't fire, pass it explicitly:
+Nothing to do. The collector auto-detects Vercel and reads `waitUntil` from
+the runtime's request context — the same source `@vercel/functions` wraps — to
+keep the function alive until the flush completes. No extra dependency is
+needed. If detection ever doesn't fire, pass it explicitly:
 
 ```ts
 import { waitUntil } from "@vercel/functions";
 
 const fog = foglamp({ waitUntil });
 ```
-
-<Info>
-  `@vercel/functions` is an **optional peer dependency**. On Vercel it's
-  normally already in your project and the collector imports it lazily, so
-  auto-detection just works. You only need to add it (`npm i @vercel/functions`)
-  if you import `waitUntil` yourself as shown above.
-</Info>
 
 ## Cloudflare Workers
 

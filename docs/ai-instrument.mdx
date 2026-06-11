@@ -123,9 +123,9 @@ is **auto-detected** (`VERCEL` / `AWS_LAMBDA_FUNCTION_NAME` env vars) and
 switches to per-call flushing — so check what the deployment target needs
 before adding flush plumbing:
 
-- **Vercel**: add `@vercel/functions` as a dependency — foglamp loads
-  `waitUntil` from it automatically to keep the invocation alive while the
-  batch sends. Nothing else to wire.
+- **Vercel**: nothing to do — foglamp reads `waitUntil` from the runtime's
+  request context automatically (no `@vercel/functions` dependency needed) to
+  keep the invocation alive while the batch sends.
 - **Cloudflare Workers / other serverless**: pass `waitUntil` in the config
   (`foglamp({ waitUntil: ctx.waitUntil })`), or `await fog.flush()` before each
   handler returns.

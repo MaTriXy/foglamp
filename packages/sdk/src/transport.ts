@@ -20,9 +20,6 @@ export class Transport {
   private timer: ReturnType<typeof setInterval> | undefined;
   private flushing: Promise<void> | undefined;
   private scheduled = false;
-  private vercelWaitUntil: WaitUntil | undefined;
-  private vercelLoad: Promise<void> | undefined;
-
   constructor(config: ResolvedConfig) {
     this.config = config;
     if (config.enabled && !config.serverless) {
@@ -136,36 +133,18 @@ export class Transport {
       }
       return;
     }
-    if (this.vercelWaitUntil) {
-      this.vercelWaitUntil(p);
-      return;
-    }
-    // Lazily probe for `@vercel/functions`. `p` runs regardless; registering it
-    // late still tells the runtime to wait (as long as it hasn't settled).
-    void this.loadVercelWaitUntil().then((wu) => {
-      if (wu) {
-        try {
-          wu(p);
-        } catch {
-          /* ignore */
-        }
+    // Vercel publishes the invocation's request context on a global registry
+    // symbol — the same thing `@vercel/functions`' waitUntil reads — so no
+    // package is needed. The context is per-invocation: read it fresh on every
+    // call rather than caching the extracted function.
+    const wu = vercelWaitUntil();
+    if (wu) {
+      try {
+        wu(p);
+      } catch {
+        /* ignore — `p` still runs; the runtime just wasn't told to wait */
       }
-    });
-  }
-
-  private async loadVercelWaitUntil(): Promise<WaitUntil | undefined> {
-    if (this.vercelWaitUntil) return this.vercelWaitUntil;
-    if (!this.vercelLoad) {
-      this.vercelLoad = import("@vercel/functions")
-        .then((mod) => {
-          this.vercelWaitUntil = mod.waitUntil as WaitUntil;
-        })
-        .catch(() => {
-          /* not running on Vercel; rely on explicit fog.flush() */
-        });
     }
-    await this.vercelLoad;
-    return this.vercelWaitUntil;
   }
 
   private async send(traces: Trace[]): Promise<void> {
@@ -208,6 +187,18 @@ export class Transport {
       await sleep(cap / 2 + Math.random() * (cap / 2));
     }
   }
+}
+
+// Vercel's runtime exposes the current invocation's context at
+// globalThis[Symbol.for("@vercel/request-context")]; its `.get().waitUntil` is
+// exactly what `@vercel/functions` exports. Reading the global symbol registry
+// directly works in any module without a dependency, and is a clean undefined
+// off Vercel.
+function vercelWaitUntil(): WaitUntil | undefined {
+  const ctx = (globalThis as Record<symbol, unknown>)[
+    Symbol.for("@vercel/request-context")
+  ] as { get?: () => { waitUntil?: WaitUntil } | undefined } | undefined;
+  return ctx?.get?.()?.waitUntil;
 }
 
 const SEND_MAX_ATTEMPTS = 3;
