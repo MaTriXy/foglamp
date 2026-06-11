@@ -1,6 +1,10 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@foglamp/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@foglamp/ui/components/avatar";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   type Icon,
@@ -136,6 +140,7 @@ function NavUser() {
   useEffect(() => setMounted(true), []);
   const email = session?.user.email ?? "";
   const name = (mounted && (session?.user.name || email)) || "Account";
+  const image = (mounted && session?.user.image) || undefined;
 
   return (
     <SidebarMenu>
@@ -143,6 +148,7 @@ function NavUser() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<SidebarMenuButton />}>
             <Avatar size="sm">
+              <AvatarImage src={image} alt={name} />
               <AvatarFallback>{initials(name)}</AvatarFallback>
             </Avatar>
             {/* min-w-0 lets the flex child shrink so the name can truncate. */}
