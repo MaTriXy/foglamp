@@ -28,6 +28,7 @@ import {
   PageHeader,
   TableSkeleton,
 } from "@/components/app/page-parts";
+import { ProviderKeysHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { ModelLogo } from "@/components/model-logo";
 import { trpc } from "@/utils/trpc";
@@ -87,10 +88,7 @@ export function ProviderKeysClient() {
 
   return (
     <>
-      <PageHeader
-        title="Provider Keys"
-        description="Bring-your-own-key for LLM judges. Keys are encrypted at rest and never shown again."
-      />
+      <ProviderKeysHeader />
 
       <Card>
         <CardHeader>

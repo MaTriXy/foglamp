@@ -64,6 +64,7 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
+import { TracesHeader } from "./header";
 import { CopyIcon } from "@/components/app/copy-icon";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
@@ -281,12 +282,7 @@ export function TracesClient() {
 
   return (
     <>
-      <PageHeader
-        title="Traces"
-        icon={navItem("/traces")?.icon}
-        iconClassName={navItem("/traces")?.iconClassName}
-        description="Each trace is one top-level generateText / streamText call."
-      />
+      <TracesHeader />
       {traces.isLoading ? (
         showSkeleton ? (
           <TableSkeleton />

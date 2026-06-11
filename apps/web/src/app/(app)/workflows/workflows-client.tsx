@@ -62,6 +62,7 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
+import { WorkflowsHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
@@ -220,12 +221,7 @@ export function WorkflowsClient() {
 
   return (
     <>
-      <PageHeader
-        title="Workflows"
-        icon={navItem("/workflows")?.icon}
-        iconClassName={navItem("/workflows")?.iconClassName}
-        description="Grouped runs by workflow."
-      />
+      <WorkflowsHeader />
       {workflows.isLoading ? (
         showSkeleton ? (
           view === "cards" ? (

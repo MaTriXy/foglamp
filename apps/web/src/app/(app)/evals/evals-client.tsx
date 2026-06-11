@@ -102,6 +102,7 @@ import {
 	useTextFilter,
 } from "@/components/app/data-table";
 import { navItem } from "@/components/app/nav";
+import { EvalsHeader } from "./header";
 import {
 	EmptyState,
 	NoProject,
@@ -497,11 +498,7 @@ export function EvalsClient() {
 
 	return (
 		<>
-			<PageHeader
-				title="Evals"
-				icon={navItem("/evals")?.icon}
-				iconClassName={navItem("/evals")?.iconClassName}
-				description="Score production traces and spans with code checks and LLM-as-a-judge."
+			<EvalsHeader
 				actions={
 					<>
 						<Button size="sm" onClick={() => setOpen(true)}>

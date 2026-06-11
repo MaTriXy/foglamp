@@ -58,6 +58,7 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
+import { SessionsHeader } from "./header";
 import { CopyIcon } from "@/components/app/copy-icon";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
@@ -230,12 +231,7 @@ export function SessionsClient() {
 
   return (
     <>
-      <PageHeader
-        title="Sessions"
-        icon={navItem("/sessions")?.icon}
-        iconClassName={navItem("/sessions")?.iconClassName}
-        description="Multi-turn conversations grouped by sessionId."
-      />
+      <SessionsHeader />
       {sessions.isLoading ? (
         showSkeleton ? (
           <TableSkeleton />

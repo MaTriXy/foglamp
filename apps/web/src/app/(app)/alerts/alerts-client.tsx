@@ -67,6 +67,7 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
+import { AlertsHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { formatDuration } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
@@ -286,11 +287,7 @@ export function AlertsClient() {
 
   return (
     <>
-      <PageHeader
-        title="Alerts"
-        icon={navItem("/alerts")?.icon}
-        iconClassName={navItem("/alerts")?.iconClassName}
-        description="Threshold rules evaluated against your metrics."
+      <AlertsHeader
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button size="sm" />}>

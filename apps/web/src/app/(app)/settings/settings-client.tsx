@@ -51,11 +51,8 @@ import { toast } from "sonner";
 
 import { CopyIcon } from "@/components/app/copy-icon";
 import { useDelayedLoading } from "@/components/app/data-table";
-import {
-  EmptyState,
-  PageHeader,
-  TableSkeleton,
-} from "@/components/app/page-parts";
+import { EmptyState, TableSkeleton } from "@/components/app/page-parts";
+import { ApiKeysHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { trpc } from "@/utils/trpc";
 
@@ -122,9 +119,7 @@ export function SettingsClient() {
 
   return (
     <>
-      <PageHeader
-        title="API Keys"
-        description="Manage your keys."
+      <ApiKeysHeader
         actions={
           projectId && (
             <Dialog

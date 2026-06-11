@@ -62,6 +62,7 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
+import { AgentsHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
@@ -215,12 +216,7 @@ export function AgentsClient() {
 
   return (
     <>
-      <PageHeader
-        title="Agents"
-        icon={navItem("/agents")?.icon}
-        iconClassName={navItem("/agents")?.iconClassName}
-        description="Per-agent cost, latency, and token usage."
-      />
+      <AgentsHeader />
       {agents.isLoading ? (
         showSkeleton ? (
           view === "cards" ? (

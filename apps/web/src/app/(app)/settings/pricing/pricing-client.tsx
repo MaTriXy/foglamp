@@ -39,6 +39,7 @@ import {
 	PageHeader,
 	TableSkeleton,
 } from "@/components/app/page-parts";
+import { PricingHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { formatDateTime } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
@@ -178,9 +179,7 @@ export function PricingClient() {
 
 	return (
 		<>
-			<PageHeader
-				title="Custom pricing"
-				description="Override per-model prices for this project. Unset dimensions fall back to OpenRouter."
+			<PricingHeader
 				actions={
 					<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 						<DialogTrigger render={<Button size="sm" />}>

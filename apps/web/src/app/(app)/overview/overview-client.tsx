@@ -18,6 +18,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@foglamp/ui/components/empty";
 import { Skeleton } from "@foglamp/ui/components/skeleton";
 import { useTheme } from "next-themes";
 import { useMemo, useState } from "react";
@@ -40,7 +48,8 @@ import {
   TableSkeleton,
 } from "@/components/app/page-parts";
 import { navItem } from "@/components/app/nav";
-import { RangePicker } from "@/components/app/range-picker";
+import { OverviewHeader } from "./header";
+
 import {
   formatCost,
   formatCount,
@@ -66,6 +75,13 @@ const MODEL_COLORS = [
 // Evil Charts wants `colors: { light: [...], dark: [...] }`. Our --chart-* vars
 // already adapt to the theme, so the same value works for both.
 const themed = (color: string) => ({ light: [color], dark: [color] });
+
+// Series config for the blurred sample cost chart shown behind the empty state
+// (fake but plausible model names — the chart is decorative, never interactive).
+const SAMPLE_COST_CONFIG: ChartConfig = {
+  m0: { label: "gpt-4o", colors: themed(MODEL_COLORS[0]!) },
+  m1: { label: "claude-sonnet-4", colors: themed(MODEL_COLORS[1]!) },
+};
 
 // Cost Y-axis ticks: currency capped at 3 decimals so labels stay short
 // (e.g. "$0.026"), unlike the full 6-digit precision used elsewhere.
@@ -259,6 +275,47 @@ function StatCardsSkeleton({ count = 6 }: { count?: number }) {
         </Card>
       ))}
     </section>
+  );
+}
+
+/** When `empty`, the children (a chart fed with sample data) render blurred
+ * and inert behind a floating "no data" notice — a preview of what the page
+ * will look like, instead of an empty dashed box. Otherwise renders children
+ * untouched. */
+function MaybeEmptyOverlay({
+  empty,
+  description,
+  children,
+}: {
+  empty: boolean;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  if (!empty) return <>{children}</>;
+  return (
+    <div className="relative">
+      <div
+        aria-hidden
+        className="pointer-events-none select-none opacity-50 blur-[3px]"
+      >
+        {children}
+      </div>
+      <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <Empty className="border-none bg-transparent">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconChartAreaFilled className="opacity-40" />
+            </EmptyMedia>
+            <EmptyContent>
+              <EmptyTitle>No data in this range</EmptyTitle>
+              {description && (
+                <EmptyDescription>{description}</EmptyDescription>
+              )}
+            </EmptyContent>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    </div>
   );
 }
 
@@ -485,6 +542,57 @@ export function OverviewClient() {
     };
   }, [costByModel.data, models.data, timeseries.data, bucketLabel]);
 
+  // Deterministic sample series for the blurred empty-state preview: buckets
+  // span the selected range like the live query's would; shapes are sine waves
+  // with index-seeded jitter (no Math.random, so renders are stable).
+  const sample = useMemo(() => {
+    const n = 24;
+    const from = range.from.getTime();
+    const span = range.to.getTime() - from;
+    const rows = Array.from({ length: n }, (_, i) => {
+      const bucket = new Date(from + (span * i) / (n - 1)).toISOString();
+      const wave = 0.5 + 0.5 * Math.sin(i / 2.6);
+      const jitter = ((i * 7919) % 13) / 13;
+      const requests = Math.round(180 + wave * 520 + jitter * 140);
+      const p50 = Math.round(240 + wave * 180 + jitter * 70);
+      const p95 = Math.round(p50 * (1.9 + 0.4 * jitter));
+      return {
+        bucket,
+        requests,
+        errors: Math.round(requests * (0.01 + 0.035 * (((i * 31) % 7) / 7))),
+        p50,
+        p95,
+        p99: Math.round(p95 * (1.35 + 0.25 * wave)),
+      };
+    });
+    const cost: Record<string, string | number>[] = rows.map((r, i) => {
+      const wave = 0.5 + 0.5 * Math.sin(i / 2.6);
+      const jitter = ((i * 7919) % 13) / 13;
+      return {
+        bucket: r.bucket,
+        m0: +(0.9 + wave * 2.1 + jitter * 0.5).toFixed(3),
+        m1: +(0.4 + (1 - wave) * 1.3 + jitter * 0.3).toFixed(3),
+      };
+    });
+    return {
+      series: rows,
+      latency: rows.map((r) => ({
+        bucket: r.bucket,
+        p50: r.p50,
+        p95: Math.max(0, r.p95 - r.p50),
+        p99: Math.max(0, r.p99 - r.p95),
+        p50Abs: r.p50,
+        p95Abs: r.p95,
+        p99Abs: r.p99,
+      })),
+      cost,
+      ticks: thinTicks(
+        rows.map((r) => r.bucket),
+        bucketLabel,
+      ),
+    };
+  }, [range, bucketLabel]);
+
   if (!projectId) {
     return (
       <>
@@ -514,6 +622,20 @@ export function OverviewClient() {
   const costLoading = costByModel.isLoading || models.isLoading;
   const seriesLoading = timeseries.isLoading;
 
+  // Empty charts render blurred sample data behind a floating notice instead
+  // of a bare empty state (see MaybeEmptyOverlay).
+  const costEmpty = !costLoading && costData.length === 0;
+  const seriesEmpty = !seriesLoading && seriesData.length === 0;
+  const costChartData = costEmpty ? sample.cost : costData;
+  const costChartConfig = costEmpty ? SAMPLE_COST_CONFIG : costConfig;
+  const costChartKeys = costEmpty
+    ? Object.keys(SAMPLE_COST_CONFIG)
+    : costSeriesKeys;
+  const costChartTicks = costEmpty ? sample.ticks : costTicks;
+  const volumeChartData = seriesEmpty ? sample.series : seriesData;
+  const latencyChartData = seriesEmpty ? sample.latency : latencyData;
+  const seriesChartTicks = seriesEmpty ? sample.ticks : seriesTicks;
+
   const volumeItems: LegendItem[] = Object.entries(volumeConfig).map(
     ([key, entry]) => ({
       key,
@@ -533,13 +655,7 @@ export function OverviewClient() {
 
   return (
     <>
-      <PageHeader
-        title="Overview"
-        icon={navItem("/overview")?.icon}
-        iconClassName={navItem("/overview")?.iconClassName}
-        description="Cost, reliability, latency, and usage across this project."
-        actions={<RangePicker value={range} onChange={setRange} />}
-      />
+      <OverviewHeader />
 
       {/* Onboarding — shown until this project has ever received a trace. */}
       {!everReceived.isLoading &&
@@ -634,16 +750,13 @@ export function OverviewClient() {
           )}
         </CardHeader>
         <CardContent className="mt-3">
-          {!costLoading && costData.length === 0 ? (
-            <EmptyState
-              icon={IconChartAreaFilled}
-              title="No data in this range"
-              description="Instrument a call with the SDK to populate this chart."
-            />
-          ) : (
+          <MaybeEmptyOverlay
+            empty={costEmpty}
+            description="Instrument a call with the SDK to populate this chart."
+          >
             <LineChart.EvilLineChart
-              config={costConfig}
-              data={costData}
+              config={costChartConfig}
+              data={costChartData}
               isLoading={costLoading}
               xDataKey="bucket"
               selectedDataKey={costSelected}
@@ -653,7 +766,7 @@ export function OverviewClient() {
               <LineChart.Grid />
               <LineChart.XAxis
                 dataKey="bucket"
-                ticks={costTicks}
+                ticks={costChartTicks}
                 tickFormatter={bucketLabel}
                 interval={0}
                 tick={edgeTick}
@@ -666,11 +779,11 @@ export function OverviewClient() {
               <LineChart.Tooltip
                 labelFormatter={(v) => formatBucketFull(String(v))}
               />
-              {costSeriesKeys.map((k) => (
+              {costChartKeys.map((k) => (
                 <LineChart.Line key={k} dataKey={k} strokeVariant="solid" />
               ))}
             </LineChart.EvilLineChart>
-          )}
+          </MaybeEmptyOverlay>
         </CardContent>
       </Card>
 
@@ -691,15 +804,10 @@ export function OverviewClient() {
             />
           </CardHeader>
           <CardContent className="mt-3">
-            {!seriesLoading && seriesData.length === 0 ? (
-              <EmptyState
-                icon={IconChartAreaFilled}
-                title="No data in this range"
-              />
-            ) : (
+            <MaybeEmptyOverlay empty={seriesEmpty}>
               <AreaChart.EvilAreaChart
                 config={volumeConfig}
-                data={seriesData}
+                data={volumeChartData}
                 isLoading={seriesLoading}
                 xDataKey="bucket"
                 selectedDataKey={volumeSelected}
@@ -709,7 +817,7 @@ export function OverviewClient() {
                 <AreaChart.Grid />
                 <AreaChart.XAxis
                   dataKey="bucket"
-                  ticks={seriesTicks}
+                  ticks={seriesChartTicks}
                   tickFormatter={bucketLabel}
                   interval={0}
                   tick={edgeTick}
@@ -729,7 +837,7 @@ export function OverviewClient() {
                   variant="lines"
                 />
               </AreaChart.EvilAreaChart>
-            )}
+            </MaybeEmptyOverlay>
           </CardContent>
         </Card>
 
@@ -748,15 +856,10 @@ export function OverviewClient() {
             />
           </CardHeader>
           <CardContent className="mt-3">
-            {!seriesLoading && seriesData.length === 0 ? (
-              <EmptyState
-                icon={IconChartAreaFilled}
-                title="No data in this range"
-              />
-            ) : (
+            <MaybeEmptyOverlay empty={seriesEmpty}>
               <AreaChart.EvilAreaChart
                 config={latencyConfig}
-                data={latencyData}
+                data={latencyChartData}
                 isLoading={seriesLoading}
                 xDataKey="bucket"
                 stackType="stacked"
@@ -767,7 +870,7 @@ export function OverviewClient() {
                 <AreaChart.Grid />
                 <AreaChart.XAxis
                   dataKey="bucket"
-                  ticks={seriesTicks}
+                  ticks={seriesChartTicks}
                   tickFormatter={bucketLabel}
                   interval={0}
                   tick={edgeTick}
@@ -789,7 +892,7 @@ export function OverviewClient() {
                 <AreaChart.Area dataKey="p95" strokeVariant="solid" />
                 <AreaChart.Area dataKey="p99" strokeVariant="solid" />
               </AreaChart.EvilAreaChart>
-            )}
+            </MaybeEmptyOverlay>
           </CardContent>
         </Card>
       </section>
@@ -812,6 +915,8 @@ export function OverviewClient() {
               <EmptyState
                 icon={IconChartAreaFilled}
                 title="No model usage yet"
+                description="Models are picked up automatically from instrumented calls."
+                className="mb-6"
               />
             ) : (
               <ScrollFade className="max-h-88 pr-1">
@@ -857,6 +962,7 @@ export function OverviewClient() {
                 icon={IconChartAreaFilled}
                 title="No agent activity yet"
                 description="Set agentName on a call to group it under an agent."
+                className="mb-6"
               />
             ) : (
               <ScrollFade className="max-h-88 pr-1">
@@ -897,6 +1003,7 @@ export function OverviewClient() {
                 icon={IconChartAreaFilled}
                 title="No workflow activity yet"
                 description="Set workflowName on a call to group it under a workflow."
+                className="mb-6"
               />
             ) : (
               <ScrollFade className="max-h-88 pr-1">

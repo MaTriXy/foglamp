@@ -54,6 +54,7 @@ import { type ComponentType, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { NoProject, PageHeader } from "@/components/app/page-parts";
+import { OrgSettingsHeader } from "./header";
 import { useProject } from "@/components/app/project-context";
 import { ProjectIcon } from "@/components/app/project-icon";
 import { authClient } from "@/lib/auth-client";
@@ -97,7 +98,7 @@ export function OrgSettingsClient() {
 
   return (
     <>
-      <PageHeader title="Settings" description={orgName} />
+      <OrgSettingsHeader description={orgName} />
       <Tabs defaultValue="general" className="gap-6">
         <TabsList variant="line">
           <TabsTrigger value="general">General</TabsTrigger>
