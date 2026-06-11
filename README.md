@@ -178,7 +178,7 @@ Spans are stored in **ClickHouse**; org/project/key/pricing/alert state in
 
 Everything you need is in [`docker-compose.yml`](./docker-compose.yml): plain
 Postgres + ClickHouse + Redis, the ingest API, the dashboard API, and the web
-app. No external queue, no Supabase — Redis only backs ingest rate limiting,
+app. No external queue — Redis only backs ingest rate limiting,
 and removing it (and `REDIS_URL`) falls back to in-memory limiting.
 
 ```bash

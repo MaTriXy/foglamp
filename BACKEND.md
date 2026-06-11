@@ -53,7 +53,7 @@ export const postRouter = router({
 
 ## Database — Drizzle
 
-- **Always** import `db` from `@boilerplate/db`. Never instantiate Drizzle elsewhere.
+- **Always** import `db` from `@foglamp/db`. Never instantiate Drizzle elsewhere.
 - **Always** put schema in `packages/db/src/schema/<entity>.ts`, one file per table, and re-export from `schema/index.ts`.
 - **Always** wrap multi-statement state changes in `db.transaction(async (tx) => { ... })`.
 - **Prefer** the relational query API (`db.query.<table>.findFirst({ with: ... })`) for reads with relations; use `db.select()` for projections and aggregates.
@@ -107,7 +107,7 @@ updatedAt: timestamp("updated_at", { withTimezone: true })
 ## Audit columns
 
 - **Prefer** adding `createdBy` and `updatedBy` to tables that hold user-authored or user-mutated data — anything where "who did this?" is a question you'll plausibly want to answer later. Skip them where they don't fit: pure join tables, system-owned rows with no acting user, append-only event logs that already carry an `actorId`, or tables where every row is created by the same well-known process.
-- **Always** declare them as `text(...).references(() => user.id).notNull()` pointing at the Better Auth `user` table from `@boilerplate/db` when you do add them.
+- **Always** declare them as `text(...).references(() => user.id).notNull()` pointing at the Better Auth `user` table from `@foglamp/db` when you do add them.
 - **Always** set `createdBy` on insert and `updatedBy` on every update from the resolved `ctx.userId`. Services receive `userId` as an argument — never read it from anywhere else.
 - **Always** pass `updatedBy` explicitly in every `db.update(...).set({ ... })` that mutates a row; there is no Drizzle equivalent of `$onUpdate` for this, so forgetting it leaves stale audit data.
 - **Never** retrofit the Better Auth tables (`user`, `session`, `account`, `verification`) with audit columns — they are managed by Better Auth's scaffolding.
@@ -137,7 +137,7 @@ await db
 **Migrations are handled by the human user, not by agents.** Your job stops at editing the schema file and (optionally) generating the SQL — never run `db:push` or `db:migrate`, and never apply schema changes against any database.
 
 - **Always** stop after editing `packages/db/src/schema/<entity>.ts`. Tell the user a schema change was made and remind them to run the generate + migrate steps.
-- **Always** offer to run `bun run --filter @boilerplate/db db:generate` if the user asks for the SQL — but `db:generate` only writes the file; it does not touch the DB. Commit the generated SQL alongside the schema change in the same PR.
+- **Always** offer to run `bun run --filter @foglamp/db db:generate` if the user asks for the SQL — but `db:generate` only writes the file; it does not touch the DB. Commit the generated SQL alongside the schema change in the same PR.
 - **Always** review the generated SQL with the user before they commit. `drizzle-kit` sometimes emits destructive diffs (e.g. a column rename as drop + add) that must be rewritten by hand to preserve data.
 - **Never** run `db:push` — it bypasses migration files entirely and pushes the schema diff straight to a DB. The user uses it for local sketching; agents don't.
 - **Never** run `db:migrate` — it applies pending migrations to a real database. The user runs this manually against prod after deploy.
@@ -145,22 +145,22 @@ await db
 
 ```bash
 # Reference only — the user runs these, agents do not.
-bun run --filter @boilerplate/db db:push      # local sketching (user)
-bun run --filter @boilerplate/db db:generate  # before commit (agent may run if asked)
-bun run --filter @boilerplate/db db:migrate   # manual, against prod, after deploy (user)
+bun run --filter @foglamp/db db:push      # local sketching (user)
+bun run --filter @foglamp/db db:generate  # before commit (agent may run if asked)
+bun run --filter @foglamp/db db:migrate   # manual, against prod, after deploy (user)
 ```
 
 ## Services folder — query + business logic colocation
 
 - **Always** put non-trivial query logic and any logic shared across routers in `packages/api/src/services/<entity>.ts`.
 - **Always** make services pure functions taking `(db, log, ...args)` — no module-level state, no implicit `db`.
-- **Always** type the `db` param as `typeof db` (or import a `Database` alias from `@boilerplate/db`) so transactions (`tx`) are accepted too.
+- **Always** type the `db` param as `typeof db` (or import a `Database` alias from `@foglamp/db`) so transactions (`tx`) are accepted too.
 - **Never** call `auth.api.`\* from a service — auth resolution happens in `createContext` / `evlog`. Services receive a resolved `userId`.
 - **Never** import services from another service circularly; if two services need each other, extract the shared helper.
 
 ```ts
 // packages/api/src/services/posts.ts
-import type { Database } from "@boilerplate/db";
+import type { Database } from "@foglamp/db";
 import type { RequestLogger } from "evlog";
 
 export async function createPost(
@@ -180,7 +180,7 @@ export async function createPost(
 
 ## Auth — Better Auth
 
-- **Always** export the configured instance from `@boilerplate/auth`. Never construct `betterAuth(...)` outside that package.
+- **Always** export the configured instance from `@foglamp/auth`. Never construct `betterAuth(...)` outside that package.
 - **Always** resolve the session via `auth.api.getSession({ headers })` inside `createContext`.
 - **Never** call `auth.api.getSession` from a router or service — read `ctx.session` / `ctx.userId` instead.
 - **Never** mount the auth handler under a custom path — it must be `/api/auth/`\*.
@@ -196,7 +196,7 @@ export async function createPost(
 
 - **Always** declare server vars in `packages/env/src/server.ts` (`@t3-oss/env-core`) and web vars in `packages/env/src/web.ts` (`@t3-oss/env-nextjs`).
 - **Always** set `emptyStringAsUndefined: true`.
-- **Always** import via `@boilerplate/env/server` or `@boilerplate/env/web`. Never read `process.env.X` directly.
+- **Always** import via `@foglamp/env/server` or `@foglamp/env/web`. Never read `process.env.X` directly.
 - **Always** add the var name to `turbo.json` `tasks.build.env` in the same change — Turbo prunes unlisted vars from the build environment, so a missing entry breaks production builds even when local dev works. This is the easiest rule to forget; adding a new env var is a three-file change (`packages/env/src/<server|web>.ts`, `apps/<app>/.env.example`, `turbo.json`).
 - **Never** mark a server var as optional just to silence a missing-var error — fix the env or default it explicitly.
 

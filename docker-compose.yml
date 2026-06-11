@@ -6,7 +6,7 @@
 # credentials printed once by the `migrate` service (search its logs for
 # "Save these now"). Point the SDK at the ingest API on http://localhost:4000.
 #
-# Plain Postgres + ClickHouse + Redis — no Supabase, no queue. Redis only backs
+# Plain Postgres + ClickHouse + Redis — no queue. Redis only backs
 # ingest rate limiting; remove the service (and REDIS_URL) and ingest falls back
 # to per-instance in-memory limiting. Email is optional: leave RESEND_API_KEY
 # unset and you still log in via the seeded email+password admin.

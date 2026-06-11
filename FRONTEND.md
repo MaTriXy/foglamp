@@ -20,7 +20,7 @@ packages/ui/src/
 
 - **Always** put auth-gated pages under `app/(app)/` so the group layout can guard them in one place.
 - **Always** put reusable UI primitives in `packages/ui/src/components/`. App-specific composites (forms, headers wired to project state) live in `apps/web/src/components/`.
-- **Never** create a new primitive in `apps/web/src/components/` — extend or compose the one in `@boilerplate/ui/components/`\*.
+- **Never** create a new primitive in `apps/web/src/components/` — extend or compose the one in `@foglamp/ui/components/`\*.
 
 ## Routing — Next.js 16 App Router
 
@@ -47,13 +47,13 @@ packages/ui/src/
 ## Forms — `@tanstack/react-form`
 
 - **Always** use `@tanstack/react-form` with Zod validators on the form (`validators: { onSubmit: schema }`).
-- **Always** keep the schema next to the form component, or import from `@boilerplate/api` if it's shared with a procedure.
+- **Always** keep the schema next to the form component, or import from `@foglamp/api` if it's shared with a procedure.
 - **Always** disable the submit button with `form.Subscribe` reading `state.canSubmit && !state.isSubmitting`.
 - **Never** add `react-hook-form`. Never roll a hand-managed form with `useState` for inputs.
 
 ## Inputs with icons, prefix or suffix — `InputGroup`
 
-- **Always** use `<InputGroup>` from `@boilerplate/ui/components/input-group` when an input needs an icon, prefix, suffix, or any inline addon (button, kbd hint, unit label, …). Compose with `<InputGroupInput>` / `<InputGroupTextarea>` for the control and `<InputGroupAddon align="inline-start | inline-end | block-start | block-end">` for the surrounding content (`<InputGroupText>` for plain text/icons, `<InputGroupButton>` for actionable addons).
+- **Always** use `<InputGroup>` from `@foglamp/ui/components/input-group` when an input needs an icon, prefix, suffix, or any inline addon (button, kbd hint, unit label, …). Compose with `<InputGroupInput>` / `<InputGroupTextarea>` for the control and `<InputGroupAddon align="inline-start | inline-end | block-start | block-end">` for the surrounding content (`<InputGroupText>` for plain text/icons, `<InputGroupButton>` for actionable addons).
 - **Never** wrap a bare `<Input>` in a `div` with absolute-positioned icons or hand-rolled padding to fake a prefix/suffix. The primitive handles focus ring, alignment, padding, and `aria-invalid` propagation for free.
 
 ## State
@@ -92,7 +92,7 @@ How to make new UI feel native to this codebase, not just "shadcn with a coat of
 
 - **Always** style with Tailwind utility classes. Tokens (colors, radii, shadows, fonts) are defined in `packages/ui/src/styles/globals.css` via `@theme` and `@custom-variant dark`.
 - **Always** use the custom shadow tokens for elevation and separation: `shadow-(--custom-shadow)` and its color variants. These are the project's "border" — they replace it everywhere.
-- **Always** merge classes with `cn()` from `@boilerplate/ui/lib/utils`.
+- **Always** merge classes with `cn()` from `@foglamp/ui/lib/utils`.
 - **Never** use `border`, `border-`_, or `divide-_` for visual separation. Use a shadow token instead.
 - **Never** add raw CSS files for component styling. Add a token to `globals.css` if a value needs to be reused.
 - **Never** inline `style={{ ... }}` for values that have a Tailwind utility.
@@ -102,11 +102,11 @@ How to make new UI feel native to this codebase, not just "shadcn with a coat of
 - **Default** to `tw-animate-css` utility classes (`animate-in`, `fade-in`, `slide-in-from-`\*, `animate-spin`, etc.) for transitions and entrances.
 - **Never** add `motion/react` (Framer Motion) unless the user explicitly asks for it. It's heavier than what most UI work needs.
 
-## UI primitives — `@boilerplate/ui`
+## UI primitives — `@foglamp/ui`
 
-- **Always** import primitives from `@boilerplate/ui/components/<name>` (`Button`, `Input`, `Card`, `Dialog`, `Sidebar`, `Table`, …). They're shadcn-derived and pre-tokenized.
+- **Always** import primitives from `@foglamp/ui/components/<name>` (`Button`, `Input`, `Card`, `Dialog`, `Sidebar`, `Table`, …). They're shadcn-derived and pre-tokenized.
 - **Always** extend a primitive by composing it. If a one-off variant is needed, pass `className` with `cn()`. If it's reused, add a variant in the package.
-- **Never** reimplement a primitive inline in `apps/web`. If something is missing, add it to `@boilerplate/ui` and import it.
+- **Never** reimplement a primitive inline in `apps/web`. If something is missing, add it to `@foglamp/ui` and import it.
 - **Never** install a second component library (Radix Themes, MUI, Mantine, HeroUI, …).
 
 ## Composition — Base UI `render` prop
@@ -131,19 +131,19 @@ How to make new UI feel native to this codebase, not just "shadcn with a coat of
 
 ## Loading / empty states
 
-- **Always** render `<Skeleton>` from `@boilerplate/ui/components/skeleton` for content placeholders.
-- **Always** render `<Empty>` from `@boilerplate/ui/components/empty` for empty list / zero-state UI.
+- **Always** render `<Skeleton>` from `@foglamp/ui/components/skeleton` for content placeholders.
+- **Always** render `<Empty>` from `@foglamp/ui/components/empty` for empty list / zero-state UI.
 - **Always** use `<IconLoader2 className="size-4 animate-spin" />` for inline / full-page loading spinners.
 - **Never** render a bare "Loading..." string.
 
 ## Tables
 
-- **Always** use the shadcn `<Table>` primitive from `@boilerplate/ui/components/table` (`TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`).
+- **Always** use the shadcn `<Table>` primitive from `@foglamp/ui/components/table` (`TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`).
 - **Never** add TanStack Table, AG Grid, or any other table library.
 
 ## Modals / dialogs
 
-- **Always** use `<Dialog>` from `@boilerplate/ui/components/dialog` for modal interactions.
+- **Always** use `<Dialog>` from `@foglamp/ui/components/dialog` for modal interactions.
 - **Never** build custom overlay/portal logic. The primitive handles focus trap, scroll lock, and a11y.
 
 ## Dates — `date-fns`
@@ -173,7 +173,7 @@ How to make new UI feel native to this codebase, not just "shadcn with a coat of
 
 - **Always** declare web vars in `packages/env/src/web.ts` (`@t3-oss/env-nextjs`). Anything exposed to the browser must be prefixed `NEXT_PUBLIC_*`.
 - **Always** set `emptyStringAsUndefined: true` and add the var to both `client` and `runtimeEnv`.
-- **Always** import via `@boilerplate/env/web`. Never read `process.env.*` directly from app code (the validated `env` object is the only source of truth).
+- **Always** import via `@foglamp/env/web`. Never read `process.env.*` directly from app code (the validated `env` object is the only source of truth).
 - **Always** add a new var in three places at once: `packages/env/src/web.ts`, `apps/web/.env.example`, and `turbo.json` `tasks.build.env`. Turbo prunes unlisted vars from production builds — local dev will work, deploys will silently lose the value.
 - **Never** put a secret in a `NEXT_PUBLIC_*` var. Anything `NEXT_PUBLIC_*` ships in the client bundle.
 
@@ -207,5 +207,5 @@ The Better Auth instance lives on `apps/server/` (Hono), not in the web app. Web
 - **Always** read the session in client components via `authClient.useSession()`.
 - **Always** read the session in server components via `await authClient.getSession({ fetchOptions: { headers: await headers() } })` — `headers()` from `next/headers` forwards the cookie to the server.
 - **Always** gate auth-required routes in `app/(app)/layout.tsx` — call `authClient.getSession` and `redirect("/login")` on miss. Pages inside `(app)/` then assume the session exists.
-- **Never** import `@boilerplate/auth` from web code. It pulls in the DB + server env and only works inside `apps/server/`.
+- **Never** import `@foglamp/auth` from web code. It pulls in the DB + server env and only works inside `apps/server/`.
 - **Never** call `fetch("/api/auth/...")` directly from a component. Use `authClient.signIn.`\* / `authClient.signOut()`.

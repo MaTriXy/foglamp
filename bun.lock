@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "boilerplate",
+      "name": "foglamp",
       "dependencies": {
         "@foglamp/env": "workspace:*",
         "dotenv": "catalog:",
