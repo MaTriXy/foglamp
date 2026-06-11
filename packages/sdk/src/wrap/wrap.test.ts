@@ -1,0 +1,216 @@
+import { describe, expect, test } from "bun:test";
+
+import type * as RealAi from "ai";
+
+import { wrap, type WrappedAi } from "./index";
+import type { Trace } from "../wire";
+
+// ---------- type-level: `with()` must return the ORIGINAL ai signatures ------
+
+type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+
+type Wrapped = WrappedAi<typeof RealAi>;
+type Bound = ReturnType<Wrapped["with"]>;
+
+// Generics survive: the bound functions/classes are the ai module's own types.
+const _generateTextTyped: AssertEqual<Bound["generateText"], typeof RealAi.generateText> = true;
+const _streamTextTyped: AssertEqual<Bound["streamText"], typeof RealAi.streamText> = true;
+const _generateObjectTyped: AssertEqual<Bound["generateObject"], typeof RealAi.generateObject> =
+  true;
+const _agentClassTyped: AssertEqual<Bound["ToolLoopAgent"], typeof RealAi.ToolLoopAgent> = true;
+void [_generateTextTyped, _streamTextTyped, _generateObjectTyped, _agentClassTyped];
+
+// ---------- runtime: fake ai module + captured ingest ------------------------
+
+function makeFakeAi() {
+  const calls: Record<string, unknown>[] = [];
+  class FakeToolLoopAgent {
+    settings: Record<string, unknown>;
+    constructor(settings: Record<string, unknown>) {
+      this.settings = settings;
+    }
+    get id() {
+      return this.settings.id as string | undefined;
+    }
+    get tools() {
+      return this.settings.tools;
+    }
+    async generate(options: Record<string, unknown>) {
+      calls.push({ fn: "agent.generate", settings: this.settings, options });
+      const tools = (this.settings.tools ?? {}) as Record<
+        string,
+        { execute?: (input: unknown, opts?: unknown) => unknown }
+      >;
+      for (const tool of Object.values(tools)) {
+        await tool.execute?.({ q: "input" }, { toolCallId: "tc-1" });
+      }
+      return {
+        text: "agent done",
+        steps: [{ text: "agent done", usage: { inputTokens: 1, outputTokens: 2 } }],
+        usage: { inputTokens: 1, outputTokens: 2 },
+      };
+    }
+    stream(options: Record<string, unknown>) {
+      calls.push({ fn: "agent.stream", settings: this.settings, options });
+      const settings = this.settings as {
+        onStepFinish?: (s: unknown) => unknown;
+        onFinish?: (e: unknown) => unknown;
+      };
+      settings.onStepFinish?.({ text: "chunked", usage: { outputTokens: 2 } });
+      settings.onFinish?.({ text: "chunked" });
+      return { ok: true };
+    }
+  }
+  const fake = {
+    generateText: async (args: Record<string, unknown>) => {
+      calls.push({ fn: "generateText", args });
+      return { text: "ok", steps: [], usage: { inputTokens: 3, outputTokens: 4 } };
+    },
+    streamText: (args: Record<string, unknown>) => {
+      calls.push({ fn: "streamText", args });
+      return { ok: true };
+    },
+    generateObject: async (args: Record<string, unknown>) => {
+      calls.push({ fn: "generateObject", args });
+      return { object: { a: 1 }, usage: { inputTokens: 1, outputTokens: 1 } };
+    },
+    streamObject: (args: Record<string, unknown>) => {
+      calls.push({ fn: "streamObject", args });
+      return { ok: true };
+    },
+    ToolLoopAgent: FakeToolLoopAgent,
+    Experimental_Agent: FakeToolLoopAgent,
+  };
+  return { fake, calls };
+}
+
+function makeCapture() {
+  const batches: Trace[][] = [];
+  const fetchImpl = (async (_url: unknown, init?: { body?: unknown }) => {
+    batches.push(JSON.parse(String(init?.body)).traces as Trace[]);
+    return new Response(null, { status: 202 });
+  }) as typeof fetch;
+  const traces = () => batches.flat();
+  return { fetchImpl, traces };
+}
+
+const OPTS = { apiKey: "fl_test", flushIntervalMs: 60_000 };
+
+describe("wrap", () => {
+  test("strips the foglamp key and applies merged context + metadata", async () => {
+    const { fake, calls } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, {
+      ...OPTS,
+      fetch: fetchImpl,
+      context: { agentName: "base", metadata: { env: "test" } },
+    });
+
+    await fog.generateText({
+      model: { provider: "openai", modelId: "gpt-4o" },
+      prompt: "hi",
+      foglamp: { agentName: "summarizer", metadata: { userId: "u1" } },
+    } as never);
+    await fog.flush();
+
+    const forwarded = calls[0]!.args as Record<string, unknown>;
+    expect("foglamp" in forwarded).toBe(false);
+    expect(forwarded.prompt).toBe("hi");
+
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("summarizer");
+    // metadata merges across layers instead of being replaced wholesale
+    expect(trace.metadata).toEqual({ env: "test", userId: "u1" });
+  });
+
+  test("with() binds context and forwards args untouched", async () => {
+    const { fake, calls } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    const bound = fog.with({
+      agentName: "retriever",
+      workflowName: "pipeline",
+      workflowRunId: "run-1",
+    });
+    await (bound.generateObject as (a: unknown) => Promise<unknown>)({
+      model: "gpt-4o-mini",
+      prompt: "obj",
+    });
+    await fog.flush();
+
+    expect("foglamp" in (calls[0]!.args as object)).toBe(false);
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("retriever");
+    expect(trace.workflowName).toBe("pipeline");
+    expect(trace.workflowRunId).toBe("run-1");
+  });
+
+  test("ToolLoopAgent: traces generate(), wraps tools, defaults agentName from id", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    const Agent = fog.ToolLoopAgent as new (s: Record<string, unknown>) => {
+      generate: (o: Record<string, unknown>) => Promise<{ text: string }>;
+      id?: string;
+    };
+    const agent = new Agent({
+      id: "thesis-agent",
+      model: { provider: "openai", modelId: "gpt-4o" },
+      tools: { search: { description: "find", execute: async () => "found" } },
+    });
+    expect(agent.id).toBe("thesis-agent");
+
+    const result = await agent.generate({ prompt: "go" });
+    expect(result.text).toBe("agent done");
+    await fog.flush();
+
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("thesis-agent");
+    const toolSpans = trace.spans.filter((s) => s.spanType === "tool");
+    expect(toolSpans).toHaveLength(1);
+    expect(toolSpans[0]!.name).toBe("search");
+  });
+
+  test("ToolLoopAgent: stream() finalizes via composed settings callbacks", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    let userFinishRan = false;
+    const Agent = fog.with({ agentName: "streamer" }).ToolLoopAgent as new (
+      s: Record<string, unknown>,
+    ) => { stream: (o: Record<string, unknown>) => unknown };
+    const agent = new Agent({
+      model: "gpt-4o",
+      onFinish: () => {
+        userFinishRan = true;
+      },
+    });
+    agent.stream({ prompt: "go" });
+    await fog.flush();
+
+    expect(userFinishRan).toBe(true);
+    const trace = traces()[0]!;
+    expect(trace.agentName).toBe("streamer");
+    expect(trace.spans.some((s) => s.spanType === "llm")).toBe(true);
+  });
+
+  test("no API key: passes through (foglamp stripped) and sends nothing", async () => {
+    const { fake, calls } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { apiKey: undefined, fetch: fetchImpl });
+
+    await fog.generateText({ prompt: "hi", foglamp: { traceName: "t" } } as never);
+    const Agent = fog.ToolLoopAgent as new (s: Record<string, unknown>) => {
+      generate: (o: Record<string, unknown>) => Promise<unknown>;
+    };
+    await new Agent({ model: "m", foglamp: { agentName: "x" } }).generate({ prompt: "p" });
+    await fog.flush();
+
+    expect("foglamp" in (calls[0]!.args as object)).toBe(false);
+    expect("foglamp" in (calls[1]!.settings as object)).toBe(false);
+    expect(traces()).toHaveLength(0);
+  });
+});

@@ -22,6 +22,10 @@ import { useProject } from "@/components/app/project-context";
 import { trpc } from "@/utils/trpc";
 
 const DOCS_URL = "https://docs.foglamp.dev/quickstart";
+// Markdown page written for coding agents — the canonical instrumentation
+// instructions (v7 requirement, mapping rules, serverless flush, verification).
+const AGENT_DOCS_URL = "https://docs.foglamp.dev/ai-instrument.md";
+const LLMS_INDEX_URL = "https://docs.foglamp.dev/llms.txt";
 const KEY_NAME = "Onboarding";
 
 // A soft rainbow gradient ring: a 1px gradient-filled wrapper that the opaque
@@ -31,20 +35,31 @@ const RAINBOW_RING =
   "rounded-3xl corner-squircle p-px animate-rainbow-spin bg-[conic-gradient(from_var(--rainbow-angle),rgba(244,114,182,0.55),rgba(167,139,250,0.55),rgba(96,165,250,0.55),rgba(110,231,183,0.55),rgba(253,224,71,0.55),rgba(252,165,165,0.55),rgba(244,114,182,0.55))]";
 
 // The prompt a user pastes into their coding agent. The key is inlined so it's
-// truly paste-and-go; the agent fetches the docs and wires the SDK against the
-// user's own codebase (mapping agents → agentName, flows → workflowName/runId).
+// truly paste-and-go. Detailed instructions live in the agent-targeted docs
+// page (single source of truth); the prompt only sets up the key and points
+// the agent there, plus the llms.txt index as the deeper-docs escape hatch.
 function buildPrompt(apiKey: string): string {
-  return `Instrument this app with Foglamp tracing (observability for AI agents).
+  return `Instrument this app with Foglamp tracing (observability for Vercel AI SDK apps).
 
-1. Install the SDK:  npm i foglamp
+1. Install the \`foglamp\` package with this repo's package manager (npm/pnpm/yarn/bun).
 2. Add to .env:      FOGLAMP_API_KEY=${apiKey}
-3. Read ${DOCS_URL} and wire the Vercel AI SDK integration:
+3. Fetch ${AGENT_DOCS_URL} (written for coding agents) and follow it:
    wrap my generateText / streamText calls with fog.integration(...), and based
-   on my codebase map each agent to \`agentName\` and any multi-step pipeline to
-   a shared \`workflowName\` + \`workflowRunId\` (one-off calls get a \`traceName\`).
-4. Run the app once so a trace is produced.
+   on my codebase map each agent to \`agentName\`, any multi-step pipeline to a
+   shared \`workflowName\` + \`workflowRunId\`, and any conversation thread to a
+   \`sessionId\` (one-off calls get a \`traceName\`). The docs explain how to pick
+   good values — read the codebase and map it properly, don't just label
+   everything with one name.
+4. Do NOT write smoke tests, scripts, or demo endpoints to produce a first
+   trace. When you're done, just tell me how to trigger my app's real AI flows
+   (which command to run, which page to hit) — I'll run them and watch the
+   traces land in Foglamp.
 
-The SDK is a no-op until FOGLAMP_API_KEY is set, so this is safe to add anywhere.`;
+Notes: the steps above target the Vercel AI SDK v7. If this repo is on AI SDK
+v4–v6, use \`wrap()\` from \`foglamp/wrap\` instead — see
+https://docs.foglamp.dev/sdk/wrap.md (same trace context options apply). The SDK
+is a no-op until FOGLAMP_API_KEY is set, so it is safe to add in every
+environment. Full docs index: ${LLMS_INDEX_URL}`;
 }
 
 export function OnboardingPanel() {

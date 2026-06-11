@@ -16,8 +16,15 @@ one real run flowing, then enrich.
 
 ## Rules
 
-- **Requires AI SDK v7** (`ai@7`). Foglamp builds on v7's telemetry interface and
-  does not support v5/v6. If the repo is on v5/v6, stop and tell the user.
+- **Check the AI SDK version first.** The steps below use v7's telemetry
+  interface (`ai@7`). On **AI SDK v4–v6**, use `wrap()` from `foglamp/wrap`
+  instead — follow [AI SDK v4–v6 (wrap)](/sdk/wrap); steps 3–5 below (mapping,
+  flush, verify) still apply, with the context bound via `fog.with(...)` (the
+  fully-typed path) or a per-call `foglamp: {...}` key.
+- **Never refactor working AI code to instrument it.** `wrap()` covers
+  `generateText`/`streamText`/`generateObject`/`streamObject` **and the
+  `ToolLoopAgent` / `Experimental_Agent` classes** — wrap in place; do not
+  rewrite agent classes into `generateText` calls or restructure pipelines.
 - Prefer the installed package's types/README over memory. Don't invent SDK APIs
   or hand-wire ingest endpoints — only use `foglamp`'s public API below.
 - The SDK is a **silent no-op without `FOGLAMP_API_KEY`** — safe to add in every
@@ -26,8 +33,11 @@ one real run flowing, then enrich.
 
 ## 1. Install & configure
 
+Install `foglamp` with the repo's own package manager (check the lockfile —
+don't introduce a second one):
+
 ```bash
-npm i foglamp
+npm i foglamp        # or: pnpm add / yarn add / bun add
 ```
 
 ```bash .env
@@ -58,37 +68,77 @@ await generateText({
 
 ## 3. Map the codebase to Foglamp's model
 
-Inspect the app and apply these — this is what makes the dashboard useful:
+This is the step that makes the dashboard useful, so spend real effort here:
+read the codebase and decide what its agents, workflows, and sessions actually
+are before writing any context. The full context surface:
 
-- **Each agent** (a named, reusable LLM behavior) → set `agentName` on its calls.
-- **Multi-step pipelines** (a request that fans out across several calls/agents)
-  → give every call in one run a shared `workflowName` **and** the same
-  `workflowRunId` (e.g. the job/request id), so they line up on the Workflows
-  timeline. `workflowName` and `workflowRunId` are passed together.
-- **One-off calls** that aren't an agent → just give them a `traceName`.
+| Property | What it is | Good values |
+| --- | --- | --- |
+| `agentName` | The named, reusable LLM behavior responsible for the call | Stable, low-cardinality identifiers from the code's own vocabulary: `"support-triage"`, `"summarizer"`. Never per-request values. |
+| `workflowName` + `workflowRunId` | A named multi-step process, and one execution of it | `workflowName` stable like an agent name (`"ticket-pipeline"`); `workflowRunId` an id the app already has for this execution — request id, job id, ticket id. |
+| `traceName` | Human label for a one-off call that isn't an agent | The call's purpose: `"classify-email"`. |
+| `sessionId` | Ties traces in one conversation or user thread together, across workflows and agents | The app's existing chat/conversation/thread id. |
+| `metadata` | Everything else, as string key/values | `userId`, tenant, environment, prompt version, A/B variant. |
+
+Rules the SDK enforces (at the type level and at ingest):
+
+- Every call needs **`traceName` or `agentName`** (both is fine — the trace is
+  attributed to the agent and displays the `traceName`).
+- **`workflowName` and `workflowRunId` go together** — one without the other is
+  an error. Calls sharing a `workflowRunId` are stitched into one run on the
+  Workflows timeline, so the id must be shared by every call in the run but
+  unique per execution.
+
+How to decide, concretely:
+
+- **Find the agents.** A class, module, or function that owns a system prompt
+  and is invoked from more than one place is an agent → `agentName`. Name it
+  after what the code calls it.
+- **Find the pipelines.** A request handler or job that makes several model
+  calls (or calls several agents) before producing its result is a workflow →
+  same `workflowName` + `workflowRunId` on *every* call in it, including calls
+  made by nested agents. Thread the run id through rather than generating a new
+  one per call.
+- **Find the threads.** If the app has conversations (a chat, a support thread),
+  pass its id as `sessionId` on every call serving that thread.
+- **Don't overload the names.** High-cardinality values (user ids, dates,
+  ticket numbers) belong in `workflowRunId`, `sessionId`, or `metadata` — never
+  in `agentName`/`workflowName`/`traceName`, which should each have a small,
+  stable set of values.
 
 ```ts
 fog.integration({
-  agentName: "retriever",
-  workflowName: "support-ticket",
-  workflowRunId: ticket.id,
+  agentName: "retriever",                 // who: the reusable behavior
+  workflowName: "support-ticket",         // what process this run is part of
+  workflowRunId: ticket.id,               // which execution (shared, pre-existing id)
+  sessionId: conversation.id,             // which user thread
+  metadata: { userId: user.id, env: process.env.NODE_ENV ?? "dev" },
 });
 ```
 
 ## 4. Flush in serverless
 
-Long-running servers (Node, Bun) flush on an interval automatically. In
-serverless handlers, ensure the batch is sent before the function returns:
+Long-running servers (Node, Bun) flush on an interval automatically. Serverless
+is **auto-detected** (`VERCEL` / `AWS_LAMBDA_FUNCTION_NAME` env vars) and
+switches to per-call flushing — so check what the deployment target needs
+before adding flush plumbing:
 
-```ts
-await fog.flush();
-```
+- **Vercel**: add `@vercel/functions` as a dependency — foglamp loads
+  `waitUntil` from it automatically to keep the invocation alive while the
+  batch sends. Nothing else to wire.
+- **Cloudflare Workers / other serverless**: pass `waitUntil` in the config
+  (`foglamp({ waitUntil: ctx.waitUntil })`), or `await fog.flush()` before each
+  handler returns.
 
-## 5. Verify
+## 5. Hand off
 
-Run the app so it makes at least one model call, then confirm a trace appears in
-the dashboard (Overview / Traces). Success = a real run is visible with its
-spans, tokens, and cost — not just that the package installed.
+A trace only exists once a real model call runs — and that's the user's job,
+not yours. **Do not write smoke tests, test scripts, demo endpoints, or
+synthetic "first trace" calls** — they add code the user has to delete and
+burn real model tokens. Once the build/typecheck passes, finish by telling the
+user **exactly how to trigger their own instrumented flows** — which command to
+run, which page to hit, which job to kick off — so they can run the app and
+watch the first traces appear in the dashboard (Overview / Traces).
 
 See the [SDK reference](/sdk/overview) and [data model](/concepts/data-model)
 for every option.

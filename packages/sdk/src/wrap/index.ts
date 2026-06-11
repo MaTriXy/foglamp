@@ -5,18 +5,24 @@
 //   import * as ai from "ai";
 //   import { wrap } from "foglamp/wrap";
 //
-//   const { generateText, streamText } = wrap(ai, {
+//   const fog = wrap(ai, {
 //     context: { agentName: "support" },   // default trace context
 //   });
 //
-//   // Use exactly like the AI SDK; events/traces are captured automatically.
-//   await generateText({ model, prompt, foglamp: { traceName: "summarize" } });
+//   // Fully-typed path: bind context, get the original AI SDK signatures back.
+//   const { generateText, ToolLoopAgent } = fog.with({ agentName: "summarizer" });
+//   await generateText({ model, prompt });
+//
+//   // Untyped-context path (JS, or when you don't need the result types):
+//   await fog.generateText({ model, prompt, foglamp: { traceName: "summarize" } });
 //
 // Mechanism: each tool's `execute` is wrapped for real per-tool timing, and our
 // telemetry callbacks are composed over any you pass (`onChunk`/`onStepFinish`/
-// `onFinish`/`onError`) — so the user's stream is never tee'd. Produces the same
-// wire trace as the v7 path and shares one `Transport`. Silent no-op without an
-// API key; never throws into your app.
+// `onFinish`/`onError`) — so the user's stream is never tee'd. Agent classes
+// (`ToolLoopAgent`, `Experimental_Agent`) are wrapped by constructing the real
+// agent per call with traced tools. Produces the same wire trace as the v7 path
+// and shares one `Transport`. Silent no-op without an API key; never throws
+// into your app.
 
 import { resolveConfig } from "../config";
 import { Transport } from "../transport";
@@ -31,16 +37,38 @@ export interface AiModuleLike {
   streamText: AnyFn;
   generateObject: AnyFn;
   streamObject: AnyFn;
+  /** Agent classes — present on AI SDK v6/v7 (`ToolLoopAgent`) and v5+ (`Experimental_Agent`). */
+  ToolLoopAgent?: unknown;
+  Experimental_Agent?: unknown;
 }
 
 /** Per-call context, merged over the wrap-time `context` (call-time wins). */
 export type CallContext = IntegrationContext;
 
-// Add an optional `foglamp` key to a call's first argument while preserving its
-// exact (version-specific) signature and return type.
+// Accept an optional `foglamp` key without losing the AI SDK's generics: the
+// intersection behaves like overloads, so calls that don't pass `foglamp`
+// resolve against the original generic signature `F` (typed results intact),
+// and calls that do fall through to the widened one. For full types *with*
+// context, use `with()` instead.
 type AddFoglamp<F> = F extends (args: infer A, ...rest: infer R) => infer Ret
-  ? (args: A & { foglamp?: CallContext }, ...rest: R) => Ret
+  ? F & ((args: A & { foglamp?: CallContext }, ...rest: R) => Ret)
   : F;
+
+// The agent classes the module actually exports, typed exactly as the originals
+// (the wrapped classes are drop-in: same constructor settings, same methods).
+type AgentClasses<T> = (T extends { ToolLoopAgent: infer C } ? { ToolLoopAgent: C } : unknown) &
+  (T extends { Experimental_Agent: infer C } ? { Experimental_Agent: C } : unknown);
+
+/**
+ * What `with(context)` returns: the wrapped functions and agent classes with
+ * the context closed over, typed **exactly** like the originals — generics,
+ * `Output.object` result types and all.
+ */
+export type ContextBoundAi<T extends AiModuleLike> = Pick<
+  T,
+  "generateText" | "streamText" | "generateObject" | "streamObject"
+> &
+  AgentClasses<T>;
 
 /** Flush/drain handle returned alongside the wrapped functions. */
 export interface WrapHandle {
@@ -57,22 +85,42 @@ export type WrappedAi<T extends AiModuleLike> = {
   streamText: AddFoglamp<T["streamText"]>;
   generateObject: AddFoglamp<T["generateObject"]>;
   streamObject: AddFoglamp<T["streamObject"]>;
-} & WrapHandle;
+} & AgentClasses<T> &
+  WrapHandle & {
+    /**
+     * Bind a trace context and get back the wrapped functions/classes typed
+     * exactly as the originals. Merges over the wrap-time `context`.
+     */
+    with(context: CallContext): ContextBoundAi<T>;
+  };
 
 export interface WrapOptions extends FoglampConfig {
-  /** Default trace context applied to every wrapped call (override per call via `foglamp:`). */
+  /** Default trace context applied to every wrapped call (override per call via `with()` or `foglamp:`). */
   context?: IntegrationContext;
 }
 
+// Shape we rely on at runtime for ToolLoopAgent / Experimental_Agent.
+type AgentSettings = Record<string, unknown>;
+type AgentInstance = {
+  generate: (options: Record<string, unknown>) => Promise<unknown>;
+  stream: (options: Record<string, unknown>) => unknown;
+  id?: string;
+  tools?: unknown;
+};
+type AgentCtor = new (settings: AgentSettings) => AgentInstance;
+
 /**
  * Wrap an `ai` module to capture foglamp traces. Returns wrapped
- * `generateText`/`streamText`/`generateObject`/`streamObject` plus a
- * flush/shutdown handle, all sharing one `Transport`.
+ * `generateText`/`streamText`/`generateObject`/`streamObject` (plus
+ * `ToolLoopAgent`/`Experimental_Agent` when the module exports them), a
+ * `with(context)` binder, and a flush/shutdown handle, all sharing one
+ * `Transport`.
  */
 export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): WrappedAi<T> {
   const { context: wrapContext, ...config } = options;
   const resolved = resolveConfig(config);
   const transport = new Transport(resolved);
+  const rootContext: IntegrationContext = wrapContext ?? {};
 
   const guard = (fn: () => void): void => {
     if (!resolved.enabled) return;
@@ -83,18 +131,28 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
     }
   };
 
+  // Layer contexts (wrap-time → with() → per-call), merging `metadata` deeply
+  // so a call-level metadata key adds to the bound metadata instead of
+  // replacing the whole map.
+  const mergeContext = (
+    base: IntegrationContext,
+    extra: IntegrationContext | undefined,
+  ): IntegrationContext => {
+    if (!extra) return base;
+    const merged: IntegrationContext = { ...base, ...extra };
+    if (base.metadata && extra.metadata) merged.metadata = { ...base.metadata, ...extra.metadata };
+    return merged;
+  };
+
   // Split the foglamp-only `foglamp` key out of a call's args, returning a clean
   // shallow copy to forward and the merged per-call context.
   const prepare = (
     rawArgs: unknown,
+    base: IntegrationContext,
   ): { clean: Record<string, unknown>; context: IntegrationContext } => {
     const args = (rawArgs ?? {}) as Record<string, unknown>;
     const { foglamp, ...clean } = args;
-    const context: IntegrationContext = {
-      ...(wrapContext ?? {}),
-      ...((foglamp as IntegrationContext | undefined) ?? {}),
-    };
-    return { clean, context };
+    return { clean, context: mergeContext(base, foglamp as IntegrationContext | undefined) };
   };
 
   const modelInfo = (model: unknown): { provider?: string; modelId?: string } => {
@@ -152,108 +210,226 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
     });
   };
 
-  // --- generateText (non-streaming, read result) -------------------------
-  const generateText = (async (rawArgs: unknown) => {
-    if (!resolved.enabled) return (ai.generateText as AnyFn)(rawArgs as never);
-    const { clean, context } = prepare(rawArgs);
-    const collector = newCollector("generateText", clean, context);
-    clean.tools = wrapTools(clean.tools, collector);
-    try {
-      const result = await (ai.generateText as AnyFn)(clean as never);
-      guard(() => collector.completeFromResult(result as never));
-      return result;
-    } catch (error) {
-      guard(() => collector.fail(error));
-      throw error;
-    }
-  }) as AnyFn;
+  // Build the four wrapped functions bound to a base context. `with(ctx)`
+  // calls this again with the merged context, so bound copies are cheap
+  // closures over the same transport.
+  const makeFns = (base: IntegrationContext) => {
+    // --- generateText (non-streaming, read result) -----------------------
+    const generateText = (async (rawArgs: unknown) => {
+      const { clean, context } = prepare(rawArgs, base);
+      if (!resolved.enabled) return (ai.generateText as AnyFn)(clean as never);
+      const collector = newCollector("generateText", clean, context);
+      clean.tools = wrapTools(clean.tools, collector);
+      try {
+        const result = await (ai.generateText as AnyFn)(clean as never);
+        guard(() => collector.completeFromResult(result as never));
+        return result;
+      } catch (error) {
+        guard(() => collector.fail(error));
+        throw error;
+      }
+    }) as AnyFn;
 
-  // --- streamText (compose callbacks, return stream untouched) -----------
-  const streamText = ((rawArgs: unknown) => {
-    if (!resolved.enabled) return (ai.streamText as AnyFn)(rawArgs as never);
-    const { clean, context } = prepare(rawArgs);
-    const collector = newCollector("streamText", clean, context);
-    clean.tools = wrapTools(clean.tools, collector);
+    // --- streamText (compose callbacks, return stream untouched) ---------
+    const streamText = ((rawArgs: unknown) => {
+      const { clean, context } = prepare(rawArgs, base);
+      if (!resolved.enabled) return (ai.streamText as AnyFn)(clean as never);
+      const collector = newCollector("streamText", clean, context);
+      clean.tools = wrapTools(clean.tools, collector);
 
-    const userOnChunk = clean.onChunk as ((e: { chunk?: unknown }) => unknown) | undefined;
-    const userOnStepFinish = clean.onStepFinish as ((s: unknown) => unknown) | undefined;
-    const userOnFinish = clean.onFinish as ((e: unknown) => unknown) | undefined;
-    const userOnError = clean.onError as ((e: unknown) => unknown) | undefined;
+      const userOnChunk = clean.onChunk as ((e: { chunk?: unknown }) => unknown) | undefined;
+      const userOnStepFinish = clean.onStepFinish as ((s: unknown) => unknown) | undefined;
+      const userOnFinish = clean.onFinish as ((e: unknown) => unknown) | undefined;
+      const userOnError = clean.onError as ((e: unknown) => unknown) | undefined;
 
-    clean.onChunk = (e: { chunk?: unknown }) => {
-      guard(() => collector.onChunk(e?.chunk as never));
-      return userOnChunk?.(e);
-    };
-    clean.onStepFinish = (step: unknown) => {
-      guard(() => collector.addStreamStep(step as never));
-      return userOnStepFinish?.(step);
-    };
-    clean.onFinish = (event: unknown) => {
-      guard(() => collector.finalizeStream(event as never));
-      return userOnFinish?.(event);
-    };
-    clean.onError = (event: unknown) => {
-      const error = (event as { error?: unknown } | undefined)?.error ?? event;
-      guard(() => collector.fail(error));
-      return userOnError?.(event);
-    };
-
-    return (ai.streamText as AnyFn)(clean as never);
-  }) as AnyFn;
-
-  // --- generateObject (non-streaming, read result) ----------------------
-  const generateObject = (async (rawArgs: unknown) => {
-    if (!resolved.enabled) return (ai.generateObject as AnyFn)(rawArgs as never);
-    const { clean, context } = prepare(rawArgs);
-    const collector = newCollector("generateObject", clean, context);
-    try {
-      const result = (await (ai.generateObject as AnyFn)(clean as never)) as {
-        object?: unknown;
-        usage?: unknown;
-        response?: { modelId?: string };
+      clean.onChunk = (e: { chunk?: unknown }) => {
+        guard(() => collector.onChunk(e?.chunk as never));
+        return userOnChunk?.(e);
       };
-      guard(() =>
-        collector.completeObject({
-          usage: result?.usage,
-          object: result?.object,
-          modelId: result?.response?.modelId,
-        }),
-      );
-      return result;
-    } catch (error) {
-      guard(() => collector.fail(error));
-      throw error;
+      clean.onStepFinish = (step: unknown) => {
+        guard(() => collector.addStreamStep(step as never));
+        return userOnStepFinish?.(step);
+      };
+      clean.onFinish = (event: unknown) => {
+        guard(() => collector.finalizeStream(event as never));
+        return userOnFinish?.(event);
+      };
+      clean.onError = (event: unknown) => {
+        const error = (event as { error?: unknown } | undefined)?.error ?? event;
+        guard(() => collector.fail(error));
+        return userOnError?.(event);
+      };
+
+      return (ai.streamText as AnyFn)(clean as never);
+    }) as AnyFn;
+
+    // --- generateObject (non-streaming, read result) --------------------
+    const generateObject = (async (rawArgs: unknown) => {
+      const { clean, context } = prepare(rawArgs, base);
+      if (!resolved.enabled) return (ai.generateObject as AnyFn)(clean as never);
+      const collector = newCollector("generateObject", clean, context);
+      try {
+        const result = (await (ai.generateObject as AnyFn)(clean as never)) as {
+          object?: unknown;
+          usage?: unknown;
+          response?: { modelId?: string };
+        };
+        guard(() =>
+          collector.completeObject({
+            usage: result?.usage,
+            object: result?.object,
+            modelId: result?.response?.modelId,
+          }),
+        );
+        return result;
+      } catch (error) {
+        guard(() => collector.fail(error));
+        throw error;
+      }
+    }) as AnyFn;
+
+    // --- streamObject (compose onFinish) ---------------------------------
+    const streamObject = ((rawArgs: unknown) => {
+      const { clean, context } = prepare(rawArgs, base);
+      if (!resolved.enabled) return (ai.streamObject as AnyFn)(clean as never);
+      const collector = newCollector("streamObject", clean, context);
+
+      const userOnFinish = clean.onFinish as ((e: unknown) => unknown) | undefined;
+      const userOnError = clean.onError as ((e: unknown) => unknown) | undefined;
+
+      clean.onFinish = (event: unknown) => {
+        const e = event as { usage?: unknown; object?: unknown } | undefined;
+        guard(() => collector.completeObject({ usage: e?.usage, object: e?.object }));
+        return userOnFinish?.(event);
+      };
+      clean.onError = (event: unknown) => {
+        const error = (event as { error?: unknown } | undefined)?.error ?? event;
+        guard(() => collector.fail(error));
+        return userOnError?.(event);
+      };
+
+      return (ai.streamObject as AnyFn)(clean as never);
+    }) as AnyFn;
+
+    return { generateText, streamText, generateObject, streamObject };
+  };
+
+  // Wrap an agent class (ToolLoopAgent / Experimental_Agent). The facade keeps
+  // the constructor settings and builds a fresh real agent per generate/stream
+  // call so each call gets its own collector-bound tools — per-call attribution
+  // without any shared mutable state. Constructing the real class only stores
+  // settings, so the per-call construction is free.
+  const wrapAgentClass = (Base: AgentCtor, baseContext: IntegrationContext): AgentCtor => {
+    class FoglampAgent {
+      readonly version = "agent-v1";
+      readonly #settings: AgentSettings;
+      readonly #context: IntegrationContext;
+      readonly #inner: AgentInstance;
+
+      constructor(settings: AgentSettings) {
+        const { foglamp, ...rest } = (settings ?? {}) as AgentSettings & {
+          foglamp?: CallContext;
+        };
+        this.#settings = rest;
+        let ctx = mergeContext(baseContext, foglamp);
+        // An agent is the canonical `agentName` carrier — default it from the
+        // class's own `id` when the user named the agent but not the trace.
+        if (!ctx.agentName && !ctx.traceName && typeof rest.id === "string") {
+          ctx = { ...ctx, agentName: rest.id };
+        }
+        this.#context = ctx;
+        this.#inner = new Base(rest);
+      }
+
+      get id(): string | undefined {
+        return this.#inner.id;
+      }
+
+      get tools(): unknown {
+        return this.#inner.tools;
+      }
+
+      async generate(options: Record<string, unknown>): Promise<unknown> {
+        const { clean, context } = prepare(options, this.#context);
+        if (!resolved.enabled) return this.#inner.generate(clean);
+        const collector = newCollector(
+          "agent.generate",
+          { ...clean, model: this.#settings.model, tools: this.#settings.tools },
+          context,
+        );
+        const agent = new Base({
+          ...this.#settings,
+          tools: wrapTools(this.#settings.tools, collector),
+        });
+        try {
+          const result = await agent.generate(clean);
+          guard(() => collector.completeFromResult(result as never));
+          return result;
+        } catch (error) {
+          guard(() => collector.fail(error));
+          throw error;
+        }
+      }
+
+      stream(options: Record<string, unknown>): unknown {
+        const { clean, context } = prepare(options, this.#context);
+        if (!resolved.enabled) return this.#inner.stream(clean);
+        const collector = newCollector(
+          "agent.stream",
+          { ...clean, model: this.#settings.model, tools: this.#settings.tools },
+          context,
+        );
+        // Steps and the final text arrive via the settings-level callbacks
+        // (the class merges these with any per-call `onStepFinish`, so user
+        // callbacks still run). Agent streams expose no `onChunk`, so TTFT /
+        // chunk curves aren't sampled on this path.
+        const settingsOnStepFinish = this.#settings.onStepFinish as
+          | ((s: unknown) => unknown)
+          | undefined;
+        const settingsOnFinish = this.#settings.onFinish as ((e: unknown) => unknown) | undefined;
+        const agent = new Base({
+          ...this.#settings,
+          tools: wrapTools(this.#settings.tools, collector),
+          onStepFinish: (step: unknown) => {
+            guard(() => collector.addStreamStep(step as never));
+            return settingsOnStepFinish?.(step);
+          },
+          onFinish: (event: unknown) => {
+            guard(() => collector.finalizeStream(event as never));
+            return settingsOnFinish?.(event);
+          },
+        });
+        return agent.stream(clean);
+      }
     }
-  }) as AnyFn;
+    return FoglampAgent as unknown as AgentCtor;
+  };
 
-  // --- streamObject (compose onFinish) ----------------------------------
-  const streamObject = ((rawArgs: unknown) => {
-    if (!resolved.enabled) return (ai.streamObject as AnyFn)(rawArgs as never);
-    const { clean, context } = prepare(rawArgs);
-    const collector = newCollector("streamObject", clean, context);
-
-    const userOnFinish = clean.onFinish as ((e: unknown) => unknown) | undefined;
-    const userOnError = clean.onError as ((e: unknown) => unknown) | undefined;
-
-    clean.onFinish = (event: unknown) => {
-      const e = event as { usage?: unknown; object?: unknown } | undefined;
-      guard(() => collector.completeObject({ usage: e?.usage, object: e?.object }));
-      return userOnFinish?.(event);
-    };
-    clean.onError = (event: unknown) => {
-      const error = (event as { error?: unknown } | undefined)?.error ?? event;
-      guard(() => collector.fail(error));
-      return userOnError?.(event);
-    };
-
-    return (ai.streamObject as AnyFn)(clean as never);
-  }) as AnyFn;
+  // The agent classes the module exports, wrapped and bound to a context.
+  const makeAgentClasses = (base: IntegrationContext): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    const toolLoop = (ai as Record<string, unknown>).ToolLoopAgent;
+    const experimental = (ai as Record<string, unknown>).Experimental_Agent;
+    if (typeof toolLoop === "function") {
+      out.ToolLoopAgent = wrapAgentClass(toolLoop as AgentCtor, base);
+    }
+    if (typeof experimental === "function") {
+      // On v6/v7 `Experimental_Agent` is an alias of `ToolLoopAgent`.
+      out.Experimental_Agent =
+        experimental === toolLoop
+          ? out.ToolLoopAgent
+          : wrapAgentClass(experimental as AgentCtor, base);
+    }
+    return out;
+  };
 
   const handle = {
-    generateText,
-    streamText,
-    generateObject,
-    streamObject,
+    ...makeFns(rootContext),
+    ...makeAgentClasses(rootContext),
+    with: (context: CallContext) => {
+      const bound = mergeContext(rootContext, context);
+      return { ...makeFns(bound), ...makeAgentClasses(bound) };
+    },
     flush: () => transport.flush(),
     shutdown: () => transport.shutdown(),
     get pending() {
