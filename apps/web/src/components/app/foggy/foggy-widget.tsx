@@ -293,7 +293,13 @@ export function FoggyWidget({
   // sliding in scrolls the textarea into view and fights the transition.
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // Closing (e.g. via Escape) leaves the composer focused inside the
+      // hidden panel, silently swallowing keystrokes — including the "f" that
+      // would reopen it. Drop focus so typing reaches the page again.
+      inputRef.current?.blur();
+      return;
+    }
     const t = setTimeout(() => inputRef.current?.focus(), 260);
     return () => clearTimeout(t);
   }, [open]);
