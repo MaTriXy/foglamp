@@ -1,5 +1,5 @@
 import { stripe as stripePlugin } from "@better-auth/stripe";
-import { getOrgPlan, PLAN_LIMITS } from "@foglamp/billing";
+import { getOrgPlan, isBillingEnabled, PLAN_LIMITS } from "@foglamp/billing";
 import { createClickHouseClient, updateOrgRetention } from "@foglamp/clickhouse";
 import { createDb } from "@foglamp/db";
 import * as schema from "@foglamp/db/schema/index";
@@ -88,11 +88,10 @@ export function createAuth() {
 
   // Billing — org-scoped Stripe subscriptions. Enabled only when configured
   // (self-host without billing simply omits the plugin). Only owner/admins of
-  // the referenced org may manage its subscription.
-  // Billing requires BOTH the secret key and the webhook secret — without the
-  // latter, webhooks can't be verified and subscription state never syncs.
-  if (env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET) {
-    const stripeClient = new Stripe(env.STRIPE_SECRET_KEY);
+  // the referenced org may manage its subscription. isBillingEnabled() owns
+  // the definition of "configured" (secret key + webhook secret).
+  if (isBillingEnabled()) {
+    const stripeClient = new Stripe(env.STRIPE_SECRET_KEY!);
     const ch = createClickHouseClient({
       url: env.CLICKHOUSE_URL,
       username: env.CLICKHOUSE_USER,
@@ -114,7 +113,7 @@ export function createAuth() {
     plugins.push(
       stripePlugin({
         stripeClient,
-        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET ?? "",
+        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET!,
         createCustomerOnSignUp: false,
         subscription: {
           enabled: true,

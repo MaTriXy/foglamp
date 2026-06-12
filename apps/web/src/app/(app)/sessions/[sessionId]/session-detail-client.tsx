@@ -20,7 +20,8 @@ import { useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { AgentIcon } from "@/components/app/agent-icon";
-import { CopyIcon } from "@/components/app/copy-icon";
+import { CopyButton } from "@/components/app/copy-button";
+import { HEAT_SHADES } from "@/components/app/heat-cell";
 import { useDelayedLoading } from "@/components/app/data-table";
 import { markdownComponents } from "@/components/app/markdown";
 import { navItem } from "@/components/app/nav";
@@ -33,7 +34,6 @@ import {
 } from "@/components/app/page-parts";
 import { useProject } from "@/components/app/project-context";
 import { RelativeTime } from "@/components/app/relative-time";
-import { useCopied } from "@/components/app/use-copied";
 import {
   formatCost,
   formatCount,
@@ -58,17 +58,6 @@ type Turn = {
   errorCount: number;
   durationMs: number;
 };
-
-// Per-turn cost heatmap, scoped to this session: tint each turn's cost by its
-// percentile among the session's priced turns so the expensive turns pop. Light
-// uses 600 / dark uses 400. Literal classes so Tailwind keeps them.
-const HEAT_SHADES = [
-  "text-green-600 dark:text-green-400",
-  "text-yellow-600 dark:text-yellow-400",
-  "text-amber-600 dark:text-amber-400",
-  "text-orange-600 dark:text-orange-400",
-  "text-red-600 dark:text-red-400",
-] as const;
 
 /** 20/40/60/80th-percentile thresholds of the positive values (sorted-nearest). */
 function quintiles(values: number[]): number[] {
@@ -397,24 +386,3 @@ function Bubble({
   );
 }
 
-/** Copy a string to the clipboard, with a brief check-mark confirmation. */
-function CopyButton({ value, title }: { value: string; title: string }) {
-  const { copied, markCopied } = useCopied();
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={() => {
-        void navigator.clipboard.writeText(value);
-        markCopied();
-      }}
-      className="inline-flex shrink-0 items-center justify-center rounded p-1 text-muted-foreground/60 cursor-pointer transition-colors hover:text-foreground"
-    >
-      <CopyIcon
-        copied={copied}
-        className="size-4"
-        checkClassName="size-4 text-green-600 dark:text-green-400"
-      />
-    </button>
-  );
-}

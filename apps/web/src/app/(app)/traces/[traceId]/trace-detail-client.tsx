@@ -37,8 +37,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AgentIcon } from "@/components/app/agent-icon";
 import { useShikiHtml } from "@/components/app/code-block";
-import { CopyIcon } from "@/components/app/copy-icon";
-import { useCopied } from "@/components/app/use-copied";
+import { CopyButton } from "@/components/app/copy-button";
 import { useDelayedLoading } from "@/components/app/data-table";
 import {
 	type EvalMeta,
@@ -943,35 +942,3 @@ function Payload({
 	);
 }
 
-/** Copy a string to the clipboard, with a brief check-mark confirmation. */
-function CopyButton({
-	value,
-	title,
-	className,
-}: {
-	value: string;
-	title: string;
-	className?: string;
-}) {
-	const { copied, markCopied } = useCopied();
-	return (
-		<button
-			type="button"
-			title={title}
-			onClick={() => {
-				void navigator.clipboard.writeText(value);
-				markCopied();
-			}}
-			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded p-1 text-muted-foreground/60 cursor-pointer transition-colors hover:text-foreground",
-				className,
-			)}
-		>
-			<CopyIcon
-				copied={copied}
-				className="size-4"
-				checkClassName="size-4 text-green-600 dark:text-green-400"
-			/>
-		</button>
-	);
-}

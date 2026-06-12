@@ -326,7 +326,6 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
   // settings, so the per-call construction is free.
   const wrapAgentClass = (Base: AgentCtor, baseContext: IntegrationContext): AgentCtor => {
     class FoglampAgent {
-      readonly version = "agent-v1";
       readonly #settings: AgentSettings;
       readonly #context: IntegrationContext;
       readonly #inner: AgentInstance;

@@ -26,6 +26,9 @@ import {
 } from "drizzle-orm";
 import Stripe from "stripe";
 
+import { createLogger } from "evlog";
+
+import { ymd } from "../lib/util";
 import type { Ch, Db } from "../types";
 
 /**
@@ -41,9 +44,7 @@ export function isPlatformAdmin(email: string): boolean {
   return allow.includes(email.toLowerCase());
 }
 
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+const log = createLogger();
 
 const ACTIVE_SUB_STATUSES = ["active", "trialing", "past_due"];
 
@@ -95,7 +96,7 @@ async function getMrrCents(): Promise<number | null> {
     }
     return Math.round(total);
   } catch (err) {
-    console.error("[platform] stripe MRR fetch failed", err);
+    log.error("platform.stripe_mrr_failed", { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }

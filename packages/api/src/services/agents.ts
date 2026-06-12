@@ -4,22 +4,13 @@ import {
   getTraceSpans,
   listAgents,
   listTraces,
-  queryAgentBreakdown,
   queryAgentNames,
   type SortDir,
 } from "@foglamp/clickhouse";
 
-import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
+import { decimalOrNull, finite, num, quantiles, toClickHouseDateTime } from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
-
-function quantiles(q: number[] | undefined) {
-  return {
-    p50: num(q?.[0]),
-    p95: num(q?.[1]),
-    p99: num(q?.[2]),
-  };
-}
 
 /**
  * The Agents grid: a page of per-agent rollups plus a single-row summary over
@@ -59,8 +50,6 @@ export async function getAgentList(
     agentListSummary(ch, filters),
   ]);
   const s = summaryRows[0];
-  const finite = (xs: number[] | undefined) =>
-    (xs ?? []).map(Number).filter(Number.isFinite);
   return {
     // 20/40/60/80th percentile cost thresholds; finite values only.
     costQuantiles: finite(s?.cost_q),
@@ -112,12 +101,14 @@ export async function getAgentDetail(
 ) {
   await requireProjectAccess(db, userId, input.projectId);
 
-  const breakdown = await queryAgentBreakdown(ch, {
+  const agentRows = await listAgents(ch, {
     projectId: input.projectId,
     from: toClickHouseDateTime(input.from),
     to: toClickHouseDateTime(input.to),
+    agentName: input.agentName,
+    limit: 1,
   });
-  const row = breakdown.find((r) => r.agent_name === input.agentName);
+  const row = agentRows[0];
   const stats = row
     ? {
         spanCount: num(row.span_count),
@@ -134,6 +125,8 @@ export async function getAgentDetail(
   const traceRows = await listTraces(ch, {
     projectId: input.projectId,
     agentName: input.agentName,
+    from: toClickHouseDateTime(input.from),
+    to: toClickHouseDateTime(input.to),
     limit: 50,
   });
   const traces = traceRows.map((r) => ({

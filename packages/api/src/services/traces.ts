@@ -6,7 +6,7 @@ import {
   type TraceSortField,
 } from "@foglamp/clickhouse";
 
-import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
+import { decimalOrNull, finite, num, toClickHouseDateTime } from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
 
@@ -65,8 +65,6 @@ export async function getTraceList(
     traceListSummary(ch, filters),
   ]);
   const s = summaryRows[0];
-  const finite = (xs: number[] | undefined) =>
-    (xs ?? []).map(Number).filter(Number.isFinite);
   return {
     // 20/40/60/80th percentile thresholds; finite values only.
     costQuantiles: finite(s?.cost_q),

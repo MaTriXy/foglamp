@@ -68,3 +68,18 @@ export function decimalOrNull(value: string | null | undefined): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+
+/** p50/p95/p99 from a ClickHouse quantiles array (3 elements). */
+export function quantiles(q: number[] | undefined) {
+  return { p50: num(q?.[0]), p95: num(q?.[1]), p99: num(q?.[2]) };
+}
+
+/** Keep only finite numbers from an array (filters NaN/Infinity). */
+export function finite(xs: number[] | undefined): number[] {
+  return (xs ?? []).map(Number).filter(Number.isFinite);
+}
+
+/** Format a Date as 'YYYY-MM-DD' (UTC). */
+export function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}

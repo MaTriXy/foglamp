@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
+import { resolveRange } from "../lib/util";
 import {
 	getWorkflowRunDetail,
 	getWorkflowRunList,
@@ -31,9 +32,14 @@ export const workflowRunsRouter = router({
 				offset: z.number().int().min(0).optional(),
 			}),
 		)
-		.query(({ ctx, input }) =>
-			getWorkflowRunList(ctx.db, ctx.ch, ctx.session.user.id, input),
-		),
+		.query(({ ctx, input }) => {
+			const { from, to } = resolveRange(input.from, input.to);
+			return getWorkflowRunList(ctx.db, ctx.ch, ctx.session.user.id, {
+				...input,
+				from,
+				to,
+			});
+		}),
 
 	summary: protectedProcedure
 		.input(
@@ -45,9 +51,14 @@ export const workflowRunsRouter = router({
 				errorsOnly: z.boolean().optional(),
 			}),
 		)
-		.query(({ ctx, input }) =>
-			getWorkflowRunSummary(ctx.db, ctx.ch, ctx.session.user.id, input),
-		),
+		.query(({ ctx, input }) => {
+			const { from, to } = resolveRange(input.from, input.to);
+			return getWorkflowRunSummary(ctx.db, ctx.ch, ctx.session.user.id, {
+				...input,
+				from,
+				to,
+			});
+		}),
 
 	timeseries: protectedProcedure
 		.input(

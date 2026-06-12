@@ -15,8 +15,10 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import {
 	decimalOrNull,
+	finite,
 	num,
 	pickBucketSec,
+	quantiles,
 	toClickHouseDateTime,
 } from "../lib/util";
 import type { Ch, Db } from "../types";
@@ -61,8 +63,6 @@ export async function getWorkflowList(
 		workflowListSummary(ch, filters),
 	]);
 	const s = summaryRows[0];
-	const finite = (xs: number[] | undefined) =>
-		(xs ?? []).map(Number).filter(Number.isFinite);
 	return {
 		// 20/40/60/80th percentile cost thresholds; finite values only.
 		costQuantiles: finite(s?.cost_q),
@@ -167,10 +167,6 @@ export async function getWorkflowRunList(
 		pricedSpanCount: num(r.priced_span_count),
 		totalTokens: num(r.total_tokens),
 	}));
-}
-
-function quantiles(q: number[] | undefined) {
-	return { p50: num(q?.[0]), p95: num(q?.[1]), p99: num(q?.[2]) };
 }
 
 /** Stat-strip rollup over one workflow's runs in the window: totals + run-count,

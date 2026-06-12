@@ -10,7 +10,7 @@ export type AppEnv = {
   Variables: EvlogVariables["Variables"] & { session: SessionResult };
 };
 
-const SKIP_IDENTIFY_PREFIXES = ["/api/auth/", "/queue/"];
+const SKIP_IDENTIFY_PREFIXES = ["/api/auth/"];
 
 export const evlog = createMiddleware<AppEnv>(async (c, next) => {
   const log = createRequestLogger({

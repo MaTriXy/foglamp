@@ -51,6 +51,20 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
   const userId = session?.user?.id;
   if (!userId) return c.json({ error: "Not authenticated" }, 401);
 
+  const rl = checkFoggyRateLimit(userId);
+  if (!rl.allowed) {
+    c.header("Retry-After", String(Math.ceil(rl.retryAfterMs / 1000)));
+    return c.json(
+      {
+        error:
+          rl.reason === "daily"
+            ? "You've reached today's Foggy message limit. Try again tomorrow."
+            : "You're sending messages too fast — give it a moment.",
+      },
+      429,
+    );
+  }
+
   if (!google) {
     return c.json(
       {
@@ -86,20 +100,6 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
     projectName = (await requireProjectAccess(db, userId, projectId)).name;
   } catch {
     return c.json({ error: "Project not found or not accessible" }, 403);
-  }
-
-  const rl = checkFoggyRateLimit(userId);
-  if (!rl.allowed) {
-    c.header("Retry-After", String(Math.ceil(rl.retryAfterMs / 1000)));
-    return c.json(
-      {
-        error:
-          rl.reason === "daily"
-            ? "You've reached today's Foggy message limit. Try again tomorrow."
-            : "You're sending messages too fast — give it a moment.",
-      },
-      429,
-    );
   }
 
   const result = streamText({

@@ -31,9 +31,14 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
-import { Text as RechartsText } from "recharts";
 
 import * as AreaChart from "@/components/evilcharts/charts/area-chart";
+import {
+  formatBucketFull,
+  makeBucketLabel,
+  makeEdgeTick,
+  thinTicks,
+} from "@/components/app/trend-charts";
 import * as LineChart from "@/components/evilcharts/charts/line-chart";
 import type { ChartConfig } from "@/components/evilcharts/ui/chart";
 import { ModelLogo, modelBrandColor } from "@/components/model-logo";
@@ -61,7 +66,7 @@ import {
   formatTokens,
   projectMonthlyCost,
 } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn } from "@foglamp/ui/lib/utils";
 import { useRange } from "@/components/app/range-context";
 import { trpc } from "@/utils/trpc";
 
@@ -108,108 +113,6 @@ const volumeConfig = {
 /** Strip the "vendor/" prefix for a compact model label. */
 const shortModel = (id: string) =>
   id.includes("/") ? id.slice(id.indexOf("/") + 1) : id;
-
-/** A bucket-axis label: time-of-day for short windows, month/day for spans over
- * ~2 days (where bare times would otherwise repeat across days). */
-function makeBucketLabel(windowMs: number) {
-  const multiDay = windowMs > 2 * 86_400_000;
-  return (bucket: string) => {
-    const d = new Date(`${bucket.replace(" ", "T")}Z`);
-    if (Number.isNaN(d.getTime())) return bucket;
-    return multiDay
-      ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      : d.toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-  };
-}
-
-/** A full date+time label for tooltips, where every bucket should stay
- * distinguishable even when the axis only shows the day. */
-function formatBucketFull(bucket: string) {
-  const d = new Date(`${bucket.replace(" ", "T")}Z`);
-  if (Number.isNaN(d.getTime())) return bucket;
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-/** One representative bucket per distinct axis label, so the x-axis shows e.g.
- * a single "May 29" tick instead of one per sub-day bucket. */
-function dedupeTicks(buckets: string[], labelFn: (b: string) => string) {
-  const ticks: string[] = [];
-  let last: string | null = null;
-  for (const b of buckets) {
-    const l = labelFn(b);
-    if (l !== last) {
-      ticks.push(b);
-      last = l;
-    }
-  }
-  return ticks;
-}
-
-/** Thin the per-label representatives down to ~`target` evenly-spaced ticks,
- * always keeping both endpoints. Crucially, the final tick is held a full step
- * away from its neighbour (replacing the penultimate pick when needed) so the
- * end-anchored last label doesn't crowd the one before it. */
-function thinTicks(
-  buckets: string[],
-  labelFn: (b: string) => string,
-  target = 8
-) {
-  const reps = dedupeTicks(buckets, labelFn);
-  const n = reps.length;
-  if (n <= target) return reps;
-  const step = Math.ceil((n - 1) / (target - 1));
-  const idx: number[] = [];
-  for (let i = 0; i < n - 1; i += step) idx.push(i);
-  if (n - 1 - idx[idx.length - 1]! < step) idx[idx.length - 1] = n - 1;
-  else idx.push(n - 1);
-  return idx.map((i) => reps[i]!);
-}
-
-/**
- * An x-axis tick renderer that anchors the first label to its start and the last
- * to its end, so the edge labels tuck inward instead of overhanging the plot —
- * keeping the chart data full-bleed (no plot-area padding). Middle labels stay
- * centred. Inherits the muted axis color/size from the ChartContainer CSS since
- * it renders inside the `.recharts-cartesian-axis-tick` group.
- */
-function makeEdgeTick(labelFn: (b: string) => string) {
-  return function EdgeTick(props: {
-    x?: string | number;
-    y?: string | number;
-    index?: number;
-    visibleTicksCount?: number;
-    payload?: { value: string | number };
-  }) {
-    const { x = 0, y = 0, index = 0, visibleTicksCount = 0, payload } = props;
-    const anchor =
-      index === 0
-        ? "start"
-        : index === visibleTicksCount - 1
-          ? "end"
-          : "middle";
-    return (
-      <RechartsText
-        x={Number(x)}
-        y={Number(y)}
-        dy={4}
-        textAnchor={anchor}
-        verticalAnchor="start"
-      >
-        {payload ? labelFn(String(payload.value)) : ""}
-      </RechartsText>
-    );
-  };
-}
 
 type LegendItem = {
   key: string;

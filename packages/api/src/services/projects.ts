@@ -7,10 +7,7 @@ import { and, count, desc, eq } from "drizzle-orm";
 
 import { generateApiKey, hashApiKey, keyPrefix, slugify } from "../lib/util";
 import type { Ch, Db } from "../types";
-import { requireOrgRole, requireProjectAccess } from "./access";
-
-// API keys + project create/delete require admin+ (reads need only membership).
-const ADMIN = ["owner", "admin"] as const;
+import { ADMIN, requireOrgRole, requireProjectAccess } from "./access";
 
 /** Create a project in an org the user belongs to, with a unique slug. */
 export async function createProject(

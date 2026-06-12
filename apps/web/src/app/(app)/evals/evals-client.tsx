@@ -50,12 +50,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@foglamp/ui/components/table";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@foglamp/ui/components/tooltip";
+import { TooltipProvider } from "@foglamp/ui/components/tooltip";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
 	type Icon,
@@ -80,7 +75,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
-	type ReactNode,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -90,6 +84,7 @@ import {
 import { toast } from "sonner";
 
 import { AgentIcon } from "@/components/app/agent-icon";
+import { HeatCell } from "@/components/app/heat-cell";
 import {
 	ClearFiltersButton,
 	FilterSelect,
@@ -215,25 +210,6 @@ const DEFAULT_FORM = {
 
 type EvalSortKey = "name" | "sample" | "passRate" | "avgScore" | "spend";
 
-// Spend heatmap: tint each eval's windowed cost by its percentile across the
-// (filtered) list — same traffic-light scale as the traces table. Green = the
-// cheapest fifth, red = the priciest. Literal classes so Tailwind keeps them.
-const HEAT_SHADES = [
-	"text-green-600 dark:text-green-400",
-	"text-yellow-600 dark:text-yellow-400",
-	"text-amber-600 dark:text-amber-400",
-	"text-orange-600 dark:text-orange-400",
-	"text-red-600 dark:text-red-400",
-] as const;
-
-const PCT_RANGE = [
-	"0–20th",
-	"20–40th",
-	"40–60th",
-	"60–80th",
-	"80–100th",
-] as const;
-
 /** The 20/40/60/80th percentile cost thresholds across the list, so each shade
  * holds ~1/5 of evals. Computed client-side (the eval list is small/unpaged). */
 function costThresholds(values: number[]): number[] {
@@ -242,17 +218,6 @@ function costThresholds(values: number[]): number[] {
 	return [0.2, 0.4, 0.6, 0.8].map((q) => v[Math.floor(q * (v.length - 1))]!);
 }
 
-/** Which quintile bucket (0..4) `value` falls in against `thresholds`. null when
- * there's nothing to place (no spend). */
-function percentileBucket(
-	value: number | null | undefined,
-	thresholds: number[],
-) {
-	if (!value || value <= 0 || thresholds.length === 0) return null;
-	let i = 0;
-	for (const t of thresholds) if (value > t) i += 1;
-	return Math.min(i, HEAT_SHADES.length - 1);
-}
 
 export function EvalsClient() {
 	const { projectId } = useProject();
@@ -1082,7 +1047,7 @@ export function EvalsClient() {
 														r.avgScore.toFixed(2)
 													)}
 												</TableCell>
-												<HeatCell value={r.cost} thresholds={spendThresholds}>
+												<HeatCell value={r.cost} thresholds={spendThresholds} metric="spend" bold mutedWhenZero>
 													{r.cost > 0 ? formatCost(r.cost) : "—"}
 												</HeatCell>
 												<TableCell
@@ -1165,37 +1130,3 @@ function clean(obj: Record<string, string>): Record<string, string> {
 	);
 }
 
-/** A right-aligned spend cell tinted by its percentile bucket across the list,
- * with a tooltip naming the bucket. Unbucketed (no spend) renders muted. */
-function HeatCell({
-	value,
-	thresholds,
-	children,
-}: {
-	value: number | null | undefined;
-	thresholds: number[];
-	children: ReactNode;
-}) {
-	const bucket = percentileBucket(value, thresholds);
-	const className = cn(
-		"text-right font-medium tabular-nums",
-		value == null || value <= 0
-			? "text-muted-foreground/40"
-			: bucket != null && HEAT_SHADES[bucket],
-	);
-	if (bucket == null) {
-		return <TableCell className={className}>{children}</TableCell>;
-	}
-	const extreme =
-		bucket === 0 ? " · cheapest" : bucket === 4 ? " · priciest" : "";
-	return (
-		<TableCell className={className}>
-			<Tooltip>
-				<TooltipTrigger render={<span className="cursor-default" />}>
-					{children}
-				</TooltipTrigger>
-				<TooltipContent>{`${PCT_RANGE[bucket]} percentile by spend${extreme}`}</TooltipContent>
-			</Tooltip>
-		</TableCell>
-	);
-}

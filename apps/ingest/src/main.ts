@@ -11,9 +11,9 @@ import { createLogger } from "evlog";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 
-import { resolveApiKey } from "./apiKey";
+import { pruneApiKeyCache, resolveApiKey } from "./apiKey";
 import { WriteBuffer } from "./buffer";
-import { getProjectPricing } from "./customPricing";
+import { getProjectPricing, pruneCustomPricing } from "./customPricing";
 import { evlog, type AppEnv } from "./evlog";
 import { checkOrgQuota, pruneOrgLimits } from "./orgLimits";
 import { checkRateLimit, pruneRateLimits } from "./rateLimit";
@@ -56,6 +56,8 @@ buffer.start();
 const pruneTimer = setInterval(() => {
   pruneRateLimits();
   pruneOrgLimits();
+  pruneApiKeyCache();
+  pruneCustomPricing();
 }, 60_000);
 pruneTimer.unref?.();
 

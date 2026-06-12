@@ -38,9 +38,14 @@ export const workflowsRouter = router({
         offset: z.number().int().min(0).optional(),
       }),
     )
-    .query(({ ctx, input }) =>
-      getWorkflowList(ctx.db, ctx.ch, ctx.session.user.id, input),
-    ),
+    .query(({ ctx, input }) => {
+      const { from, to } = resolveRange(input.from, input.to);
+      return getWorkflowList(ctx.db, ctx.ch, ctx.session.user.id, {
+        ...input,
+        from,
+        to,
+      });
+    }),
 
   // Distinct workflow names in a window — for the workflow-filter dropdown.
   names: protectedProcedure

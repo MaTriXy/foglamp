@@ -6,11 +6,14 @@ import { createContext } from "@foglamp/api/context";
 import { appRouter } from "@foglamp/api/routers/index";
 import { auth, getAuthMethods } from "@foglamp/auth";
 import { env, getTrustedAppOrigins } from "@foglamp/env/server";
+import { createLogger } from "evlog";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 
 import { evlog, type AppEnv } from "./evlog";
 import { handleFoggy } from "./foggy";
+import { pruneFoggyRateLimits } from "./foggyRateLimit";
 
 const app = new Hono<AppEnv>();
 const trustedAppOrigins = getTrustedAppOrigins(
@@ -47,7 +50,14 @@ app.use(
 
 // Foggy — in-app AI assistant. Streams a UI message response; auth + project
 // access + rate limiting are enforced inside the handler.
-app.post("/foggy", handleFoggy);
+app.post(
+  "/foggy",
+  bodyLimit({
+    maxSize: env.FOGGY_MAX_BODY_BYTES,
+    onError: (c) => c.json({ error: "payload too large" }, 413),
+  }),
+  handleFoggy,
+);
 
 app.get("/", (c) => {
   return c.text("OK");
@@ -61,13 +71,32 @@ const stopAlertEvaluator = startAlertEvaluator();
 const stopScoringWorker = startScoringWorker();
 // Quota warning sweep: email owners/admins when an org nears its span quota.
 const stopQuotaWarnSweep = startQuotaWarnSweep();
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  process.on(signal, () => {
-    stopAlertEvaluator();
-    stopScoringWorker();
-    stopQuotaWarnSweep();
-  });
+
+// Periodically shed stale foggy rate-limit entries (in-memory).
+const pruneTimer = setInterval(() => {
+  pruneFoggyRateLimits();
+}, 60_000);
+pruneTimer.unref?.();
+
+let shuttingDown = false;
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  const log = createLogger({ service: "server" });
+  try {
+    log.emit({ outcome: "shutdown_start", signal });
+    clearInterval(pruneTimer);
+    await Promise.all([stopAlertEvaluator(), stopScoringWorker(), stopQuotaWarnSweep()]);
+    log.emit({ outcome: "shutdown", signal });
+  } catch (err) {
+    log.error(err instanceof Error ? err : new Error(String(err)), { signal });
+    log.emit({ outcome: "shutdown_error" });
+  } finally {
+    process.exit(0);
+  }
 }
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
 
 // Bun serves a default export with `{ port, fetch }`. The host (Cloud Run,
 // Railway, Fly.io, …) injects PORT; falls back to 3000 for local dev.

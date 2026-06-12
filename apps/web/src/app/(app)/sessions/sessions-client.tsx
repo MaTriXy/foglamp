@@ -18,12 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@foglamp/ui/components/tooltip";
+import { TooltipProvider } from "@foglamp/ui/components/tooltip";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangle,
@@ -35,10 +30,12 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AgentIcon } from "@/components/app/agent-icon";
-import { CopyIcon } from "@/components/app/copy-icon";
+import { CopyButton } from "@/components/app/copy-button";
+import { HeatCell } from "@/components/app/heat-cell";
+import { pageWindow } from "@/components/app/trend-charts";
 import {
   ClearFiltersButton,
   FilterSelect,
@@ -65,7 +62,6 @@ import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
 import { RelativeTime } from "@/components/app/relative-time";
-import { useCopied } from "@/components/app/use-copied";
 import {
   formatCost,
   formatCount,
@@ -86,78 +82,6 @@ const SESSION_SORT_KEYS = [
   "turns",
 ] as const satisfies readonly SessionSortKey[];
 
-/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
- * Always keeps the first/last page and the current page ±1 in view, e.g.
- * `1 … 4 5 6 … 20`. */
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const middle: number[] = [];
-  for (
-    let i = Math.max(2, current - 1);
-    i <= Math.min(total - 1, current + 1);
-    i++
-  ) {
-    middle.push(i);
-  }
-  const out: (number | "ellipsis")[] = [1];
-  if (middle[0] > 2) out.push("ellipsis");
-  out.push(...middle);
-  if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
-  out.push(total);
-  return out;
-}
-
-// Human label for the active sort, shown in the toolbar summary.
-const SORT_LABELS: Record<SessionSortKey, string> = {
-  last: "last activity",
-  cost: "cost",
-  tokens: "tokens",
-  turns: "turns",
-};
-
-// Cost heatmap: tint each session's cost by its percentile within the whole
-// (filtered) result set — not just this page. The API returns global quintile
-// thresholds; a traffic-light scale runs green (cheapest 20%) → yellow → red
-// (priciest 20%), so each shade holds ~1/5 of sessions regardless of skew. Light
-// uses 600 / dark uses 400 for contrast. Literal classes so Tailwind keeps them.
-const HEAT_SHADES = [
-  "text-green-600 dark:text-green-400",
-  "text-yellow-600 dark:text-yellow-400",
-  "text-amber-600 dark:text-amber-400",
-  "text-orange-600 dark:text-orange-400",
-  "text-red-600 dark:text-red-400",
-] as const;
-
-// Labels for the five quintile buckets, shown in the cost cell tooltip.
-const PCT_RANGE = [
-  "0–20th",
-  "20–40th",
-  "40–60th",
-  "60–80th",
-  "80–100th",
-] as const;
-
-/** Which quintile bucket (0..4) `value` falls in against the global `thresholds`
- * (the 20/40/60/80th percentiles). null when there's nothing to place. */
-function percentileBucket(
-  value: number | null | undefined,
-  thresholds: number[]
-) {
-  if (!value || value <= 0 || thresholds.length === 0) return null;
-  // Bucket = how many thresholds the value exceeds (0..thresholds.length).
-  let i = 0;
-  for (const t of thresholds) if (value > t) i += 1;
-  return Math.min(i, HEAT_SHADES.length - 1);
-}
-
-/** Tooltip copy for a bucketed cost cell, e.g. "80–100th percentile by cost · priciest". */
-function percentileTip(bucket: number) {
-  const extreme =
-    bucket === 0 ? " · cheapest" : bucket === 4 ? " · priciest" : "";
-  return `${PCT_RANGE[bucket]} percentile by cost${extreme}`;
-}
 
 export function SessionsClient() {
   const { projectId } = useProject();
@@ -434,7 +358,13 @@ export function SessionsClient() {
                             <span className="truncate max-w-72">
                               {s.sessionId}
                             </span>
-                            <CopyIdButton id={s.sessionId} />
+                            <CopyButton
+                              value={s.sessionId}
+                              title="Copy session ID"
+                              stopPropagation
+                              iconSize="size-3"
+                              className="p-0.5 text-muted-foreground/50"
+                            />
                             {s.errorCount > 0 && (
                               <Badge
                                 variant="rose"
@@ -457,6 +387,8 @@ export function SessionsClient() {
                         <HeatCell
                           value={s.totalCost}
                           thresholds={costQuantiles}
+                          bold
+                          mutedWhenZero
                         >
                           {formatCost(s.totalCost)}
                         </HeatCell>
@@ -535,64 +467,3 @@ export function SessionsClient() {
   );
 }
 
-/** A right-aligned cost cell tinted by its percentile bucket, with a tooltip
- * naming the bucket (e.g. "60–80th percentile by cost"). Unpriced sessions
- * render plain and muted. */
-function HeatCell({
-  value,
-  thresholds,
-  children,
-}: {
-  value: number | null | undefined;
-  thresholds: number[];
-  children: ReactNode;
-}) {
-  const bucket = percentileBucket(value, thresholds);
-  const className = cn(
-    "text-right tabular-nums font-medium",
-    value == null || value <= 0
-      ? "text-muted-foreground/40"
-      : bucket != null && HEAT_SHADES[bucket]
-  );
-  if (bucket == null) {
-    return <TableCell className={className}>{children}</TableCell>;
-  }
-  return (
-    <TableCell className={className}>
-      <Tooltip>
-        <TooltipTrigger
-          render={<span className="cursor-default" />}
-          // The row navigates on click; let the trigger ignore clicks so a
-          // mis-aimed tap on the number still opens the session.
-        >
-          {children}
-        </TooltipTrigger>
-        <TooltipContent>{percentileTip(bucket)}</TooltipContent>
-      </Tooltip>
-    </TableCell>
-  );
-}
-
-/** Copy a session id to the clipboard, with a brief check-mark confirmation.
- * Stops propagation so it doesn't trigger the row's navigate-on-click. */
-function CopyIdButton({ id }: { id: string }) {
-  const { copied, markCopied } = useCopied();
-  return (
-    <button
-      type="button"
-      title="Copy session ID"
-      onClick={(e) => {
-        e.stopPropagation();
-        void navigator.clipboard.writeText(id);
-        markCopied();
-      }}
-      className="inline-flex shrink-0 items-center justify-center rounded p-0.5 text-muted-foreground/50 cursor-pointer transition-colors hover:text-foreground"
-    >
-      <CopyIcon
-        copied={copied}
-        className="size-3"
-        checkClassName="size-3 text-green-600 dark:text-green-400"
-      />
-    </button>
-  );
-}

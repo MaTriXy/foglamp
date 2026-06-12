@@ -39,6 +39,8 @@ const serverSchema = {
   API_KEY_CACHE_TTL_MS: z.coerce.number().default(60_000),
   // Max ingest request body; rejected (413) before the body is buffered/parsed.
   INGEST_MAX_BODY_BYTES: z.coerce.number().default(10_485_760), // 10 MB
+  // Max Foggy chat request body; rejected (413) before parsing.
+  FOGGY_MAX_BODY_BYTES: z.coerce.number().default(1_048_576), // 1 MB
 
   // --- Alerts (evaluator cron in apps/server) ---
   // How often the evaluator sweeps enabled rules; default every 60s.
@@ -90,16 +92,6 @@ const serverSchema = {
   // --- Seed script bootstrap (no static defaults; random if unset) ---
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
-
-  // # If using QStash
-  // QSTASH_URL: z.string().min(1),
-  // QSTASH_TOKEN: z.string().min(1),
-  // QSTASH_CALLBACK_URL: z.url().optional(),
-  // QSTASH_CURRENT_SIGNING_KEY: z.string().min(1),
-  // QSTASH_NEXT_SIGNING_KEY: z.string().min(1),
-
-  // # If using CRONs
-  // CRON_SECRET: z.string().min(1),
 
   // --- Foggy (in-app AI assistant) ---
   // Foggy is enabled only when a Google key is present; otherwise the chat

@@ -18,7 +18,7 @@ import {
 import { project } from "@foglamp/db/schema/project";
 import { count, desc, eq } from "drizzle-orm";
 
-import { decimalOrNull, num } from "../lib/util";
+import { decimalOrNull, num, toClickHouseDateTime } from "../lib/util";
 import { getPreset, PRESETS } from "../evals/presets";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
@@ -87,8 +87,8 @@ export async function listEvals(
     input.from && input.to
       ? evalListSummary(ch, {
           projectId: input.projectId,
-          from: toCh(input.from),
-          to: toCh(input.to),
+          from: toClickHouseDateTime(input.from),
+          to: toClickHouseDateTime(input.to),
         })
       : Promise.resolve([]),
   ]);
@@ -219,8 +219,8 @@ export async function getEvalTimeseries(
   const rows = await queryScoreTimeseries(ch, {
     projectId: ev.projectId,
     evalId: input.evalId,
-    from: toCh(input.from),
-    to: toCh(input.to),
+    from: toClickHouseDateTime(input.from),
+    to: toClickHouseDateTime(input.to),
   });
   return rows.map((r) => {
     const count = num(r.score_count);
@@ -258,8 +258,8 @@ export async function listRecentScores(
   },
 ) {
   const ev = await requireEvalAccess(db, userId, input.evalId);
-  const from = input.from ? toCh(input.from) : undefined;
-  const to = input.to ? toCh(input.to) : undefined;
+  const from = input.from ? toClickHouseDateTime(input.from) : undefined;
+  const to = input.to ? toClickHouseDateTime(input.to) : undefined;
   const [rows, total] = await Promise.all([
     listEvalScores(ch, {
       projectId: ev.projectId,
@@ -340,6 +340,3 @@ function mapScore(s: {
   };
 }
 
-function toCh(d: Date): string {
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}

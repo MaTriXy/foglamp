@@ -12,14 +12,11 @@ import {
   decimalOrNull,
   num,
   pickBucketSec,
+  quantiles,
   toClickHouseDateTime,
 } from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireProjectAccess } from "./access";
-
-function quantiles(q: number[] | undefined) {
-  return { p50: num(q?.[0]), p95: num(q?.[1]), p99: num(q?.[2]) };
-}
 
 export type MetricsFilter = {
   projectId: string;

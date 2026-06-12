@@ -23,6 +23,18 @@ export type FoggyRateResult = {
   retryAfterMs: number;
 };
 
+/** Drop idle bucket and expired daily entries so they don't grow without bound. */
+export function pruneFoggyRateLimits(): void {
+  const now = Date.now();
+  for (const [key, b] of buckets) {
+    const projected = Math.min(CAPACITY, b.tokens + (now - b.updatedAt) * PER_MS);
+    if (projected >= CAPACITY) buckets.delete(key);
+  }
+  for (const [key, d] of daily) {
+    if (now >= d.resetAt) daily.delete(key);
+  }
+}
+
 export function checkFoggyRateLimit(userId: string): FoggyRateResult {
   const now = Date.now();
 

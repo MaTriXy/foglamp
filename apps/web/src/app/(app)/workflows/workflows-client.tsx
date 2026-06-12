@@ -23,12 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@foglamp/ui/components/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@foglamp/ui/components/tooltip";
+import { TooltipProvider } from "@foglamp/ui/components/tooltip";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangle,
@@ -40,7 +35,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   ClearFiltersButton,
@@ -54,6 +49,9 @@ import {
   useDelayedLoading,
   useUrlFilters,
 } from "@/components/app/data-table";
+import { HEAT_SHADES, HeatCell, percentileBucket } from "@/components/app/heat-cell";
+import { pageWindow } from "@/components/app/trend-charts";
+import { Stat } from "@/components/app/stat";
 import { InstrumentEmptyState } from "@/components/app/instrument-empty-state";
 import { navItem } from "@/components/app/nav";
 import {
@@ -98,69 +96,6 @@ const WORKFLOW_SORT_KEYS = [
   "lastRun",
 ] as const satisfies readonly WorkflowSortKey[];
 
-/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
- * Always keeps the first/last page and the current page ±1 in view, e.g.
- * `1 … 4 5 6 … 20`. */
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const middle: number[] = [];
-  for (
-    let i = Math.max(2, current - 1);
-    i <= Math.min(total - 1, current + 1);
-    i++
-  ) {
-    middle.push(i);
-  }
-  const out: (number | "ellipsis")[] = [1];
-  if (middle[0] > 2) out.push("ellipsis");
-  out.push(...middle);
-  if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
-  out.push(total);
-  return out;
-}
-
-// Heatmap: tint each workflow's cost by its percentile within the whole
-// (filtered) result set — not just this page. The API returns global quintile
-// thresholds; a traffic-light scale runs green (cheapest 20%) → yellow → red
-// (priciest 20%), so each shade holds ~1/5 of workflows regardless of skew.
-// Literal classes so Tailwind keeps them.
-const HEAT_SHADES = [
-  "text-green-600 dark:text-green-400",
-  "text-yellow-600 dark:text-yellow-400",
-  "text-amber-600 dark:text-amber-400",
-  "text-orange-600 dark:text-orange-400",
-  "text-red-600 dark:text-red-400",
-] as const;
-
-// Labels for the five quintile buckets, shown in the cost cell tooltip.
-const PCT_RANGE = [
-  "0–20th",
-  "20–40th",
-  "40–60th",
-  "60–80th",
-  "80–100th",
-] as const;
-
-/** Which quintile bucket (0..4) `value` falls in against the global `thresholds`
- * (the 20/40/60/80th percentiles). null when there's nothing to place. */
-function percentileBucket(
-  value: number | null | undefined,
-  thresholds: number[]
-) {
-  if (!value || value <= 0 || thresholds.length === 0) return null;
-  let i = 0;
-  for (const t of thresholds) if (value > t) i += 1;
-  return Math.min(i, HEAT_SHADES.length - 1);
-}
-
-/** Tooltip copy for a bucketed cost cell, e.g. "80–100th percentile by cost · priciest". */
-function percentileTip(bucket: number) {
-  const extreme =
-    bucket === 0 ? " · cheapest" : bucket === 4 ? " · priciest" : "";
-  return `${PCT_RANGE[bucket]} percentile by cost${extreme}`;
-}
 
 export function WorkflowsClient() {
   const { projectId } = useProject();
@@ -585,68 +520,3 @@ function workflowSlug(workflowName: string | null): string {
   return workflowName ? encodeURIComponent(workflowName) : UNGROUPED;
 }
 
-/** A right-aligned numeric cell tinted by its cost percentile bucket, with a
- * tooltip naming the bucket. Unbucketed values (null/zero cost) render plain —
- * muted for unpriced cost. */
-function HeatCell({
-  value,
-  thresholds,
-  bold,
-  children,
-}: {
-  value: number | null | undefined;
-  thresholds: number[];
-  bold?: boolean;
-  children: ReactNode;
-}) {
-  const bucket = percentileBucket(value, thresholds);
-  const className = cn(
-    "text-right tabular-nums",
-    bold && "font-medium",
-    value == null
-      ? "text-muted-foreground/40"
-      : bucket != null && HEAT_SHADES[bucket]
-  );
-  if (bucket == null) {
-    return <TableCell className={className}>{children}</TableCell>;
-  }
-  return (
-    <TableCell className={className}>
-      <Tooltip>
-        <TooltipTrigger render={<span className="cursor-default" />}>
-          {children}
-        </TooltipTrigger>
-        <TooltipContent>{percentileTip(bucket)}</TooltipContent>
-      </Tooltip>
-    </TableCell>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  emphasis,
-  className,
-  valueClassName,
-}: {
-  label: string;
-  value: React.ReactNode;
-  emphasis?: boolean;
-  className?: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className={cn("flex flex-col gap-0.5", className)}>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "tabular-nums",
-          emphasis && "font-medium",
-          valueClassName
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}

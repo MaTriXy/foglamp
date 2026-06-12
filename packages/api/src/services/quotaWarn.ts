@@ -4,20 +4,47 @@ import { queryOrgSpanUsage, queryRecentlyActiveOrgs } from "@foglamp/clickhouse"
 import { user } from "@foglamp/db/schema/auth";
 import { member, organization } from "@foglamp/db/schema/organization";
 import { env } from "@foglamp/env/server";
+import { RedisClient } from "bun";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { ymd } from "../lib/util";
 import type { Ch, Db, Log } from "../types";
 
-// One in-process notice per (org, period) so we don't re-email every sweep.
-// Matches the single-instance assumption of the other crons; a restart may
-// re-warn an over-quota org once (acceptable for a billing nudge).
+// Two-tier deduplication so we don't re-email an over-quota org every sweep:
+//
+//   Tier 1 — Redis (when REDIS_URL is set): SET <key> 1 NX EX <ttl> — the SET
+//     succeeds (returns "OK") only on the first claim; subsequent sweeps across
+//     any replica see the key and skip. TTL is 40 days, covering the 35-day
+//     billing lookback with headroom.
+//
+//   Tier 2 — in-process Map (REDIS_URL unset OR Redis errors): one notice per
+//     (org, period) within the running process. Acceptable for single-instance
+//     deployments; a restart may re-warn once (fine for a billing nudge).
+//
+// Both tiers fail open: a Redis outage falls back to the Map rather than
+// dropping emails or crashing the sweep.
+
 const notified = new Map<string, string>();
+const DEDUP_TTL_SECS = 40 * 24 * 60 * 60; // 40 days
+
+const redis = env.REDIS_URL ? new RedisClient(env.REDIS_URL) : null;
+
+async function claimNotification(orgId: string, periodKey: string): Promise<boolean> {
+  if (redis) {
+    try {
+      const key = `quota:warned:${orgId}:${periodKey}`;
+      const result = await redis.send("SET", [key, "1", "NX", "EX", String(DEDUP_TTL_SECS)]);
+      return result === "OK";
+    } catch {
+      // Redis error → fall through to the in-memory fallback.
+    }
+  }
+  if (notified.get(orgId) === periodKey) return false;
+  notified.set(orgId, periodKey);
+  return true;
+}
 
 const WARN_FRACTION = 0.9;
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 /**
  * Email owners/admins of any org that has crossed 90% of its monthly span
@@ -42,7 +69,8 @@ export async function evaluateQuotaWarnings(db: Db, ch: Ch, log: Log): Promise<v
       if (used < limit * WARN_FRACTION) continue;
 
       const periodKey = plan.periodStart.toISOString();
-      if (notified.get(orgId) === periodKey) continue;
+      const claimed = await claimNotification(orgId, periodKey);
+      if (!claimed) continue;
 
       const recipients = await db
         .select({ email: user.email })
@@ -66,7 +94,6 @@ export async function evaluateQuotaWarnings(db: Db, ch: Ch, log: Log): Promise<v
       for (const r of recipients) {
         await sendQuotaWarningEmail({ to: r.email, orgName, pct, url });
       }
-      notified.set(orgId, periodKey);
       log.info("quota.warned", { orgId, pct, recipients: recipients.length });
     } catch (err) {
       log.error("quota.warn_failed", {

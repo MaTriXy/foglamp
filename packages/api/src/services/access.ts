@@ -65,6 +65,9 @@ export async function requireOrgAccess(
 
 export type OrgRole = "owner" | "admin" | "member";
 
+/** Roles that may perform privileged writes (API keys, project management, billing). */
+export const ADMIN = ["owner", "admin"] as const;
+
 /**
  * Throw unless the user holds one of `roles` in the organization. Reads only
  * need `requireProjectAccess`/`requireOrgAccess`; sensitive writes (API keys,

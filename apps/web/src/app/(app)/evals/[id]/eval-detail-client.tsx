@@ -48,7 +48,8 @@ import { useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { CopyIcon } from "@/components/app/copy-icon";
+import { CopyButton } from "@/components/app/copy-button";
+import { pageWindow } from "@/components/app/trend-charts";
 import { useDelayedLoading } from "@/components/app/data-table";
 import { navItem } from "@/components/app/nav";
 import {
@@ -63,7 +64,6 @@ import { useProject } from "@/components/app/project-context";
 import { useRange } from "@/components/app/range-context";
 import { RangePicker } from "@/components/app/range-picker";
 import { RelativeTime } from "@/components/app/relative-time";
-import { useCopied } from "@/components/app/use-copied";
 import { formatCost, formatCount } from "@/lib/format";
 import { type RouterOutputs, trpc } from "@/utils/trpc";
 
@@ -84,29 +84,6 @@ import { presetMeta } from "../preset-meta";
 type ScoreRow = RouterOutputs["evals"]["recentScores"]["scores"][number];
 
 const PAGE_SIZE = 25;
-
-/** Page numbers to render (1-based), collapsing long runs to a single ellipsis.
- * Always keeps the first/last page and the current page ±1 in view, e.g.
- * `1 … 4 5 6 … 20`. */
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-	if (total <= 7) {
-		return Array.from({ length: total }, (_, i) => i + 1);
-	}
-	const middle: number[] = [];
-	for (
-		let i = Math.max(2, current - 1);
-		i <= Math.min(total - 1, current + 1);
-		i++
-	) {
-		middle.push(i);
-	}
-	const out: (number | "ellipsis")[] = [1];
-	if (middle[0] > 2) out.push("ellipsis");
-	out.push(...middle);
-	if (middle[middle.length - 1] < total - 1) out.push("ellipsis");
-	out.push(total);
-	return out;
-}
 
 // Edit-dialog draft: the subset of an eval that the "How should it score?"
 // fields can change (judge model + sample rate, or a code check's params).
@@ -338,7 +315,7 @@ export function EvalDetailClient({ evalId }: { evalId: string }) {
 				description={
 					<span className="inline-flex items-center gap-1 font-mono text-xs">
 						{evalId}
-						<CopyButton value={evalId} title="Copy eval ID" />
+						<CopyButton value={evalId} title="Copy eval ID" iconSize="size-3.5" className="p-0.5" />
 					</span>
 				}
 				actions={
@@ -803,24 +780,3 @@ function Glimpse({
 	);
 }
 
-/** Copy a string to the clipboard, with a brief check-mark confirmation. */
-function CopyButton({ value, title }: { value: string; title: string }) {
-	const { copied, markCopied } = useCopied();
-	return (
-		<button
-			type="button"
-			title={title}
-			onClick={() => {
-				void navigator.clipboard.writeText(value);
-				markCopied();
-			}}
-			className="inline-flex shrink-0 items-center justify-center rounded p-0.5 text-muted-foreground/60 cursor-pointer transition-colors hover:text-foreground"
-		>
-			<CopyIcon
-				copied={copied}
-				className="size-3.5"
-				checkClassName="size-3.5 text-green-600 dark:text-green-400"
-			/>
-		</button>
-	);
-}

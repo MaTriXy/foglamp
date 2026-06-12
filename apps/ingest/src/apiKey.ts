@@ -29,6 +29,14 @@ const NEGATIVE_TTL_MS = 5_000;
 const LAST_USED_THROTTLE_MS = 60_000;
 const lastUsedWrites = new Map<string, number>();
 
+/** Drop expired cache entries and stale last-used write timestamps. */
+export function pruneApiKeyCache(): void {
+  const now = Date.now();
+  for (const [k, v] of cache) if (v.expiresAt <= now) cache.delete(k);
+  for (const [k, v] of lastUsedWrites)
+    if (now - v >= LAST_USED_THROTTLE_MS) lastUsedWrites.delete(k);
+}
+
 export function hashApiKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }

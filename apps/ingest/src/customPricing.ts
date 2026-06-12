@@ -31,6 +31,12 @@ function rowToPrice(row: PricingRow): CustomPrice {
   return price;
 }
 
+/** Drop expired cache entries. */
+export function pruneCustomPricing(): void {
+  const now = Date.now();
+  for (const [k, v] of cache) if (v.expiresAt <= now) cache.delete(k);
+}
+
 /** Load (and cache) the override rules for a project. */
 export async function getProjectPricing(projectId: string): Promise<Rule[]> {
   const now = Date.now();

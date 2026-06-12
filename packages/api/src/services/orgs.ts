@@ -7,6 +7,7 @@ import { invitation, organization } from "@foglamp/db/schema/organization";
 import { project } from "@foglamp/db/schema/project";
 import { and, count, eq, gt, sql } from "drizzle-orm";
 
+import { ymd } from "../lib/util";
 import type { Ch, Db } from "../types";
 import { requireOrgAccess } from "./access";
 
@@ -35,10 +36,6 @@ export async function listPendingInvitations(db: Db, email: string) {
         gt(invitation.expiresAt, new Date()),
       ),
     );
-}
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
 
 /**

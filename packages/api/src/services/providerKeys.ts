@@ -4,10 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import { encryptSecret, isSecretsConfigured } from "../lib/crypto";
 import type { Db } from "../types";
-import { requireOrgRole, requireProjectAccess } from "./access";
-
-// Provider keys are secrets — writing/removing them is admin+.
-const ADMIN = ["owner", "admin"] as const;
+import { ADMIN, requireOrgRole, requireProjectAccess } from "./access";
 
 export type ProviderName = "google" | "openai" | "anthropic";
 
