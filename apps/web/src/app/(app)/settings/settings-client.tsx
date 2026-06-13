@@ -26,7 +26,6 @@ import { Input } from "@foglamp/ui/components/input";
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupInput,
 } from "@foglamp/ui/components/input-group";
 import {
   Table,
@@ -49,6 +48,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { AnimatedApiKey } from "@/components/app/animated-api-key";
 import { CopyIcon } from "@/components/app/copy-icon";
 import { useCopied } from "@/components/app/use-copied";
 import { useDelayedLoading } from "@/components/app/data-table";
@@ -86,7 +86,8 @@ export function SettingsClient() {
     trpc.projects.keys.create.mutationOptions({
       onSuccess: (data) => {
         qc.invalidateQueries({ queryKey: trpc.projects.keys.list.queryKey() });
-        setKeyName("");
+        // Keep keyName: it's the text the reveal animation rolls *from*. The
+        // dialog state is reset in onOpenChangeComplete once it has closed.
         setRevealedKey(data.key);
       },
       onError: (e) => toast.error(e.message),
@@ -125,8 +126,11 @@ export function SettingsClient() {
           projectId && (
             <Dialog
               open={keyDialogOpen}
-              onOpenChange={(open) => {
-                setKeyDialogOpen(open);
+              onOpenChange={setKeyDialogOpen}
+              onOpenChangeComplete={(open) => {
+                // Reset only after the close animation finishes — resetting on
+                // close swaps the revealed view back to the create form mid-exit,
+                // causing a layout shift.
                 if (!open) {
                   setKeyName("");
                   setRevealedKey(null);
@@ -154,11 +158,9 @@ export function SettingsClient() {
                     <Field>
                       <FieldLabel>API Key:</FieldLabel>
                       <InputGroup>
-                        <InputGroupInput
-                          readOnly
-                          value={revealedKey}
-                          className="font-mono text-xs"
-                        />
+                        <div className="flex min-w-0 flex-1 items-center overflow-x-auto px-2.5">
+                          <AnimatedApiKey from={keyName} value={revealedKey} />
+                        </div>
                         <InputGroupAddon align="inline-end">
                           <Button
                             size="icon-sm"
@@ -177,14 +179,7 @@ export function SettingsClient() {
                       </InputGroup>
                     </Field>
                     <DialogFooter>
-                      <Button
-                        onClick={() => {
-                          setKeyDialogOpen(false);
-                          setRevealedKey(null);
-                          setKeyName("");
-                          resetCopied();
-                        }}
-                      >
+                      <Button onClick={() => setKeyDialogOpen(false)}>
                         Done
                       </Button>
                     </DialogFooter>
@@ -246,11 +241,11 @@ export function SettingsClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Prefix</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Last used</TableHead>
-                  <TableHead />
+                  <TableHead className="w-36">Prefix</TableHead>
+                  <TableHead className="w-32">Status</TableHead>
+                  <TableHead className="w-44">Last used</TableHead>
+                  <TableHead className="w-44">Created</TableHead>
+                  <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -276,16 +271,16 @@ export function SettingsClient() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDistanceToNow(new Date(k.createdAt), {
-                        addSuffix: true,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground border-r-0">
                       {k.lastUsedAt
                         ? formatDistanceToNow(new Date(k.lastUsedAt), {
                             addSuffix: true,
                           })
                         : "Never"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground border-r-0">
+                      {formatDistanceToNow(new Date(k.createdAt), {
+                        addSuffix: true,
+                      })}
                     </TableCell>
                     <TableCell align="center" className="py-0">
                       {!k.revokedAt && (
