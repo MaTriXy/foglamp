@@ -2,16 +2,19 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Foglamp",
-  "description": "The missing observability layer for the Vercel AI SDK.",
+  "description": "The missing observability layer for AI agents. Costs, latency, tokens, distributed traces, evals, and alerts for every model call - in two lines.",
   "colors": {
     "primary": "#171717",
     "light": "#FFFFFF",
     "dark": "#171717"
   },
-  "favicon": "/images/favicon.png",
+  "favicon": {
+    "light": "/docs/images/Frame@2x(3).png",
+    "dark": "/docs/images/Frame@2x(3).png"
+  },
   "logo": {
-    "light": "/images/wordmark-light.png",
-    "dark": "/images/wordmark-dark.png"
+    "light": "/docs/images/wordmark-light.png",
+    "dark": "/docs/images/workmark-dark.png"
   },
   "navigation": {
     "tabs": [

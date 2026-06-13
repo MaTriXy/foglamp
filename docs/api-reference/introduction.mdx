@@ -1,12 +1,9 @@
 ---
-title: API reference
+title: "API reference"
 description: "The Foglamp ingest API."
 ---
 
-The **ingest API** (`apps/ingest`) is the write path: it receives batches of
-traces from the SDK, prices each span, and persists them. Most users never call
-it directly — `foglamp` does — but it's a plain HTTP+JSON API you can
-target from any language.
+The **ingest API** (`apps/ingest`) is the write path: it receives batches of traces from the SDK, prices each span, and persists them. Most users never call it directly — `foglamp` does — but it's a plain HTTP\+JSON API you can target from any language.
 
 ## Base URL
 
@@ -19,8 +16,7 @@ The interactive playground below defaults to the self-hosted URL.
 
 ## Authentication
 
-Authenticate every request with a Foglamp API key (`fl_…`). Two equivalent
-forms are accepted:
+Authenticate every request with a Foglamp API key (`fl_…`). Two equivalent forms are accepted:
 
 <CodeGroup>
 
@@ -40,8 +36,7 @@ curl https://ingest.foglamp.dev/ingest \
 
 </CodeGroup>
 
-Keys are stored as SHA-256 hashes — only the prefix is ever shown again after
-creation. A revoked key is rejected immediately.
+Keys are stored as SHA-256 hashes — only the prefix is ever shown again after creation. A revoked key is rejected immediately.
 
 ## Responses
 
@@ -52,31 +47,30 @@ creation. A revoked key is rejected immediately.
 | `401 Unauthorized` | Missing, invalid, or revoked API key. |
 | `429 Too Many Requests` | Either a per-key rate limit or a plan quota — see below. |
 
-Ingest is **fire-and-forget**: a `202` means the batch was accepted into the
-write buffer, which flushes to ClickHouse on an interval. Treat `202` as
-success.
+Ingest is **fire-and-forget**: a `202` means the batch was accepted into the write buffer, which flushes to ClickHouse on an interval. Treat `202` as success.
 
 ### Two kinds of `429`
 
 A `429` is returned in two distinct cases, and they call for different handling:
 
-- **Per-key rate limit** — too many requests per second for one key. The
-  response includes a `Retry-After` header; back off and retry after it.
-- **Plan quota exceeded** — the org's monthly span quota is used up. This is a
-  billing condition, **not** rate limiting: it carries no `Retry-After`, and
-  retrying will not succeed until the plan is upgraded or the quota resets.
+- **Per-key rate limit** — too many requests per second for one key. The response includes a `Retry-After` header; back off and retry after it.
+- **Plan quota exceeded** — the org's monthly span quota is used up. This is a billing condition, **not** rate limiting: it carries no `Retry-After`, and retrying will not succeed until the plan is upgraded or the quota resets.
 
 <Note>
-  The `foglamp` SDK does **not** retry failed batches — a failed flush is routed
-  to `onError` and the batch is dropped (telemetry never blocks or retries into
-  your app). If you call the ingest API directly, implement your own retry with
-  backoff for transport errors and rate-limit `429`s, and treat a quota `429` as
-  terminal.
+  The `foglamp` SDK does **not** retry failed batches — a failed flush is routed to `onError` and the batch is dropped (telemetry never blocks or retries into your app). If you call the ingest API directly, implement your own retry with backoff for transport errors and rate-limit `429`s, and treat a quota `429` as terminal.
+</Note>
+
+### Two kinds of `429`
+
+A `429` is returned in two distinct cases, and they call for different handling:
+
+- **Per-key rate limit** — too many requests per second for one key. The response includes a `Retry-After` header; back off and retry after it.
+- **Plan quota exceeded** — the org's monthly span quota is used up. This is a billing condition, **not** rate limiting: it carries no `Retry-After`, and retrying will not succeed until the plan is upgraded or the quota resets.
+
+<Note>
+  The `foglamp` SDK does **not** retry failed batches — a failed flush is routed to `onError` and the batch is dropped (telemetry never blocks or retries into your app). If you call the ingest API directly, implement your own retry with backoff for transport errors and rate-limit `429`s, and treat a quota `429` as terminal.
 </Note>
 
 ## Payload shape
 
-The body is a versioned batch — `version: "v1"` plus a `traces` array (1–1000
-traces, each with 1–2000 spans). See the
-[data model](/concepts/data-model) for field semantics, or the **Ingest**
-endpoints in the sidebar for the full schema and a live playground.
+The body is a versioned batch — `version: "v1"` plus a `traces` array (1–1000 traces, each with 1–2000 spans). See the [data model](/concepts/data-model) for field semantics, or the **Ingest** endpoints in the sidebar for the full schema and a live playground.
