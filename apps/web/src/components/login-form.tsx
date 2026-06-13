@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
-import { IconBrandGoogleFilled, IconCodeAsterix } from "@tabler/icons-react";
+import { BrandMark } from "@/components/marketing/brand-mark";
+import { IconBrandGoogleFilled } from "@tabler/icons-react";
 
 // Which sign-in methods the server has enabled (fetched by the login page from
 // /api/auth-methods). Hosted: google + magic link. Self-host: password (+ magic
@@ -121,23 +122,23 @@ export default function LoginForm({
   if (resetSentTo) {
     return (
       <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-6">
-        <div className="size-10 rounded bg-muted flex justify-center items-center">
-          <IconCodeAsterix className="size-6 stroke-1" />
+        <div className="size-10 rounded-2xl corner-squircle shadow-(--custom-shadow) bg-muted flex justify-center items-center">
+          <BrandMark className="w-7" />
         </div>
-        <div className="mt-5 flex flex-col gap-2">
+        <div className="mt-3 flex flex-col gap-2">
           <h1 className="text-xl font-medium text-balance">Check your email</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             If an account exists for{" "}
             <span className="font-medium text-foreground">{resetSentTo}</span>,
             we sent it a password reset link.
           </p>
-          <p className="text-sm text-muted-foreground text-balance">
-            The link expires in 1 hour.
+          <p className="text-sm text-muted-foreground text-balance mt-2">
+            The link expires in{" "}
+            <span className="text-foreground font-medium">1 hour</span>.
           </p>
         </div>
         <Button
-          variant="link"
-          className="self-start px-0"
+          className="self-start mt-2"
           onClick={() => {
             setResetSentTo(null);
             setMode("password");
@@ -152,8 +153,8 @@ export default function LoginForm({
   if (sentTo) {
     return (
       <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-6">
-        <div className="size-10 rounded bg-muted flex justify-center items-center">
-          <IconCodeAsterix className="size-6 stroke-1" />
+        <div className="size-10 rounded-2xl corner-squircle shadow-(--custom-shadow) bg-muted flex justify-center items-center">
+          <BrandMark className="w-7" />
         </div>
         <div className="mt-5 flex flex-col gap-2">
           <h1 className="text-xl font-medium text-balance">Check your email</h1>
@@ -181,40 +182,36 @@ export default function LoginForm({
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col p-6">
-      <div className="size-10 rounded-lg bg-muted shadow-(--custom-shadow) flex justify-center items-center">
-        <IconCodeAsterix className="size-6 stroke-1" />
+      <div className="size-10 rounded-2xl corner-squircle bg-muted shadow-(--custom-shadow) flex justify-center items-center">
+        <BrandMark className="w-7" />
       </div>
       <h1 className="mt-5 mb-1 w-full text-start text-lg font-medium text-balance">
         {mode === "forgot" ? "Reset your password" : "Sign in"}
       </h1>
       <p className="mb-6 text-sm text-muted-foreground tracking-normal">
-        {!hasEmailForm
-          ? "Continue with your Google account."
-          : mode === "password"
-            ? "Use your email and password."
-            : mode === "forgot"
-              ? "We'll email you a link to choose a new password."
-              : "We'll email you a sign-in link."}
+        {mode === "forgot"
+          ? "We'll email you a link to choose a new password."
+          : "Sign in to your Foglamp account to continue."}
       </p>
 
       {methods.google && mode !== "forgot" && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           className="w-full"
           disabled={googlePending}
           onClick={signInWithGoogle}
         >
-          <IconBrandGoogleFilled className="size-4" />
+          <IconBrandGoogleFilled className="size-3.5" />
           {googlePending ? "Redirecting…" : "Continue with Google"}
         </Button>
       )}
 
       {methods.google && hasEmailForm && mode !== "forgot" && (
         <div className="my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 bg-border/50" />
+          <span className="text-xs text-muted-foreground/60">or</span>
+          <div className="h-px flex-1 bg-border/50" />
         </div>
       )}
 
@@ -257,7 +254,7 @@ export default function LoginForm({
                   <Label htmlFor={field.name}>Password</Label>
                   <button
                     type="button"
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                     onClick={() => setMode("forgot")}
                   >
                     Forgot password?
@@ -311,7 +308,6 @@ export default function LoginForm({
           <forgotForm.Field name="email">
             {(field) => (
               <div className="flex flex-col gap-2.5">
-                <Label htmlFor={field.name}>Email</Label>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -340,7 +336,7 @@ export default function LoginForm({
             {({ canSubmit, isSubmitting }) => (
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full mt-1"
                 disabled={!canSubmit || isSubmitting}
               >
                 {isSubmitting ? "Sending…" : "Send reset link"}
@@ -351,7 +347,7 @@ export default function LoginForm({
           <Button
             type="button"
             variant="link"
-            className="self-start px-0 text-muted-foreground"
+            className="self-start px-0 text-muted-foreground/50"
             onClick={() => setMode("password")}
           >
             Back to sign in
@@ -364,12 +360,11 @@ export default function LoginForm({
             e.stopPropagation();
             magicForm.handleSubmit();
           }}
-          className="flex w-full flex-col gap-5"
+          className="flex w-full flex-col gap-6"
         >
           <magicForm.Field name="email">
             {(field) => (
               <div className="flex flex-col gap-2.5">
-                <Label htmlFor={field.name}>Email</Label>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -411,7 +406,7 @@ export default function LoginForm({
       {methods.emailPassword && methods.magicLink && mode !== "forgot" && (
         <Button
           variant="link"
-          className="mt-4 self-start px-0 text-muted-foreground"
+          className="mt-4 self-start px-0 text-muted-foreground/50"
           onClick={() => setMode(mode === "password" ? "magic" : "password")}
         >
           {mode === "password"

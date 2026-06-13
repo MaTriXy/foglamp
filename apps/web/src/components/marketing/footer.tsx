@@ -4,8 +4,8 @@ import Link from "next/link";
 
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
+import { Logo } from "./logo";
 import { products } from "./products";
-import { Wordmark } from "./wordmark";
 
 const GITHUB_URL = "https://github.com/foglamp/foglamp";
 const DOCS_URL = "https://docs.foglamp.dev";
@@ -58,9 +58,9 @@ export function MarketingFooter() {
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
             <div className="flex flex-col gap-4">
-              <Wordmark />
+              <Logo />
               <p className="max-w-xs text-sm text-muted-foreground">
-                The missing observability layer for the Vercel AI SDK.
+                The missing observability layer for AI agents.
               </p>
               <a
                 href={GITHUB_URL}

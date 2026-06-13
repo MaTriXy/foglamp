@@ -14,31 +14,18 @@ export function Hero() {
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
         {/* Left: copy. Keeps the site's normal max-w-7xl left spacing. */}
         <div className="flex flex-col">
-          {/* Brand mark — three overlapping circles (light → blue → orange,
-              back to front). Sized to its viewBox so it scales cleanly. */}
-          <svg
-            viewBox="0 0 96 48"
-            className="mb-7 h-12 w-auto"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <circle cx="24" cy="24" r="24" fill="#EBEBEB" />
-            <circle cx="48" cy="24" r="24" fill="#2884F5" />
-            <circle cx="72" cy="24" r="24" fill="#F75226" />
-          </svg>
-
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-(--custom-shadow)">
             <IconBrandOpenai className="size-3.5" />
-            Built for the Vercel AI SDK
+            Built for AI agents
           </span>
 
           <h1 className="font-display mt-6 text-5xl font-semibold tracking-tight text-balance">
             Don&apos;t ship junk agents.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted-foreground text-pretty">
-            The missing observability layer for the Vercel AI SDK. See cost,
-            latency, traces, and eval scores for every call — and catch the junk
-            before your users do.
+            The missing observability layer for AI agents. See cost, latency,
+            traces, and eval scores for every call — and catch the junk before
+            your users do.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">

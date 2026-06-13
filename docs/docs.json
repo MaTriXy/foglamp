@@ -9,12 +9,12 @@
     "dark": "#171717"
   },
   "favicon": {
-    "light": "/docs/images/Frame@2x(3).png",
-    "dark": "/docs/images/Frame@2x(3).png"
+    "light": "images/icon.png",
+    "dark": "images/icon.png"
   },
   "logo": {
-    "light": "/docs/images/wordmark-light.png",
-    "dark": "/docs/images/workmark-dark.png"
+    "light": "images/wordmark-light.png",
+    "dark": "images/workmark-dark.png"
   },
   "navigation": {
     "tabs": [
@@ -23,7 +23,12 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["introduction", "quickstart", "ai-instrument", "troubleshooting"]
+            "pages": [
+              "introduction",
+              "quickstart",
+              "ai-instrument",
+              "troubleshooting"
+            ]
           },
           {
             "group": "Core concepts",
@@ -69,10 +74,7 @@
         "groups": [
           {
             "group": "Self-hosting",
-            "pages": [
-              "self-hosting/overview",
-              "self-hosting/configuration"
-            ]
+            "pages": ["self-hosting/overview", "self-hosting/configuration"]
           }
         ]
       },
@@ -90,10 +92,7 @@
           {
             "group": "Ingest",
             "openapi": "api-reference/openapi.json",
-            "pages": [
-              "POST /ingest",
-              "GET /health"
-            ]
+            "pages": ["POST /ingest", "GET /health"]
           }
         ]
       }
@@ -134,14 +133,7 @@
     }
   },
   "contextual": {
-    "options": [
-      "copy",
-      "assistant",
-      "view",
-      "chatgpt",
-      "claude",
-      "cursor"
-    ],
+    "options": ["copy", "assistant", "view", "chatgpt", "claude", "cursor"],
     "display": "header"
   },
   "seo": {

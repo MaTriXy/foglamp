@@ -34,7 +34,7 @@ export default function SdkPage() {
       <FeatureSection
         accentClassName={ACCENT}
         eyebrow="Drop-in"
-        title="Built for the Vercel AI SDK."
+        title="Built for the code you already wrote."
         description="Foglamp wraps the model object you already pass to generateText and streamText. Your prompts, tools, and control flow stay exactly as they are — you just get telemetry for free."
         bullets={[
           "Works with generateText, streamText, and tools",

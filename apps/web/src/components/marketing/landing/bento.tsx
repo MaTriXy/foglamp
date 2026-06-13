@@ -188,8 +188,8 @@ export function BentoGrid() {
           Everything you need to ship agents with confidence.
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-pretty">
-          One SDK, one dashboard. Cost, evals, alerts, agents, traces — purpose-built for the
-          Vercel AI SDK.
+          One SDK, one dashboard. Cost, evals, alerts, agents, traces —
+          purpose-built for production AI.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

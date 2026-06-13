@@ -22,11 +22,11 @@ const hostGrotesk = Host_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "Foglamp — Observability for the Vercel AI SDK",
+    default: "Foglamp | Observability for AI agents",
     template: "%s · Foglamp",
   },
   description:
-    "The missing observability layer for the Vercel AI SDK. Costs, latency, tokens, distributed traces, evals, and alerts for every generateText / streamText call — in two lines.",
+    "The missing observability layer for AI agents. Costs, latency, tokens, distributed traces, evals, and alerts for every model call — in two lines.",
 };
 
 export default function RootLayout({
@@ -48,7 +48,7 @@ export default function RootLayout({
           inter.variable,
           geistMono.variable,
           hostGrotesk.variable,
-          "antialiased",
+          "antialiased"
         )}
       >
         <Providers>{children}</Providers>
