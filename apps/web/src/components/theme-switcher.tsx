@@ -1,20 +1,17 @@
 "use client";
 
-import { Button } from "@foglamp/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from "@foglamp/ui/components/dropdown-menu";
+import { cn } from "@foglamp/ui/lib/utils";
 import { IconDeviceLaptop, IconMoon, IconSun } from "@tabler/icons-react";
+import { motion } from "motion/react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 // resolvedTheme is undefined during SSR and the first client render. We render a
 // stable icon until mounted so the server and client agree; the real icon (and
@@ -25,29 +22,61 @@ function useMounted() {
   return mounted;
 }
 
-/** Standalone icon button with a theme dropdown (used in the marketing header). */
+// Same spring as the SDK-version toggle (instrument-empty-state), so segmented
+// controls across the app glide identically.
+const MORPH = { type: "spring", stiffness: 400, damping: 38 } as const;
+
+const THEME_OPTIONS = [
+  { value: "system", label: "System", icon: IconDeviceLaptop },
+  { value: "light", label: "Light", icon: IconSun },
+  { value: "dark", label: "Dark", icon: IconMoon },
+] as const;
+
+/**
+ * Three-way theme control as a segmented pill (system / light / dark), matching
+ * the SDK-version toggle. Switches instantly on click — no menu (used in the
+ * marketing footer). The dropdown variant lives in {@link ThemeSubmenu}.
+ */
 export function ThemeSwitcher() {
-  const { setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const mounted = useMounted();
+  // Unique per instance so the sliding pill is scoped to this control.
+  const pillId = useId();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="icon-sm" />}>
-        {mounted && resolvedTheme === "dark" ? <IconMoon /> : <IconSun />}
-        <span className="sr-only">Toggle theme</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="inline-flex  items-center rounded-full p-1 dark:bg-input/20">
+      {THEME_OPTIONS.map((opt) => {
+        // Track the chosen setting (theme), not the resolved value, so "System"
+        // is its own selectable state. Nothing is active until mounted, so the
+        // server and first client render agree.
+        const active = mounted && theme === opt.value;
+        const Icon = opt.icon;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-label={opt.label}
+            aria-pressed={active}
+            onClick={() => setTheme(opt.value)}
+            className={cn(
+              "relative flex size-7 cursor-pointer items-center justify-center rounded-full transition-colors",
+              active
+                ? "text-foreground"
+                : "text-muted-foreground/60 hover:text-foreground"
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId={pillId}
+                transition={MORPH}
+                className="absolute inset-0 rounded-full bg-muted shadow-(--custom-shadow) dark:bg-input/50"
+              />
+            )}
+            <Icon className="relative z-10 size-4" />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -22,7 +22,7 @@ const hostGrotesk = Host_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "Foglamp | Observability for AI agents",
+    default: "Foglamp ··· Observability for AI agents",
     template: "%s · Foglamp",
   },
   description:

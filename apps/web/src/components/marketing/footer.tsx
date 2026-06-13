@@ -1,9 +1,9 @@
-import { IconBrandGithub } from "@tabler/icons-react";
 import type { Route } from "next";
 import Link from "next/link";
 
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
+import { GithubLogo } from "./github-logo";
 import { Logo } from "./logo";
 import { products } from "./products";
 
@@ -53,7 +53,9 @@ function FooterAnchor({ link }: { link: FooterLink }) {
 
 export function MarketingFooter() {
   return (
-    <footer className="relative mt-24">
+    // Pinned to the viewport bottom and revealed as the page content scrolls up
+    // and off it (see the sticky-footer reveal wired up in (marketing)/layout).
+    <footer className="sticky bottom-0 z-0 bg-background">
       <div className="shadow-[0_1px_0_0_var(--border)_inset]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
@@ -67,7 +69,7 @@ export function MarketingFooter() {
                 aria-label="Foglamp on GitHub"
                 className="text-muted-foreground transition-colors hover:text-foreground"
               >
-                <IconBrandGithub className="size-5" />
+                <GithubLogo className="size-5" />
               </a>
             </div>
 
@@ -106,7 +108,6 @@ export function MarketingFooter() {
               </Link>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Theme</span>
               <ThemeSwitcher />
             </div>
           </div>
