@@ -81,6 +81,10 @@ export function buildSpanRows(args: {
         ttft_ms: span.ttftMs == null ? null : Math.round(span.ttftMs),
         chunk_offsets: span.chunkOffsets ?? [],
         chunk_tokens: span.chunkTokens ?? [],
+        reasoning_offsets: span.reasoningOffsets ?? [],
+        reasoning_chunk_tokens: span.reasoningChunkTokens ?? [],
+        reasoning_duration_ms:
+          span.reasoningDurationMs == null ? null : Math.round(span.reasoningDurationMs),
         prompt_cost: costs.promptCost,
         completion_cost: costs.completionCost,
         request_cost: costs.requestCost,
@@ -102,6 +106,16 @@ export function buildSpanRows(args: {
         input: span.input ?? "",
         output: span.output ?? "",
         tool_catalog: span.toolCatalog ?? "",
+        model_call_ms: span.modelCallMs == null ? null : Math.round(span.modelCallMs),
+        system_fingerprint: span.systemFingerprint ?? "",
+        safety_metadata: span.safetyMetadata ?? "",
+        sources: span.sources ?? "",
+        rate_limit_requests_limit: span.rateLimit?.requestsLimit ?? null,
+        rate_limit_requests_remaining: span.rateLimit?.requestsRemaining ?? null,
+        rate_limit_requests_reset_ms: span.rateLimit?.requestsResetMs ?? null,
+        rate_limit_tokens_limit: span.rateLimit?.tokensLimit ?? null,
+        rate_limit_tokens_remaining: span.rateLimit?.tokensRemaining ?? null,
+        rate_limit_tokens_reset_ms: span.rateLimit?.tokensResetMs ?? null,
       });
     }
   }

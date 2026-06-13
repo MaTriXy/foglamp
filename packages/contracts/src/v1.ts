@@ -91,6 +91,21 @@ export const spanSchema = z
     chunkOffsets: z.array(z.number().int().nonnegative()).max(200).optional(),
     chunkTokens: z.array(z.number().int().nonnegative()).max(200).optional(),
 
+    // Reasoning-stream sampling (streaming llm spans on reasoning models).
+    // Same shape as chunkOffsets/chunkTokens but tracking the reasoning text
+    // stream; reasoningChunkTokens is cumulative *reasoning* tokens. Only sent
+    // when the provider streamed reasoning and reported reasoningTokens.
+    reasoningOffsets: z
+      .array(z.number().int().nonnegative())
+      .max(200)
+      .optional(),
+    reasoningChunkTokens: z
+      .array(z.number().int().nonnegative())
+      .max(200)
+      .optional(),
+    // Total wall-clock ms spent inside reasoning blocks for this step.
+    reasoningDurationMs: z.number().int().nonnegative().optional(),
+
     // Optional, possibly-large payloads (JSON-encoded by the SDK).
     input: z.string().max(MAX_PAYLOAD_CHARS).optional(),
     output: z.string().max(MAX_PAYLOAD_CHARS).optional(),
@@ -98,6 +113,41 @@ export const spanSchema = z
     // JSON catalog of tools the model was offered for this call (name →
     // {description, JSON-Schema params}). Stamped on llm + agent spans only.
     toolCatalog: z.string().max(MAX_PAYLOAD_CHARS).optional(),
+
+    // Pure model-call wall-clock for the step (ms): the provider invocation
+    // only, excluding client-side tool execution. The llm span still covers the
+    // whole step (model + tools); tool time is `durationMs - modelCallMs`.
+    // v7-only (derived from the language-model-call lifecycle); absent in
+    // v4-v6 wrap and in non-model spans.
+    modelCallMs: z.number().int().nonnegative().optional(),
+
+    // OpenAI-style model build fingerprint (provider metadata). Lets a drift in
+    // the served model weights be detected across otherwise-identical calls.
+    systemFingerprint: z.string().max(256).optional(),
+
+    // JSON blob of provider safety ratings (Google/others), as reported. No
+    // logprobs are captured. Absent when the provider reports none.
+    safetyMetadata: z.string().max(16_384).optional(),
+
+    // JSON array of RAG/grounding citations (StepResult.sources): url/document
+    // references the model grounded on. Recorded only when output capture is on.
+    sources: z.string().max(MAX_PAYLOAD_CHARS).optional(),
+
+    // Rate-limit headroom, normalized cross-provider from the response headers
+    // (OpenAI `x-ratelimit-*`, Anthropic `anthropic-ratelimit-*`). Only the
+    // rate-limit headers are read — no other headers are stored. `*ResetMs` is
+    // milliseconds until the window resets. Any subset may be present.
+    rateLimit: z
+      .object({
+        requestsLimit: z.number().int().nonnegative().optional(),
+        requestsRemaining: z.number().int().nonnegative().optional(),
+        requestsResetMs: z.number().int().nonnegative().optional(),
+        tokensLimit: z.number().int().nonnegative().optional(),
+        tokensRemaining: z.number().int().nonnegative().optional(),
+        tokensResetMs: z.number().int().nonnegative().optional(),
+      })
+      .strict()
+      .optional(),
 
     // Span-level metadata, merged over the trace-level map (span wins).
     metadata: metadataSchema.optional(),

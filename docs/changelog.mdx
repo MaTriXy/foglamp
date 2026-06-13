@@ -3,9 +3,63 @@ title: Changelog
 description: "What's new in Foglamp."
 ---
 
+<Update label="June 13, 2026">
+
+## New features
+
+**Model vs. tool latency split.** LLM steps now record the pure
+provider-call time (`modelCallMs`) separately from client-side tool
+execution. The span still covers the whole step — the waterfall adds a
+sky **model** segment (tool time is the remainder), and the span
+inspector shows the split. Captured on AI SDK v7; v4–v6 (wrap) and
+non-reasoning paths simply omit it — no estimates.
+
+**Grounding sources.** RAG/grounding citations a model reports
+(`StepResult.sources`) are captured per step and listed in the span
+inspector. Recorded only when output capture is on.
+
+**Model-drift fingerprint & safety ratings.** The OpenAI-style
+`system_fingerprint` is captured as a queryable column (spot a silent
+weight change across otherwise-identical calls), alongside provider
+safety ratings. No logprobs are captured.
+
+**Rate-limit headroom.** Provider rate-limit response headers
+(OpenAI `x-ratelimit-*`, Anthropic `anthropic-ratelimit-*`) are
+normalized into a cross-provider set — requests/tokens remaining, limit,
+and time-to-reset — so "you're at 90% of your TPM" becomes queryable.
+Only rate-limit headers are read; no other headers are stored.
+
+The provider signals above (sources, fingerprint, safety, rate-limit) are
+captured for **text and object generation alike** — `generateText`,
+`streamText`, `generateObject`, `streamObject` — and flow through the
+`ToolLoopAgent`/`Experimental_Agent` wrappers too. The model-vs-tool
+latency split is the one exception: it needs the AI SDK v7 model-call
+lifecycle, so it lands on v7 text/agent steps and is absent on the object
+path (which calls the provider directly, with no separable model window)
+and on v4–v6 — never estimated.
+
+Self-hosters: deploy ingest before upgrading the SDK, since older ingest
+rejects the new span fields.
+
+</Update>
+
 <Update label="June 12, 2026">
 
 ## New features
+
+**Reasoning (extended thinking) capture.** Both SDK collectors now record
+reasoning stream chunks: per-step thinking duration plus an intra-stream
+reasoning-token curve, sampled exactly like text chunks. The trace waterfall
+shows a violet **thinking** segment on reasoning steps, and the span
+inspector's TTFT splits into thinking time + time to first visible text.
+Models that don't reason (or SDK majors that don't report reasoning tokens)
+send nothing — no estimates. Self-hosters: deploy ingest before upgrading the
+SDK, since older ingest rejects the new span fields.
+
+**Agent cost breakdown donut.** The agent page now shows where an agent's
+spend goes — prompt, completion, reasoning, cache read/write, requests,
+images, and web search — summed per pricing dimension over the selected
+range. See [Agents](/dashboard/agents).
 
 **Ambient trace context with `fog.run()`.** Wrap any call with
 `fog.run(context, fn)` and every traced call inside picks up the

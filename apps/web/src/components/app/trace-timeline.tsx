@@ -374,6 +374,50 @@ export function TraceTimeline({
 								const accent = isAgent ? agentColor(span.name) : null;
 								const ttftRel =
 									span.ttftMs != null ? offsetMs + span.ttftMs : null;
+								// Thinking phase: violet overlay across the reasoning window,
+								// bar-relative. Only when the SDK reported a real duration —
+								// old spans / non-reasoning models render nothing new.
+								const thinkingMs =
+									span.spanType === "llm" &&
+									span.reasoningDurationMs != null &&
+									span.reasoningDurationMs > 0 &&
+									span.durationMs > 0
+										? span.reasoningDurationMs
+										: null;
+								const thinkingLeftPct =
+									thinkingMs != null
+										? Math.min(
+												((span.reasoningOffsets[0] ?? 0) / span.durationMs) *
+													100,
+												100,
+											)
+										: 0;
+								const thinkingWidthPct =
+									thinkingMs != null
+										? Math.min(
+												(thinkingMs / span.durationMs) * 100,
+												100 - thinkingLeftPct,
+											)
+										: 0;
+								// Model-call phase: the pure provider call leads the step; the
+								// remainder of the bar is client-side tool execution. Sky tint,
+								// rendered under the violet thinking overlay. Only when the SDK
+								// reported a real model-call duration (v7).
+								const modelCallMs =
+									span.spanType === "llm" &&
+									span.modelCallMs != null &&
+									span.modelCallMs > 0 &&
+									span.durationMs > 0
+										? Math.min(span.modelCallMs, span.durationMs)
+										: null;
+								const modelCallWidthPct =
+									modelCallMs != null
+										? Math.min((modelCallMs / span.durationMs) * 100, 100)
+										: 0;
+								const toolTailMs =
+									modelCallMs != null
+										? Math.max(0, span.durationMs - modelCallMs)
+										: 0;
 								const rowScores = spanScores.get(span.spanId);
 								// Replay drives each bar: while engaged the bar is a faint
 								// track that fills up to the playhead as time crosses its
@@ -486,6 +530,31 @@ export function TraceTimeline({
 																	}
 																/>
 															)}
+															{/* Model-call phase — sky tint over the pure
+	                              provider call; the tail is tool execution. */}
+															{modelCallMs != null && modelCallWidthPct > 0 && (
+																<div
+																	className={cn(
+																		"absolute inset-y-0 left-0 rounded-full bg-sky-400/30 transition-opacity",
+																		engaged && "opacity-30",
+																	)}
+																	style={{ width: `${modelCallWidthPct}%` }}
+																/>
+															)}
+															{/* Thinking phase — violet stretch over the
+	                              reasoning window within the step. */}
+															{thinkingMs != null && thinkingWidthPct > 0 && (
+																<div
+																	className={cn(
+																		"absolute inset-y-0 rounded-full bg-violet-500/80 transition-opacity",
+																		engaged && "opacity-30",
+																	)}
+																	style={{
+																		left: `${thinkingLeftPct}%`,
+																		width: `${thinkingWidthPct}%`,
+																	}}
+																/>
+															)}
 														</div>
 													}
 												/>
@@ -494,6 +563,18 @@ export function TraceTimeline({
 														{formatDuration(span.durationMs)} · starts +
 														{formatDuration(offsetMs)}
 													</span>
+													{modelCallMs != null && (
+														<span className="text-sky-300">
+															Model: {formatDuration(modelCallMs)}
+															{toolTailMs > 0 &&
+																` · Tools: ${formatDuration(toolTailMs)}`}
+														</span>
+													)}
+													{thinkingMs != null && (
+														<span className="text-violet-300">
+															Thinking: {formatDuration(thinkingMs)}
+														</span>
+													)}
 													{(span.totalCost != null || span.totalTokens > 0) && (
 														<span className="text-muted-foreground">
 															{span.totalCost != null &&

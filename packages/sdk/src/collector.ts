@@ -3,6 +3,13 @@ import type { Telemetry } from "ai";
 import { ambientContext, mergeContext, runWithContext } from "./context";
 import { extractWebSearchCount } from "./providerUsage";
 import { coerceMetadata, serialize, toolCatalogJson } from "./serialize";
+import {
+  extractRateLimit,
+  extractSafetyMetadata,
+  extractSources,
+  extractSystemFingerprint,
+  stepResponseHeaders,
+} from "./signals";
 import { Transport } from "./transport";
 import type {
   IntegrationContext,
@@ -54,6 +61,9 @@ interface ChunkView {
     stepNumber?: number;
     text?: string;
     textDelta?: string;
+    // Reasoning block id (`reasoning-start`/`-delta`/`-end`); blocks can
+    // interleave within a step, so durations are tracked per id.
+    id?: string;
   };
 }
 interface StepEndView {
@@ -68,10 +78,41 @@ interface StepEndView {
   providerMetadata?: unknown;
   toolCalls?: unknown;
   toolResults?: unknown;
+  // RAG/grounding citations + the provider response (carries rate-limit headers).
+  sources?: unknown;
+  response?: { headers?: unknown };
+}
+// onLanguageModelCallStart/End carry only the callId we need; timing is wall-clock.
+interface LmCallView {
+  callId?: string;
+}
+// Object generation (generateObject/streamObject) reports its single step via
+// onObjectStepStart/onObjectStepFinish instead of onStepStart/onStepFinish.
+interface ObjectStepStartView {
+  callId?: string;
+  stepNumber?: number;
+  promptMessages?: unknown;
+}
+interface ObjectStepEndView {
+  callId?: string;
+  stepNumber?: number;
+  provider?: string;
+  modelId?: string;
+  finishReason?: string;
+  usage?: Parameters<typeof mapUsage>[0];
+  // Raw model text before JSON parsing — the step's output.
+  objectText?: string;
+  // Time to first chunk (streamObject only); the object path has no onChunk.
+  msToFirstChunk?: number;
+  providerMetadata?: unknown;
+  response?: { headers?: unknown };
+  sources?: unknown;
 }
 interface FinishView {
   callId?: string;
   text?: string;
+  // Object generation reports the parsed object here instead of `text`.
+  object?: unknown;
 }
 interface ToolStartView {
   callId?: string;
@@ -111,6 +152,19 @@ interface TraceBuilder {
   chunkSamples: Map<number, Array<[number, number]>>;
   chunkTextLen: Map<number, number>;
   streamingStep: number | undefined;
+  // Reasoning-stream sampling, same shape as chunkSamples/chunkTextLen but for
+  // reasoning-delta text. activeReasoningBlocks tracks open blocks (blockId →
+  // start offset ms) per step; reasoningDurationMs accumulates closed blocks.
+  reasoningSamples: Map<number, Array<[number, number]>>;
+  reasoningTextLen: Map<number, number>;
+  activeReasoningBlocks: Map<number, Map<string, number>>;
+  reasoningDurationMs: Map<number, number>;
+  // Pure model-call timing. The language-model-call lifecycle events carry no
+  // stepNumber, so they attribute to `currentStep` (the last step started).
+  // modelCallStart holds the open call's start; modelCallMs the measured span.
+  currentStep: number | undefined;
+  modelCallStart: Map<number, number>;
+  modelCallMs: Map<number, number>;
 }
 
 // The wire contract caps spans per trace; keep the root + most recent under it.
@@ -239,6 +293,13 @@ export class Collector implements Telemetry {
         chunkSamples: new Map(),
         chunkTextLen: new Map(),
         streamingStep: undefined,
+        reasoningSamples: new Map(),
+        reasoningTextLen: new Map(),
+        activeReasoningBlocks: new Map(),
+        reasoningDurationMs: new Map(),
+        currentStep: undefined,
+        modelCallStart: new Map(),
+        modelCallMs: new Map(),
       });
     });
   };
@@ -250,10 +311,38 @@ export class Collector implements Telemetry {
       const builder = this.builders.get(e.callId);
       if (!builder) return;
       builder.stepStart.set(e.stepNumber, Date.now());
+      builder.currentStep = e.stepNumber;
       if (builder.recordInputs) {
         const input = serialize(e.messages, this.config.maxPayloadChars);
         if (input) builder.stepInput.set(e.stepNumber, input);
       }
+    });
+  };
+
+  // Pure model-call timing: these fire around the provider invocation only,
+  // before any client-side tool execution. They carry no stepNumber, so the
+  // measurement attributes to the step that's currently running (set in
+  // onStepStart). The llm span still covers the whole step — modelCallMs is an
+  // annotation on it, from which tool time is derived (durationMs - modelCallMs).
+  onLanguageModelCallStart: NonNullable<Telemetry["onLanguageModelCallStart"]> = (event) => {
+    this.guard(() => {
+      const e = event as LmCallView;
+      if (!e.callId) return;
+      const builder = this.builders.get(e.callId);
+      if (!builder || builder.currentStep === undefined) return;
+      builder.modelCallStart.set(builder.currentStep, Date.now());
+    });
+  };
+
+  onLanguageModelCallEnd: NonNullable<Telemetry["onLanguageModelCallEnd"]> = (event) => {
+    this.guard(() => {
+      const e = event as LmCallView;
+      if (!e.callId) return;
+      const builder = this.builders.get(e.callId);
+      if (!builder || builder.currentStep === undefined) return;
+      const start = builder.modelCallStart.get(builder.currentStep);
+      if (start === undefined) return;
+      builder.modelCallMs.set(builder.currentStep, Math.max(0, Date.now() - start));
     });
   };
 
@@ -276,9 +365,42 @@ export class Collector implements Telemetry {
         return;
       }
 
+      // Reasoning lifecycle: blocks can interleave within a step, so start
+      // offsets are tracked per block id and durations accumulated on end.
+      // These chunks carry no callId/stepNumber → same active-stream fallback
+      // as text-deltas.
+      if (chunk.type === "reasoning-start" || chunk.type === "reasoning-end") {
+        const target = this.resolveStreamingTarget(chunk.callId, chunk.stepNumber);
+        if (!target) return;
+        const { builder, step } = target;
+        const blockId = chunk.id ?? "";
+        const stepStart = builder.stepStart.get(step) ?? builder.startTime;
+        const offsetMs = Math.max(0, Date.now() - stepStart);
+        let blocks = builder.activeReasoningBlocks.get(step);
+        if (chunk.type === "reasoning-start") {
+          if (!blocks) {
+            blocks = new Map();
+            builder.activeReasoningBlocks.set(step, blocks);
+          }
+          blocks.set(blockId, offsetMs);
+        } else {
+          const blockStart = blocks?.get(blockId);
+          if (blockStart === undefined) return;
+          blocks!.delete(blockId);
+          builder.reasoningDurationMs.set(
+            step,
+            (builder.reasoningDurationMs.get(step) ?? 0) + Math.max(0, offsetMs - blockStart),
+          );
+        }
+        return;
+      }
+
       // Text payloads drive the intra-stream samples. The delta text length is a
       // cheap token proxy that we rescale to real tokens at onStepFinish.
-      if (chunk.type !== "text-delta") return;
+      // Reasoning deltas feed a parallel sample series rescaled by
+      // usage.reasoningTokens instead.
+      const isReasoning = chunk.type === "reasoning-delta";
+      if (chunk.type !== "text-delta" && !isReasoning) return;
       const text = chunk.text ?? chunk.textDelta;
       if (typeof text !== "string" || text.length === 0) return;
 
@@ -286,14 +408,17 @@ export class Collector implements Telemetry {
       if (!target) return;
       const { builder, step } = target;
 
-      const cumLen = (builder.chunkTextLen.get(step) ?? 0) + text.length;
-      builder.chunkTextLen.set(step, cumLen);
+      const lenMap = isReasoning ? builder.reasoningTextLen : builder.chunkTextLen;
+      const sampleMap = isReasoning ? builder.reasoningSamples : builder.chunkSamples;
+
+      const cumLen = (lenMap.get(step) ?? 0) + text.length;
+      lenMap.set(step, cumLen);
 
       const stepStart = builder.stepStart.get(step) ?? builder.startTime;
       const offsetMs = Math.max(0, Date.now() - stepStart);
-      const samples = builder.chunkSamples.get(step);
+      const samples = sampleMap.get(step);
       if (!samples) {
-        builder.chunkSamples.set(step, [[offsetMs, cumLen]]);
+        sampleMap.set(step, [[offsetMs, cumLen]]);
         return;
       }
       const last = samples[samples.length - 1]!;
@@ -346,9 +471,39 @@ export class Collector implements Telemetry {
       const webSearchCount = extractWebSearchCount(e);
       if (webSearchCount !== undefined) usage = { ...(usage ?? {}), webSearchCount };
       const chunks = this.buildChunkArrays(builder, e.stepNumber, usage);
+      // Close reasoning blocks that never saw a reasoning-end (best effort:
+      // count them as running until now), then fold into the step total.
+      const openBlocks = builder.activeReasoningBlocks.get(e.stepNumber);
+      if (openBlocks) {
+        const endOffsetMs = Math.max(0, now - start);
+        for (const blockStart of openBlocks.values()) {
+          builder.reasoningDurationMs.set(
+            e.stepNumber,
+            (builder.reasoningDurationMs.get(e.stepNumber) ?? 0) +
+              Math.max(0, endOffsetMs - blockStart),
+          );
+        }
+      }
+      const reasoning = this.buildReasoningArrays(builder, e.stepNumber, usage);
+      const reasoningDurationMs = builder.reasoningDurationMs.get(e.stepNumber);
+      // Secondary provider signals: model build fingerprint, safety ratings,
+      // grounding sources (output-gated), and normalized rate-limit headroom.
+      const systemFingerprint = extractSystemFingerprint(e);
+      const safetyMetadata = extractSafetyMetadata(e, this.config.maxPayloadChars);
+      const sources = builder.recordOutputs
+        ? extractSources(e, this.config.maxPayloadChars)
+        : undefined;
+      const rateLimit = extractRateLimit(stepResponseHeaders(e), now);
+      const modelCallMs = builder.modelCallMs.get(e.stepNumber);
       // This step is done streaming; drop its sampling scratch state.
       builder.chunkSamples.delete(e.stepNumber);
       builder.chunkTextLen.delete(e.stepNumber);
+      builder.reasoningSamples.delete(e.stepNumber);
+      builder.reasoningTextLen.delete(e.stepNumber);
+      builder.activeReasoningBlocks.delete(e.stepNumber);
+      builder.reasoningDurationMs.delete(e.stepNumber);
+      builder.modelCallStart.delete(e.stepNumber);
+      builder.modelCallMs.delete(e.stepNumber);
       if (builder.streamingStep === e.stepNumber) builder.streamingStep = undefined;
 
       builder.spans.push({
@@ -365,9 +520,97 @@ export class Collector implements Telemetry {
         ttftMs: builder.ttft.get(e.stepNumber),
         chunkOffsets: chunks?.chunkOffsets,
         chunkTokens: chunks?.chunkTokens,
+        reasoningOffsets: reasoning?.reasoningOffsets,
+        reasoningChunkTokens: reasoning?.reasoningChunkTokens,
+        reasoningDurationMs:
+          reasoningDurationMs !== undefined ? Math.round(reasoningDurationMs) : undefined,
         input: builder.recordInputs ? builder.stepInput.get(e.stepNumber) : undefined,
         output: builder.recordOutputs ? this.stepOutput(e) : undefined,
         toolCatalog: builder.toolCatalog,
+        modelCallMs,
+        systemFingerprint,
+        safetyMetadata,
+        sources,
+        rateLimit,
+        metadata,
+      });
+      if (now > builder.endTime) builder.endTime = now;
+    });
+  };
+
+  // Object generation (generateObject/streamObject) drives a separate step
+  // lifecycle: onObjectStepStart/onObjectStepFinish, with exactly one step. It
+  // uses doGenerate/doStream directly, so there are no onLanguageModelCall* or
+  // onChunk events — hence no modelCallMs and no intra-stream curves on this
+  // path (streamObject still reports msToFirstChunk → ttftMs). The same
+  // provider signals apply, so they're captured here too.
+  onObjectStepStart: NonNullable<Telemetry["onObjectStepStart"]> = (event) => {
+    this.guard(() => {
+      const e = event as ObjectStepStartView;
+      if (!e.callId) return;
+      const builder = this.builders.get(e.callId);
+      if (!builder) return;
+      const step = e.stepNumber ?? 0;
+      builder.stepStart.set(step, Date.now());
+      builder.currentStep = step;
+      if (builder.recordInputs) {
+        const input = serialize(e.promptMessages, this.config.maxPayloadChars);
+        if (input) builder.stepInput.set(step, input);
+      }
+    });
+  };
+
+  onObjectStepFinish: NonNullable<Telemetry["onObjectStepFinish"]> = (event) => {
+    this.guard(() => {
+      const e = event as ObjectStepEndView;
+      if (!e.callId) return;
+      const builder = this.builders.get(e.callId);
+      if (!builder) return;
+
+      const step = e.stepNumber ?? 0;
+      const now = Date.now();
+      const start = builder.stepStart.get(step) ?? builder.startTime;
+      const metadata: Metadata = { stepNumber: String(step) };
+      if (e.finishReason) metadata.finishReason = e.finishReason;
+
+      let usage = mapUsage(e.usage);
+      const webSearchCount = extractWebSearchCount(e);
+      if (webSearchCount !== undefined) usage = { ...(usage ?? {}), webSearchCount };
+
+      const systemFingerprint = extractSystemFingerprint(e);
+      const safetyMetadata = extractSafetyMetadata(e, this.config.maxPayloadChars);
+      const sources = builder.recordOutputs
+        ? extractSources(e, this.config.maxPayloadChars)
+        : undefined;
+      const rateLimit = extractRateLimit(stepResponseHeaders(e), now);
+      const ttftMs =
+        e.msToFirstChunk !== undefined ? Math.max(0, Math.round(e.msToFirstChunk)) : undefined;
+      const input = builder.recordInputs ? builder.stepInput.get(step) : undefined;
+
+      builder.stepStart.delete(step);
+      builder.stepInput.delete(step);
+
+      builder.spans.push({
+        spanId: `${e.callId}:step:${step}`,
+        parentSpanId: `${e.callId}:root`,
+        spanType: "llm",
+        name: `step ${step}`,
+        startTime: start,
+        endTime: now,
+        status: e.finishReason === "error" ? "error" : "ok",
+        provider: e.provider ?? builder.provider,
+        modelId: e.modelId ?? builder.modelId,
+        usage,
+        ttftMs,
+        input,
+        output: builder.recordOutputs
+          ? serialize(e.objectText, this.config.maxPayloadChars)
+          : undefined,
+        toolCatalog: builder.toolCatalog,
+        systemFingerprint,
+        safetyMetadata,
+        sources,
+        rateLimit,
         metadata,
       });
       if (now > builder.endTime) builder.endTime = now;
@@ -423,8 +666,12 @@ export class Collector implements Telemetry {
       if (!e.callId) return;
       const builder = this.builders.get(e.callId);
       if (!builder) return;
-      if (builder.recordOutputs && e.text) {
-        builder.finalOutput = serialize(e.text, this.config.maxPayloadChars);
+      // Text generation reports `text`; object generation reports the parsed
+      // `object`. Capture whichever is present as the trace's final output.
+      const output = e.text ?? e.object;
+      if (builder.recordOutputs && output !== undefined) {
+        const serialized = serialize(output, this.config.maxPayloadChars);
+        if (serialized) builder.finalOutput = serialized;
       }
       this.finalize(e.callId, builder);
     });
@@ -516,6 +763,32 @@ export class Collector implements Telemetry {
       chunkTokens[i] = Math.round((sample[1] / finalTextLen) * scaleTokens);
     }
     return { chunkOffsets, chunkTokens };
+  }
+
+  // Same rescale for the reasoning stream, anchored to usage.reasoningTokens.
+  // No reported reasoning tokens (older providers, non-reasoning models) → no
+  // curve: unknown stays absent, never estimated.
+  private buildReasoningArrays(
+    builder: TraceBuilder,
+    step: number,
+    usage: ReturnType<typeof mapUsage>,
+  ): { reasoningOffsets: number[]; reasoningChunkTokens: number[] } | undefined {
+    const raw = builder.reasoningSamples.get(step);
+    const finalTextLen = builder.reasoningTextLen.get(step) ?? 0;
+    if (!usage || !raw || raw.length === 0 || finalTextLen <= 0) return undefined;
+
+    const scaleTokens = usage.reasoningTokens ?? 0;
+    if (scaleTokens === 0) return undefined;
+
+    const samples = decimateSamples(raw, MAX_CHUNK_SAMPLES);
+    const reasoningOffsets = new Array<number>(samples.length);
+    const reasoningChunkTokens = new Array<number>(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i]!;
+      reasoningOffsets[i] = sample[0];
+      reasoningChunkTokens[i] = Math.round((sample[1] / finalTextLen) * scaleTokens);
+    }
+    return { reasoningOffsets, reasoningChunkTokens };
   }
 
   private finalize(callId: string, builder: TraceBuilder): void {

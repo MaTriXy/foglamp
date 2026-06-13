@@ -43,10 +43,33 @@ export interface Span {
   chunkOffsets?: number[];
   /** Cumulative output tokens at each chunkOffsets entry. */
   chunkTokens?: number[];
+  /** Reasoning-stream samples (reasoning models). ms from step start, parallel to reasoningChunkTokens. */
+  reasoningOffsets?: number[];
+  /** Cumulative reasoning tokens at each reasoningOffsets entry. */
+  reasoningChunkTokens?: number[];
+  /** Total wall-clock ms spent inside reasoning blocks for this step. */
+  reasoningDurationMs?: number;
   input?: string;
   output?: string;
   /** JSON catalog of tools offered to the model (name → {description, params}). */
   toolCatalog?: string;
+  /** Pure model-call wall-clock for the step (ms), excluding tool execution. v7 only. */
+  modelCallMs?: number;
+  /** OpenAI-style model build fingerprint (drift detection). */
+  systemFingerprint?: string;
+  /** JSON blob of provider safety ratings, as reported (no logprobs). */
+  safetyMetadata?: string;
+  /** JSON array of RAG/grounding citations (StepResult.sources); output-capture gated. */
+  sources?: string;
+  /** Rate-limit headroom, normalized cross-provider from response headers. */
+  rateLimit?: {
+    requestsLimit?: number;
+    requestsRemaining?: number;
+    requestsResetMs?: number;
+    tokensLimit?: number;
+    tokensRemaining?: number;
+    tokensResetMs?: number;
+  };
   metadata?: Metadata;
 }
 

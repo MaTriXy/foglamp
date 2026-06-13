@@ -66,6 +66,9 @@ const blank = {
   priced_at: null,
   chunk_offsets: [],
   chunk_tokens: [],
+  reasoning_offsets: [],
+  reasoning_chunk_tokens: [],
+  reasoning_duration_ms: null,
   workflow_name: "",
   workflow_run_id: "",
   session_id: "",
@@ -73,6 +76,16 @@ const blank = {
   input: "",
   output: "",
   tool_catalog: "",
+  model_call_ms: null,
+  system_fingerprint: "",
+  safety_metadata: "",
+  sources: "",
+  rate_limit_requests_limit: null,
+  rate_limit_requests_remaining: null,
+  rate_limit_requests_reset_ms: null,
+  rate_limit_tokens_limit: null,
+  rate_limit_tokens_remaining: null,
+  rate_limit_tokens_reset_ms: null,
 } satisfies Partial<SpanRow>;
 
 const PID = "proj_test";

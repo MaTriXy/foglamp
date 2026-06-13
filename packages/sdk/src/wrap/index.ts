@@ -284,6 +284,7 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
             usage: result?.usage,
             object: result?.object,
             modelId: result?.response?.modelId,
+            raw: result as never,
           }),
         );
         return result;
@@ -304,7 +305,7 @@ export function wrap<T extends AiModuleLike>(ai: T, options: WrapOptions = {}): 
 
       clean.onFinish = (event: unknown) => {
         const e = event as { usage?: unknown; object?: unknown } | undefined;
-        guard(() => collector.completeObject({ usage: e?.usage, object: e?.object }));
+        guard(() => collector.completeObject({ usage: e?.usage, object: e?.object, raw: e as never }));
         return userOnFinish?.(event);
       };
       clean.onError = (event: unknown) => {

@@ -50,6 +50,12 @@ Each wrapped call becomes one trace, with the same shape as the v7 path:
   call's `onChunk` callback to record time-to-first-token and the intra-stream
   token curve that powers tokens/sec and replay — **without** consuming or
   altering your stream.
+- **Provider signals.** Every `llm` span — text, object, and agent steps alike —
+  carries the provider signals it reports: grounding `sources` (output-gated),
+  the OpenAI-style `system_fingerprint`, safety ratings, and normalized
+  rate-limit headroom. The model-vs-tool latency split is v7-only; `wrap`
+  measures exact tool timing but never a separable model-call window, so it
+  omits `modelCallMs` rather than estimate it.
 
 ## Per-call context
 

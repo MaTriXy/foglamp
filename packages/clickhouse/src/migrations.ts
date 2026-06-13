@@ -381,4 +381,41 @@ GROUP BY org_id, day`,
       `ALTER TABLE spans ADD COLUMN IF NOT EXISTS tool_catalog String DEFAULT '' CODEC(ZSTD(3))`,
     ],
   },
+  {
+    // Reasoning-stream sampling for streaming llm spans on reasoning models.
+    // Mirrors chunk_offsets/chunk_tokens but for the reasoning text stream;
+    // reasoning_duration_ms is total wall-clock ms inside reasoning blocks.
+    // Nullable (not 0) because absence means "not captured", same as ttft_ms.
+    id: "0010_reasoning_chunks",
+    statements: [
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS reasoning_offsets Array(UInt32) DEFAULT []`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS reasoning_chunk_tokens Array(UInt32) DEFAULT []`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS reasoning_duration_ms Nullable(UInt32)`,
+    ],
+  },
+  {
+    // Secondary provider signals captured by the SDK:
+    //  • model_call_ms       — pure provider-call wall-clock for an llm step
+    //    (the span still covers model + tools; tool time = duration - model_call).
+    //    Nullable (not 0): absent means "not captured" (v4-v6 wrap, non-llm).
+    //  • system_fingerprint  — OpenAI-style model build id (drift detection).
+    //  • safety_metadata     — JSON blob of provider safety ratings (no logprobs).
+    //  • sources             — JSON array of RAG/grounding citations.
+    //  • rate_limit_*        — normalized cross-provider rate-limit headroom;
+    //    *_reset_ms is ms until the window resets. Nullable: absent ≠ zero quota.
+    // JSON blobs are ZSTD-compressed (repetitive, often empty).
+    id: "0011_signal_capture",
+    statements: [
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS model_call_ms Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS system_fingerprint String DEFAULT ''`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS safety_metadata String DEFAULT '' CODEC(ZSTD(3))`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS sources String DEFAULT '' CODEC(ZSTD(3))`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_requests_limit Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_requests_remaining Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_requests_reset_ms Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_tokens_limit Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_tokens_remaining Nullable(UInt32)`,
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS rate_limit_tokens_reset_ms Nullable(UInt32)`,
+    ],
+  },
 ];

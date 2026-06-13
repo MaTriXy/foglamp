@@ -136,6 +136,9 @@ export async function getTraceDetail(
     ttftMs: s.ttft_ms === null ? null : num(s.ttft_ms),
     chunkOffsets: (s.chunk_offsets ?? []).map(num),
     chunkTokens: (s.chunk_tokens ?? []).map(num),
+    reasoningOffsets: (s.reasoning_offsets ?? []).map(num),
+    reasoningChunkTokens: (s.reasoning_chunk_tokens ?? []).map(num),
+    reasoningDurationMs: s.reasoning_duration_ms === null ? null : num(s.reasoning_duration_ms),
     // Generation throughput: output tokens over the streaming window, excluding
     // the time-to-first-token wait. Null when there's no measurable window.
     tps: generationTps(num(s.output_tokens), num(s.duration_ms), s.ttft_ms),
@@ -157,6 +160,38 @@ export async function getTraceDetail(
     input: s.input || null,
     output: s.output || null,
     toolCatalog: s.tool_catalog || null,
+    // Pure model-call time; tool time is the remainder of the span window.
+    modelCallMs: s.model_call_ms === null ? null : num(s.model_call_ms),
+    systemFingerprint: s.system_fingerprint || null,
+    safetyMetadata: s.safety_metadata || null,
+    sources: s.sources || null,
+    // Normalized rate-limit headroom (null when the provider didn't report it).
+    rateLimit:
+      s.rate_limit_requests_limit === null &&
+      s.rate_limit_requests_remaining === null &&
+      s.rate_limit_tokens_limit === null &&
+      s.rate_limit_tokens_remaining === null
+        ? null
+        : {
+            requestsLimit:
+              s.rate_limit_requests_limit === null ? null : num(s.rate_limit_requests_limit),
+            requestsRemaining:
+              s.rate_limit_requests_remaining === null
+                ? null
+                : num(s.rate_limit_requests_remaining),
+            requestsResetMs:
+              s.rate_limit_requests_reset_ms === null
+                ? null
+                : num(s.rate_limit_requests_reset_ms),
+            tokensLimit:
+              s.rate_limit_tokens_limit === null ? null : num(s.rate_limit_tokens_limit),
+            tokensRemaining:
+              s.rate_limit_tokens_remaining === null
+                ? null
+                : num(s.rate_limit_tokens_remaining),
+            tokensResetMs:
+              s.rate_limit_tokens_reset_ms === null ? null : num(s.rate_limit_tokens_reset_ms),
+          },
   }));
   return {
     traceId: input.traceId,

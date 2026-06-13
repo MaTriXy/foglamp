@@ -442,6 +442,35 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 	);
 }
 
+// RAG/grounding citations captured on the span (StepResult.sources), as a JSON
+// array. Parsed defensively — a malformed blob yields no sources, never throws.
+type ParsedSource = { title?: string; url?: string };
+function parseSources(raw: string | null | undefined): ParsedSource[] {
+	if (!raw) return [];
+	try {
+		const arr = JSON.parse(raw) as unknown;
+		if (!Array.isArray(arr)) return [];
+		return arr.map((s) => {
+			const o = s && typeof s === "object" ? (s as Record<string, unknown>) : {};
+			return {
+				title: typeof o.title === "string" ? o.title : undefined,
+				url: typeof o.url === "string" ? o.url : undefined,
+			};
+		});
+	} catch {
+		return [];
+	}
+}
+
+// Percent of a rate-limit quota still available, or null when not computable.
+function pctRemaining(
+	remaining: number | null | undefined,
+	limit: number | null | undefined,
+): number | null {
+	if (remaining == null || limit == null || limit <= 0) return null;
+	return Math.round((remaining / limit) * 100);
+}
+
 // Width of the span inspector when open. The timeline (a flex sibling, flex-1)
 // gives up exactly this much room, so the panel reads as carved out of the same
 // canvas — same technique as the Foggy chat.
@@ -669,6 +698,18 @@ function SpanDetail({
 		usageExtras.length > 0 ||
 		!!span.pricedModelId ||
 		!!span.pricedAt;
+	// Secondary provider signals: grounding sources, model-build drift, safety,
+	// and normalized rate-limit headroom. Each renders only when captured.
+	const sources = parseSources(span.sources);
+	const rl = span.rateLimit;
+	const hasTokenHeadroom = rl?.tokensRemaining != null && rl?.tokensLimit != null;
+	const hasRequestHeadroom = rl?.requestsRemaining != null && rl?.requestsLimit != null;
+	const hasSignals =
+		!!span.systemFingerprint ||
+		!!span.safetyMetadata ||
+		sources.length > 0 ||
+		hasTokenHeadroom ||
+		hasRequestHeadroom;
 	return (
 		<Card className="max-h-[calc(100svh-16rem)] gap-0 py-0 ">
 			<CardHeader className="flex shrink-0 items-center gap-2 border-b border-border/40 [.border-b]:pb-5 p-5 px-5">
@@ -710,7 +751,33 @@ function SpanDetail({
 						<Field label="Duration" value={formatDuration(span.durationMs)} />
 						<Field
 							label="TTFT"
-							value={span.ttftMs === null ? "—" : formatDuration(span.ttftMs)}
+							value={
+								span.ttftMs === null ? (
+									"—"
+								) : span.reasoningDurationMs != null &&
+									span.reasoningDurationMs > 0 ? (
+									// Reasoning models: split the wait into thinking time plus the
+									// residual until the first visible text. The first-text offset
+									// comes from the text chunk samples when captured; otherwise we
+									// approximate it with the TTFT itself.
+									<span>
+										{formatDuration(span.ttftMs)}{" "}
+										<span className="text-muted-foreground">
+											({formatDuration(span.reasoningDurationMs)} thinking +{" "}
+											{formatDuration(
+												Math.max(
+													0,
+													(span.chunkOffsets[0] ?? span.ttftMs) -
+														span.reasoningDurationMs,
+												),
+											)}{" "}
+											to first text)
+										</span>
+									</span>
+								) : (
+									formatDuration(span.ttftMs)
+								)
+							}
 						/>
 						<Field
 							label="Model"
@@ -740,6 +807,23 @@ function SpanDetail({
 						/>
 
 						<Field label="Pricing" value={span.pricingSource ?? "—"} />
+						{span.modelCallMs != null && (
+							<Field
+								label="Model call"
+								value={
+									<span>
+										{formatDuration(span.modelCallMs)}{" "}
+										<span className="text-muted-foreground">
+											(
+											{formatDuration(
+												Math.max(0, span.durationMs - span.modelCallMs),
+											)}{" "}
+											tools)
+										</span>
+									</span>
+								}
+							/>
+						)}
 					</div>
 
 					{scores.length > 0 && (
@@ -775,6 +859,118 @@ function SpanDetail({
 										/>
 									))}
 									<Field label="Total" value={formatCost(span.totalCost)} />
+								</div>
+							)}
+						</div>
+					)}
+
+					{hasSignals && (
+						<div className="flex flex-col gap-3 border-b border-border/40 py-5 px-5">
+							<span className="text-xs font-medium text-muted-foreground px-1">
+								Provider signals
+							</span>
+							<div className="grid grid-cols-2 gap-4 px-1">
+								{hasTokenHeadroom && (
+									<Field
+										label="Token headroom"
+										value={
+											<span>
+												{formatTokens(rl!.tokensRemaining!)} /{" "}
+												{formatTokens(rl!.tokensLimit!)}
+												{pctRemaining(rl!.tokensRemaining, rl!.tokensLimit) !=
+													null && (
+													<span className="text-muted-foreground">
+														{" "}
+														({pctRemaining(rl!.tokensRemaining, rl!.tokensLimit)}%
+														left)
+													</span>
+												)}
+											</span>
+										}
+									/>
+								)}
+								{hasRequestHeadroom && (
+									<Field
+										label="Request headroom"
+										value={
+											<span>
+												{formatCount(rl!.requestsRemaining!)} /{" "}
+												{formatCount(rl!.requestsLimit!)}
+												{pctRemaining(
+													rl!.requestsRemaining,
+													rl!.requestsLimit,
+												) != null && (
+													<span className="text-muted-foreground">
+														{" "}
+														(
+														{pctRemaining(
+															rl!.requestsRemaining,
+															rl!.requestsLimit,
+														)}
+														% left)
+													</span>
+												)}
+											</span>
+										}
+									/>
+								)}
+								{rl?.tokensResetMs != null && (
+									<Field
+										label="Tokens reset"
+										value={`in ${formatDuration(rl.tokensResetMs)}`}
+									/>
+								)}
+								{span.systemFingerprint && (
+									<Field
+										label="Fingerprint"
+										value={
+											<span
+												className="block truncate font-mono text-xs"
+												title={span.systemFingerprint}
+											>
+												{span.systemFingerprint}
+											</span>
+										}
+									/>
+								)}
+								{span.safetyMetadata && (
+									<Field label="Safety ratings" value="reported" />
+								)}
+							</div>
+							{sources.length > 0 && (
+								<div className="flex flex-col gap-1 px-1">
+									<span className="text-xs text-muted-foreground">
+										Sources ({sources.length})
+									</span>
+									<div className="flex flex-col gap-0.5">
+										{sources.slice(0, 8).map((s, i) =>
+											s.url ? (
+												<a
+													key={`${s.url}-${i}`}
+													href={s.url}
+													target="_blank"
+													rel="noreferrer"
+													className="truncate text-sm text-sky-400 hover:underline"
+													title={s.url}
+												>
+													{s.title ?? s.url}
+												</a>
+											) : (
+												<span
+													key={`src-${i}`}
+													className="truncate text-sm"
+													title={s.title}
+												>
+													{s.title ?? "source"}
+												</span>
+											),
+										)}
+										{sources.length > 8 && (
+											<span className="text-xs text-muted-foreground">
+												+{sources.length - 8} more
+											</span>
+										)}
+									</div>
 								</div>
 							)}
 						</div>

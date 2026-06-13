@@ -2,6 +2,14 @@ import { uuidv7 } from "uuidv7";
 
 import { extractWebSearchCount } from "../providerUsage";
 import { coerceMetadata, serialize, toolCatalogJson } from "../serialize";
+import {
+  extractRateLimit,
+  extractSafetyMetadata,
+  extractSources,
+  extractSystemFingerprint,
+  type RateLimitInfo,
+  stepResponseHeaders,
+} from "../signals";
 import type { Transport } from "../transport";
 import type { IntegrationContext, ResolvedConfig } from "../types";
 import type { Span, Trace, Usage } from "../wire";
@@ -80,13 +88,15 @@ export interface StepView {
   usage?: unknown;
   text?: string;
   finishReason?: string;
-  response?: { modelId?: string };
+  response?: { modelId?: string; headers?: unknown };
   // Provider-specific usage (web search etc.) — read by extractWebSearchCount.
   providerMetadata?: unknown;
   experimental_providerMetadata?: unknown;
   content?: unknown;
   toolCalls?: unknown;
   toolResults?: unknown;
+  // RAG/grounding citations (read by extractSources).
+  sources?: unknown;
 }
 
 interface LlmSpanInput {
@@ -99,6 +109,14 @@ interface LlmSpanInput {
   finishReason: string | undefined;
   output: unknown;
   chunks?: { chunkOffsets: number[]; chunkTokens: number[] } | undefined;
+  reasoning?: { reasoningOffsets: number[]; reasoningChunkTokens: number[] } | undefined;
+  reasoningDurationMs?: number | undefined;
+  // Secondary provider signals (no modelCallMs in wrap — v4-v6 expose no
+  // language-model-call lifecycle).
+  systemFingerprint?: string | undefined;
+  safetyMetadata?: string | undefined;
+  sources?: string | undefined;
+  rateLimit?: RateLimitInfo | undefined;
 }
 
 export class WrapCollector {
@@ -129,6 +147,13 @@ export class WrapCollector {
   private readonly chunkSamples = new Map<number, Array<[number, number]>>();
   private readonly chunkTextLen = new Map<number, number>();
   private readonly ttft = new Map<number, number>();
+  // Reasoning-stream state, mirroring the v7 collector: samples + cumulative
+  // text length per step, open blocks (blockId → start offset ms), and the
+  // accumulated per-step reasoning duration.
+  private readonly reasoningSamples = new Map<number, Array<[number, number]>>();
+  private readonly reasoningTextLen = new Map<number, number>();
+  private readonly activeReasoningBlocks = new Map<number, Map<string, number>>();
+  private readonly reasoningDurMs = new Map<number, number>();
 
   constructor(
     transport: Transport,
@@ -192,8 +217,42 @@ export class WrapCollector {
 
   // --- streaming (streamText) --------------------------------------------
 
-  onChunk(chunk: { type?: string; text?: string; textDelta?: string } | undefined): void {
-    if (!chunk || chunk.type !== "text-delta") return;
+  onChunk(
+    chunk: { type?: string; text?: string; textDelta?: string; id?: string } | undefined,
+  ): void {
+    if (!chunk) return;
+    const step = this.streamStepIndex;
+    const now = Date.now();
+
+    // Reasoning blocks: start offsets tracked per block id (blocks can
+    // interleave), durations accumulated on end. Reasoning chunks also anchor
+    // TTFT — the first emitted chunk of any kind ends the silent wait, matching
+    // the v7 first-chunk semantics.
+    if (chunk.type === "reasoning-start" || chunk.type === "reasoning-end") {
+      if (!this.ttft.has(step)) this.ttft.set(step, Math.max(0, now - this.lastBoundary));
+      const blockId = chunk.id ?? "";
+      const offsetMs = Math.max(0, now - this.lastBoundary);
+      let blocks = this.activeReasoningBlocks.get(step);
+      if (chunk.type === "reasoning-start") {
+        if (!blocks) {
+          blocks = new Map();
+          this.activeReasoningBlocks.set(step, blocks);
+        }
+        blocks.set(blockId, offsetMs);
+      } else {
+        const blockStart = blocks?.get(blockId);
+        if (blockStart === undefined) return;
+        blocks!.delete(blockId);
+        this.reasoningDurMs.set(
+          step,
+          (this.reasoningDurMs.get(step) ?? 0) + Math.max(0, offsetMs - blockStart),
+        );
+      }
+      return;
+    }
+
+    const isReasoning = chunk.type === "reasoning-delta";
+    if (chunk.type !== "text-delta" && !isReasoning) return;
     const text =
       typeof chunk.text === "string"
         ? chunk.text
@@ -202,17 +261,18 @@ export class WrapCollector {
           : undefined;
     if (!text || text.length === 0) return;
 
-    const step = this.streamStepIndex;
-    const now = Date.now();
     if (!this.ttft.has(step)) this.ttft.set(step, Math.max(0, now - this.lastBoundary));
 
-    const cumLen = (this.chunkTextLen.get(step) ?? 0) + text.length;
-    this.chunkTextLen.set(step, cumLen);
+    const lenMap = isReasoning ? this.reasoningTextLen : this.chunkTextLen;
+    const sampleMap = isReasoning ? this.reasoningSamples : this.chunkSamples;
+
+    const cumLen = (lenMap.get(step) ?? 0) + text.length;
+    lenMap.set(step, cumLen);
 
     const offsetMs = Math.max(0, now - this.lastBoundary);
-    const samples = this.chunkSamples.get(step);
+    const samples = sampleMap.get(step);
     if (!samples) {
-      this.chunkSamples.set(step, [[offsetMs, cumLen]]);
+      sampleMap.set(step, [[offsetMs, cumLen]]);
       return;
     }
     const last = samples[samples.length - 1]!;
@@ -231,8 +291,26 @@ export class WrapCollector {
     this.lastBoundary = end;
     const usage = withWebSearch(mapUsageWrap(step?.usage as never), step);
     const chunks = this.buildChunkArrays(stepNumber, usage);
+    // Close reasoning blocks that never saw a reasoning-end (best effort:
+    // count them as running until the step boundary).
+    const openBlocks = this.activeReasoningBlocks.get(stepNumber);
+    if (openBlocks) {
+      const endOffsetMs = Math.max(0, end - start);
+      for (const blockStart of openBlocks.values()) {
+        this.reasoningDurMs.set(
+          stepNumber,
+          (this.reasoningDurMs.get(stepNumber) ?? 0) + Math.max(0, endOffsetMs - blockStart),
+        );
+      }
+    }
+    const reasoning = this.buildReasoningArrays(stepNumber, usage);
+    const reasoningDurationMs = this.reasoningDurMs.get(stepNumber);
     this.chunkSamples.delete(stepNumber);
     this.chunkTextLen.delete(stepNumber);
+    this.reasoningSamples.delete(stepNumber);
+    this.reasoningTextLen.delete(stepNumber);
+    this.activeReasoningBlocks.delete(stepNumber);
+    this.reasoningDurMs.delete(stepNumber);
     this.pushLlmSpan({
       stepNumber,
       start,
@@ -243,6 +321,10 @@ export class WrapCollector {
       finishReason: step?.finishReason,
       output: step?.text,
       chunks,
+      reasoning,
+      reasoningDurationMs:
+        reasoningDurationMs !== undefined ? Math.round(reasoningDurationMs) : undefined,
+      ...this.stepSignals(step),
     });
     this.streamStepIndex++;
   }
@@ -269,6 +351,7 @@ export class WrapCollector {
         modelId: this.modelId,
         finishReason: undefined,
         output: result?.text,
+        ...this.stepSignals(result as StepView | undefined),
       });
     } else {
       const times = reconstructStepTimes(this.startTime, end, steps.length, this.toolWindows);
@@ -283,6 +366,7 @@ export class WrapCollector {
           modelId: s?.response?.modelId ?? this.modelId,
           finishReason: s?.finishReason,
           output: s?.text,
+          ...this.stepSignals(s),
         });
       });
     }
@@ -291,18 +375,26 @@ export class WrapCollector {
 
   // --- object generation (generateObject / streamObject) -----------------
 
-  completeObject(args: { usage?: unknown; object?: unknown; modelId?: string }): void {
+  completeObject(args: {
+    usage?: unknown;
+    object?: unknown;
+    modelId?: string;
+    // The full result (generateObject) or onFinish event (streamObject), read
+    // for provider signals (fingerprint, safety, rate-limit headers).
+    raw?: StepView;
+  }): void {
     const end = Date.now();
     this.endTime = Math.max(this.endTime, end);
     this.pushLlmSpan({
       stepNumber: 0,
       start: this.startTime,
       end,
-      usage: mapUsageWrap(args.usage as never),
+      usage: withWebSearch(mapUsageWrap(args.usage as never), args.raw),
       provider: this.provider,
-      modelId: args.modelId ?? this.modelId,
-      finishReason: undefined,
+      modelId: args.modelId ?? args.raw?.response?.modelId ?? this.modelId,
+      finishReason: args.raw?.finishReason,
       output: args.object,
+      ...this.stepSignals(args.raw),
     });
     this.finalizeOk(args.object);
   }
@@ -313,6 +405,25 @@ export class WrapCollector {
   }
 
   // --- internals ----------------------------------------------------------
+
+  // Secondary provider signals from a step view. modelCallMs is intentionally
+  // absent — v4-v6 expose no language-model-call lifecycle to measure it.
+  private stepSignals(step: StepView | undefined): {
+    systemFingerprint?: string;
+    safetyMetadata?: string;
+    sources?: string;
+    rateLimit?: RateLimitInfo;
+  } {
+    if (!step) return {};
+    return {
+      systemFingerprint: extractSystemFingerprint(step),
+      safetyMetadata: extractSafetyMetadata(step, this.config.maxPayloadChars),
+      sources: this.config.recordOutputs
+        ? extractSources(step, this.config.maxPayloadChars)
+        : undefined,
+      rateLimit: extractRateLimit(stepResponseHeaders(step), Date.now()),
+    };
+  }
 
   private finalizeOk(rawOutput: unknown): void {
     if (this.config.recordOutputs) {
@@ -340,10 +451,17 @@ export class WrapCollector {
       ttftMs: this.ttft.get(s.stepNumber),
       chunkOffsets: s.chunks?.chunkOffsets,
       chunkTokens: s.chunks?.chunkTokens,
+      reasoningOffsets: s.reasoning?.reasoningOffsets,
+      reasoningChunkTokens: s.reasoning?.reasoningChunkTokens,
+      reasoningDurationMs: s.reasoningDurationMs,
       output: this.config.recordOutputs
         ? serialize(s.output, this.config.maxPayloadChars)
         : undefined,
       toolCatalog: this.toolCatalog,
+      systemFingerprint: s.systemFingerprint,
+      safetyMetadata: s.safetyMetadata,
+      sources: s.sources,
+      rateLimit: s.rateLimit,
       metadata,
     });
     if (end > this.endTime) this.endTime = end;
@@ -371,6 +489,30 @@ export class WrapCollector {
       chunkTokens[i] = Math.round((sample[1] / finalTextLen) * scaleTokens);
     }
     return { chunkOffsets, chunkTokens };
+  }
+
+  // Same rescale for the reasoning stream, anchored to usage.reasoningTokens.
+  // Versions that never report reasoning tokens (v4) → no curve, no estimates.
+  private buildReasoningArrays(
+    step: number,
+    usage: Usage | undefined,
+  ): { reasoningOffsets: number[]; reasoningChunkTokens: number[] } | undefined {
+    const raw = this.reasoningSamples.get(step);
+    const finalTextLen = this.reasoningTextLen.get(step) ?? 0;
+    if (!usage || !raw || raw.length === 0 || finalTextLen <= 0) return undefined;
+
+    const scaleTokens = usage.reasoningTokens ?? 0;
+    if (scaleTokens === 0) return undefined;
+
+    const samples = decimateSamples(raw, MAX_CHUNK_SAMPLES);
+    const reasoningOffsets = new Array<number>(samples.length);
+    const reasoningChunkTokens = new Array<number>(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i]!;
+      reasoningOffsets[i] = sample[0];
+      reasoningChunkTokens[i] = Math.round((sample[1] / finalTextLen) * scaleTokens);
+    }
+    return { reasoningOffsets, reasoningChunkTokens };
   }
 
   private finalize(): void {

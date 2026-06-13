@@ -32,6 +32,9 @@ export type SpanRow = {
   ttft_ms: number | null;
   chunk_offsets: number[]; // ms from step start, parallel to chunk_tokens
   chunk_tokens: number[]; // cumulative output tokens at each offset
+  reasoning_offsets: number[]; // ms from step start, parallel to reasoning_chunk_tokens
+  reasoning_chunk_tokens: number[]; // cumulative reasoning tokens at each offset
+  reasoning_duration_ms: number | null; // wall-clock ms inside reasoning blocks
   prompt_cost: string | null;
   completion_cost: string | null;
   request_cost: string | null;
@@ -52,6 +55,16 @@ export type SpanRow = {
   input: string;
   output: string;
   tool_catalog: string; // JSON catalog of tools offered to the model (llm/agent spans)
+  model_call_ms: number | null; // pure provider-call ms (llm step; null = not captured)
+  system_fingerprint: string; // OpenAI-style model build id (drift detection)
+  safety_metadata: string; // JSON blob of provider safety ratings
+  sources: string; // JSON array of RAG/grounding citations
+  rate_limit_requests_limit: number | null;
+  rate_limit_requests_remaining: number | null;
+  rate_limit_requests_reset_ms: number | null;
+  rate_limit_tokens_limit: number | null;
+  rate_limit_tokens_remaining: number | null;
+  rate_limit_tokens_reset_ms: number | null;
 };
 
 /** Format epoch milliseconds as a ClickHouse DateTime64(3) literal (UTC). */

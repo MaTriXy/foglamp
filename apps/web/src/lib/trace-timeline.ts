@@ -47,6 +47,14 @@ export function hasChunkSamples(span: TraceSpan): boolean {
   return span.chunkOffsets.length > 1 && span.chunkOffsets.length === span.chunkTokens.length;
 }
 
+/** True when a span carries usable reasoning samples (≥2 points to draw). */
+export function hasReasoningSamples(span: TraceSpan): boolean {
+  return (
+    span.reasoningOffsets.length > 1 &&
+    span.reasoningOffsets.length === span.reasoningChunkTokens.length
+  );
+}
+
 /**
  * Cumulative output tokens at `offsetMs` from step start, linearly interpolated
  * between samples. Returns 0 before the first sample and the final token count

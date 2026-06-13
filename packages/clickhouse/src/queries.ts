@@ -456,6 +456,9 @@ export type SpanDetailRow = {
 	ttft_ms: number | null;
 	chunk_offsets: number[];
 	chunk_tokens: number[];
+	reasoning_offsets: number[];
+	reasoning_chunk_tokens: number[];
+	reasoning_duration_ms: number | null;
 	// Per-dimension cost breakdown (Nullable Decimals → strings); these sum to
 	// total_cost. Surfaced on the span detail view, not in list rollups.
 	prompt_cost: string | null;
@@ -474,6 +477,18 @@ export type SpanDetailRow = {
 	input: string;
 	output: string;
 	tool_catalog: string;
+	// Secondary provider signals (llm spans). model_call_ms splits pure model
+	// time from tool execution; the rest are drift/safety/grounding/rate-limit.
+	model_call_ms: number | null;
+	system_fingerprint: string;
+	safety_metadata: string;
+	sources: string;
+	rate_limit_requests_limit: number | null;
+	rate_limit_requests_remaining: number | null;
+	rate_limit_requests_reset_ms: number | null;
+	rate_limit_tokens_limit: number | null;
+	rate_limit_tokens_remaining: number | null;
+	rate_limit_tokens_reset_ms: number | null;
 	// Trace-level context (stable across a trace's spans), so the detail header
 	// can link back to the owning session/workflow/agent.
 	agent_name: string;
@@ -502,10 +517,14 @@ export function getTraceSpans(
        reasoning_tokens, cached_input_tokens, cache_write_input_tokens,
        image_count, web_search_count, request_count, ttft_ms,
        chunk_offsets, chunk_tokens,
+       reasoning_offsets, reasoning_chunk_tokens, reasoning_duration_ms,
        prompt_cost, completion_cost, request_cost, image_cost, web_search_cost,
        internal_reasoning_cost, cache_read_cost, cache_write_cost,
        total_cost, priced_model_id, priced_at, pricing_source,
        metadata, input, output, tool_catalog,
+       model_call_ms, system_fingerprint, safety_metadata, sources,
+       rate_limit_requests_limit, rate_limit_requests_remaining, rate_limit_requests_reset_ms,
+       rate_limit_tokens_limit, rate_limit_tokens_remaining, rate_limit_tokens_reset_ms,
        agent_name, workflow_name, workflow_run_id, session_id
      FROM spans FINAL
      WHERE project_id = {projectId:String} AND trace_id = {traceId:String}
@@ -1278,6 +1297,54 @@ export function queryAgentNames(
        AND agent_name != ''
      ORDER BY agent_name`,
 		{ projectId: params.projectId, from: params.from, to: params.to },
+	);
+}
+
+export type AgentCostBreakdownRow = {
+	prompt_cost: string;
+	completion_cost: string;
+	request_cost: string;
+	image_cost: string;
+	web_search_cost: string;
+	internal_reasoning_cost: string;
+	cache_read_cost: string;
+	cache_write_cost: string;
+	priced_span_count: string;
+};
+
+/**
+ * Per-dimension cost totals for one agent in a window — the agent-page cost
+ * donut. metrics_by_minute only rolls up total_cost, so this scans `spans`
+ * directly; fine for a single agent + window (project_id leads the ORDER BY,
+ * the agent_name bloom index prunes), promote to an MV if it ever gets hot.
+ */
+export function queryAgentCostBreakdown(
+	client: ClickHouseClient,
+	params: { projectId: string; agentName: string; from: string; to: string },
+): Promise<AgentCostBreakdownRow[]> {
+	return rows<AgentCostBreakdownRow>(
+		client,
+		`SELECT
+       sum(ifNull(prompt_cost, 0)) AS prompt_cost,
+       sum(ifNull(completion_cost, 0)) AS completion_cost,
+       sum(ifNull(request_cost, 0)) AS request_cost,
+       sum(ifNull(image_cost, 0)) AS image_cost,
+       sum(ifNull(web_search_cost, 0)) AS web_search_cost,
+       sum(ifNull(internal_reasoning_cost, 0)) AS internal_reasoning_cost,
+       sum(ifNull(cache_read_cost, 0)) AS cache_read_cost,
+       sum(ifNull(cache_write_cost, 0)) AS cache_write_cost,
+       toUInt64(countIf(total_cost IS NOT NULL)) AS priced_span_count
+     FROM spans FINAL
+     WHERE project_id = {projectId:String}
+       AND agent_name = {agentName:String}
+       AND span_type IN ('llm', 'embedding')
+       AND start_time >= {from:DateTime64(3)} AND start_time < {to:DateTime64(3)}`,
+		{
+			projectId: params.projectId,
+			agentName: params.agentName,
+			from: params.from,
+			to: params.to,
+		},
 	);
 }
 

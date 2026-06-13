@@ -259,6 +259,131 @@ describe("wrap", () => {
     expect(trace.traceName).toBe("solo");
   });
 
+  test("streamText: reasoning chunks → reasoning fields; TTFT anchors at first reasoning chunk", async () => {
+    const { fake, calls } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    (fog.streamText as (a: unknown) => unknown)({ model: "gpt-5", prompt: "think" });
+    // The wrapper composes its telemetry callbacks onto the forwarded args —
+    // drive them like a real stream: silent wait, reasoning block, then text.
+    const args = calls[0]!.args as {
+      onChunk: (e: { chunk: unknown }) => void;
+      onStepFinish: (s: unknown) => void;
+      onFinish: (e: unknown) => void;
+    };
+    await sleep(30);
+    args.onChunk({ chunk: { type: "reasoning-start", id: "r1" } });
+    args.onChunk({ chunk: { type: "reasoning-delta", id: "r1", text: "let me think" } });
+    await sleep(20);
+    args.onChunk({ chunk: { type: "reasoning-delta", id: "r1", text: " about this" } });
+    args.onChunk({ chunk: { type: "reasoning-end", id: "r1" } });
+    await sleep(20);
+    args.onChunk({ chunk: { type: "text-delta", text: "the answer" } });
+    args.onStepFinish({
+      text: "the answer",
+      usage: { inputTokens: 10, outputTokens: 30, reasoningTokens: 20 },
+    });
+    args.onFinish({ text: "the answer" });
+    await fog.flush();
+
+    const llm = traces()[0]!.spans.find((s) => s.spanType === "llm")!;
+    expect(llm.reasoningOffsets!.length).toBeGreaterThan(0);
+    expect(llm.reasoningChunkTokens!.length).toBe(llm.reasoningOffsets!.length);
+    // Cumulative curve rescales to the reported reasoning token count.
+    expect(llm.reasoningChunkTokens!.at(-1)).toBe(20);
+    // The block ran ~20ms between its deltas before reasoning-end closed it.
+    expect(llm.reasoningDurationMs!).toBeGreaterThan(0);
+    // TTFT = first reasoning chunk (after the ~30ms silent wait), NOT the
+    // text-delta that arrived ~40ms later.
+    expect(llm.ttftMs!).toBeGreaterThanOrEqual(20);
+    expect(llm.ttftMs!).toBeLessThan(llm.chunkOffsets![0]!);
+  });
+
+  test("streamText: no reasoning chunks / no reasoningTokens → fields stay absent", async () => {
+    const { fake, calls } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    (fog.streamText as (a: unknown) => unknown)({ model: "gpt-4o", prompt: "p" });
+    const args = calls[0]!.args as {
+      onChunk: (e: { chunk: unknown }) => void;
+      onStepFinish: (s: unknown) => void;
+      onFinish: (e: unknown) => void;
+    };
+    args.onChunk({ chunk: { type: "text-delta", text: "plain" } });
+    args.onStepFinish({ text: "plain", usage: { inputTokens: 1, outputTokens: 2 } });
+    args.onFinish({ text: "plain" });
+    await fog.flush();
+
+    const llm = traces()[0]!.spans.find((s) => s.spanType === "llm")!;
+    expect(llm.reasoningOffsets).toBeUndefined();
+    expect(llm.reasoningChunkTokens).toBeUndefined();
+    expect(llm.reasoningDurationMs).toBeUndefined();
+  });
+
+  test("generateObject: captures provider signals on the llm span", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    // Override with a result carrying fingerprint + rate-limit headers.
+    (fake as { generateObject: unknown }).generateObject = async () => ({
+      object: { a: 1 },
+      usage: { inputTokens: 5, outputTokens: 7 },
+      finishReason: "stop",
+      response: {
+        modelId: "gpt-4o-2024-08-06",
+        headers: {
+          "x-ratelimit-remaining-tokens": "900",
+          "x-ratelimit-limit-tokens": "1000",
+        },
+      },
+      providerMetadata: { openai: { systemFingerprint: "fp_obj" } },
+    });
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    await (fog.generateObject as (a: unknown) => Promise<unknown>)({
+      model: "gpt-4o",
+      prompt: "obj",
+      foglamp: { traceName: "obj-t" },
+    });
+    await fog.flush();
+
+    const llm = traces()[0]!.spans.find((s) => s.spanType === "llm")!;
+    expect(llm.modelId).toBe("gpt-4o-2024-08-06");
+    expect(llm.systemFingerprint).toBe("fp_obj");
+    expect(llm.rateLimit).toEqual({ tokensRemaining: 900, tokensLimit: 1000 });
+    // The wrap path never measures a pure model-call window.
+    expect(llm.modelCallMs).toBeUndefined();
+  });
+
+  test("streamObject: captures provider signals via composed onFinish", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    (fake as { streamObject: unknown }).streamObject = (args: Record<string, unknown>) => {
+      (args.onFinish as ((e: unknown) => void) | undefined)?.({
+        usage: { inputTokens: 2, outputTokens: 3 },
+        object: { b: 2 },
+        finishReason: "stop",
+        response: { headers: { "anthropic-ratelimit-tokens-remaining": "50" } },
+        providerMetadata: { anthropic: {} },
+      });
+      return { ok: true };
+    };
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    (fog.streamObject as (a: unknown) => unknown)({
+      model: "claude-haiku-4-5",
+      prompt: "obj",
+      foglamp: { traceName: "obj-stream" },
+    });
+    await fog.flush();
+
+    const llm = traces()[0]!.spans.find((s) => s.spanType === "llm")!;
+    expect(llm.rateLimit).toEqual({ tokensRemaining: 50 });
+    expect(llm.usage?.outputTokens).toBe(3);
+  });
+
   test("no API key: passes through (foglamp stripped) and sends nothing", async () => {
     const { fake, calls } = makeFakeAi();
     const { fetchImpl, traces } = makeCapture();
