@@ -41,8 +41,8 @@ Deterministic, free, and run with no external calls:
 
 ## LLM judges
 
-Judges send the input/output to a model that returns a 1–5 score or a pass/fail
-verdict with a reason. Presets cover relevance, helpfulness, coherence,
+Judges send the input/output to a model that returns a normalized 0.00–1.00
+score or a pass/fail verdict with a reason. Presets cover relevance, helpfulness, coherence,
 conciseness, instruction-following, completeness, toxicity/safety, tool
 selection, and RAG-oriented checks (faithfulness, context relevance, correctness
 vs. a reference).
@@ -70,6 +70,6 @@ configured. Add or replace a key with **upsert**, or delete it.
 ## Eval detail
 
 Opening an eval shows its recent activity: scored count, average score, pass
-rate, and judge spend over the last 7 days, plus a table of recent scores
+rate, and judge spend over the selected range, plus a table of recent scores
 (target, pass/fail or numeric score, the reason, and when). Each enabled eval
 also has a status — **ok**, **needs key**, or **error** — and an inline toggle.

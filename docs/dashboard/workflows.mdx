@@ -17,7 +17,8 @@ and a shared `workflowRunId` and Foglamp stitches them into a single run — see
 ## Workflows list
 
 A card per workflow over the selected range, each showing run count, trace
-count, tokens, cost, last-run time, and an error badge when any run failed.
+count, tokens, cost, last-run time, and an error badge when any run failed. A
+toggle switches between this card view and a compact table.
 
 ## Workflow detail
 
@@ -25,14 +26,6 @@ Opening a workflow shows two things:
 
 - **Run flow** — a graph of the selected run, one node per trace, coloured by
   status and labelled with name, start time, and duration. Click a node to open
-  that [trace](/dashboard/traces); each node also has a replay shortcut.
+  that [trace](/dashboard/traces).
 - **Runs table** — every run of the workflow with its trace count, duration,
   cost, and timestamp. Click a row to load it into the flow graph above.
-
-## Renaming a run
-
-A run is identified by its `workflowRunId`, which is often a UUID. Click the
-pencil next to a run to give it a friendly label — "Nightly digest · May 24"
-instead of the raw id. The label is stored against the `workflowRunId`; the id
-itself remains the canonical identity, so renaming is purely cosmetic and
-reversible.

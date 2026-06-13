@@ -24,7 +24,8 @@ import { trpc } from "@/utils/trpc";
 
 const DOCS_URL = "https://docs.foglamp.dev/quickstart";
 // Markdown page written for coding agents — the canonical instrumentation
-// instructions (v7 requirement, mapping rules, serverless flush, verification).
+// instructions: version-aware (wrap() for AI SDK v4–v6, fog.integration() for
+// v7), plus mapping rules, serverless flush, and verification.
 const AGENT_DOCS_URL = "https://docs.foglamp.dev/ai-instrument.md";
 const LLMS_INDEX_URL = "https://docs.foglamp.dev/llms.txt";
 const KEY_NAME = "Onboarding";
@@ -44,14 +45,15 @@ function buildPrompt(apiKey: string): string {
 
 1. Install the \`foglamp\` package with this repo's package manager (npm/pnpm/yarn/bun).
 2. Add to .env:      FOGLAMP_API_KEY=${apiKey}
-3. Fetch ${AGENT_DOCS_URL} (written for coding agents) and follow it:
-   wrap my generateText / streamText calls with fog.integration(...), and based
-   on my codebase map each agent to \`agentName\`, any multi-step pipeline to a
-   shared \`workflowName\` + \`workflowRunId\`, and any conversation thread to a
-   \`sessionId\` — real user conversations only; a batch/cron/pipeline run is a
-   workflow, not a session (one-off calls get a \`traceName\`). The docs explain how to pick
-   good values — read the codebase and map it properly, don't just label
-   everything with one name. Names (\`agentName\`/\`workflowName\`/\`traceName\`)
+3. Fetch ${AGENT_DOCS_URL} (written for coding agents) and follow it. First
+   check which Vercel AI SDK major this repo uses and take the matching path:
+   on v4–v6 wrap the \`ai\` module with \`wrap()\` from \`foglamp/wrap\`; on v7
+   attach \`fog.integration(...)\` to my generateText / streamText calls. Either
+   way, read my codebase and map each agent to \`agentName\`, any multi-step
+   pipeline to a shared \`workflowName\` + \`workflowRunId\`, and any conversation
+   thread to a \`sessionId\` — real user conversations only; a batch/cron/pipeline
+   run is a workflow, not a session (one-off calls get a \`traceName\`). Don't
+   just label everything with one name. Names (\`agentName\`/\`workflowName\`/\`traceName\`)
    must be static string literals — anything dynamic (an id, slug, URL, date)
    goes in \`metadata\`, \`workflowRunId\`, or \`sessionId\`, never in a name.
 4. Do NOT write smoke tests, scripts, or demo endpoints to produce a first
@@ -59,11 +61,10 @@ function buildPrompt(apiKey: string): string {
    (which command to run, which page to hit) — I'll run them and watch the
    traces land in Foglamp.
 
-Notes: the steps above target the Vercel AI SDK v7. If this repo is on AI SDK
-v4–v6, use \`wrap()\` from \`foglamp/wrap\` instead — see
-https://docs.foglamp.dev/sdk/wrap.md (same trace context options apply). The SDK
-is a no-op until FOGLAMP_API_KEY is set, so it is safe to add in every
-environment. Full docs index: ${LLMS_INDEX_URL}`;
+Notes: don't upgrade my AI SDK version to instrument — Foglamp supports v4
+through v7, and the docs cover both paths. The SDK is a no-op until
+FOGLAMP_API_KEY is set, so it is safe to add in every environment. Full docs
+index: ${LLMS_INDEX_URL}`;
 }
 
 export function OnboardingPanel() {

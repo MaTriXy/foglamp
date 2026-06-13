@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: "The dashboard home — KPIs, trends, and a live trace feed."
+description: "The dashboard home — KPIs, trends, and per-model/agent/workflow breakdowns."
 ---
 
 The **Overview** is the dashboard home: a single screen that answers "what is my
@@ -24,25 +24,20 @@ went up (worse), green means it went down.
 
 ## Trend charts
 
-- **Cost over time** — a stacked area chart of cost per minute, split by model.
+- **Cost over time** — a stacked line chart of cost per minute, split by model.
   The top five models get their own series; the rest roll into **Other**.
 - **Requests & errors** — spans per minute with errors overlaid.
 - **Latency** — p50 / p95 / p99 per minute.
 - **By model** — a table of requests, tokens, p95 latency, and cost per model.
 - **By agent** — the same, grouped by `agentName`.
+- **By workflow** — the same, grouped by `workflowName` (traces with no workflow
+  roll into **Ungrouped**).
 
 <Note>
   Models Foglamp can't price are labelled `(unknown)` in the breakdowns rather
   than shown as `$0` — a missing price is never silently treated as free. Add a
   rule on the [Pricing](/dashboard/cost) page to price them.
 </Note>
-
-## Live feed
-
-The **Live feed** card streams the latest traces as they arrive, refreshing
-every few seconds. Click any row to open its [trace](/dashboard/traces). Before
-your first span lands, an onboarding panel appears here instead — it disappears
-automatically once data starts flowing.
 
 ## Date range
 

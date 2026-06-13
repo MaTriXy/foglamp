@@ -45,10 +45,15 @@ limiting is shared across replicas; unset, each instance limits in memory
 (fine for a single replica). The default compose includes a Redis service.
 
 <Note>
-  In the production compose, ClickHouse's port **8123 is internal-only** — it is
-  reachable from the other services but not published on the host. Keep it that
-  way (or set `CLICKHOUSE_PASSWORD`) before exposing the network; an open
-  passwordless ClickHouse leaks every span.
+  Which ports reach the host depends on the compose files in play. The base
+  `docker-compose.yml` keeps ClickHouse's **8123 internal-only** — reachable from
+  the other services but not published on the host. A plain `docker compose up`
+  **also** loads `docker-compose.override.yml`, which publishes 8123 (plus
+  Postgres `5432` and Redis `6379`) to `localhost` for local development. For a
+  production self-host, run without the override —
+  `docker compose -f docker-compose.yml up --build` — and set
+  `CLICKHOUSE_PASSWORD` before the network is reachable; an open passwordless
+  ClickHouse leaks every span.
 </Note>
 
 ## Quickstart
@@ -60,8 +65,10 @@ docker compose up --build
 ```
 
 On boot the stack runs Drizzle migrations, applies the ClickHouse DDL, sets span
-retention, and runs the idempotent seed script. The seed prints an **admin login
-and an API key once** — copy them.
+retention, and runs the idempotent seed script (the one-shot `migrate` service).
+The seed prints an **admin login and an API key once** — copy them. If you missed
+them, search the `migrate` service logs for `Save these now`
+(`docker compose logs migrate`).
 
 <Note>
   There are **no static default credentials**. If `ADMIN_EMAIL` / `ADMIN_PASSWORD`

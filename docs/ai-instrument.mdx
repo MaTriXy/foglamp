@@ -16,11 +16,10 @@ one real run flowing, then enrich.
 
 ## Rules
 
-- **Check the AI SDK version first.** The steps below use v7's telemetry
-  interface (`ai@7`). On **AI SDK v4–v6**, use `wrap()` from `foglamp/wrap`
-  instead — follow [AI SDK v4–v6 (wrap)](/sdk/wrap); steps 3–5 below (mapping,
-  flush, verify) still apply, with the context bound via `fog.with(...)` (the
-  fully-typed path) or a per-call `foglamp: {...}` key.
+- **Check the AI SDK version first and pick the matching path** (step 2):
+  `wrap()` from `foglamp/wrap` on **AI SDK v4–v6**, or `fog.integration(...)` on
+  **v7**. Both capture identical traces — never upgrade the app's AI SDK just to
+  instrument it. Steps 3–5 below (mapping, flush, verify) apply to both paths.
 - **Never refactor working AI code to instrument it.** `wrap()` covers
   `generateText`/`streamText`/`generateObject`/`streamObject` **and the
   `ToolLoopAgent` / `Experimental_Agent` classes** — wrap in place; do not
@@ -51,10 +50,38 @@ FOGLAMP_API_KEY=fl_your_key_here
 # FOGLAMP_INGEST_URL=http://localhost:4000/ingest
 ```
 
-## 2. Wrap the AI SDK calls (per-call, recommended)
+## 2. Wire up Foglamp — pick the path for the installed version
+
+**Check the installed `ai` version first** (read the lockfile / `package.json`),
+then follow the matching path. Both capture identical traces; only the wiring
+differs, and steps 3–5 apply to both. Every traced call needs a `traceName`
+**or** an `agentName`.
+
+### AI SDK v4, v5, or v6 — `wrap()`
+
+Wrap the `ai` module once, then bind a context with `fog.with(...)`; the
+returned functions keep the AI SDK's own, fully-typed signatures. `wrap()` also
+covers `generateObject`/`streamObject` and the `ToolLoopAgent` /
+`Experimental_Agent` classes — instrument them in place; do not rewrite agent
+code into `generateText` calls.
+
+```ts
+import * as ai from "ai";
+import { wrap } from "foglamp/wrap";
+
+const fog = wrap(ai);
+const { generateText } = fog.with({ agentName: "summarizer" });
+
+await generateText({ model, prompt }); // traced automatically
+```
+
+See [AI SDK v4–v6 (wrap)](/sdk/wrap) for `fog.run(...)` (ambient context) and
+the per-call `foglamp: {...}` option.
+
+### AI SDK v7 — `fog.integration()`
 
 Attach the integration to each `generateText` / `streamText` call via the
-`telemetry` option. Every call needs a `traceName` **or** an `agentName`.
+`telemetry` option.
 
 ```ts
 import { foglamp } from "foglamp";
@@ -146,6 +173,10 @@ fog.integration({
   metadata: { userId: user.id, env: process.env.NODE_ENV ?? "dev" },
 });
 ```
+
+The context fields are identical on both paths. On **v4–v6** the same object
+goes into `fog.with({...})`, a per-call `foglamp: {...}` key, or
+`fog.run({...}, fn)` for run-scoped context — see [wrap](/sdk/wrap).
 
 ## 4. Flush in serverless
 

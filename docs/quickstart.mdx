@@ -5,16 +5,21 @@ description: "Instrument a Vercel AI SDK app and see your first trace."
 
 ## Requirements
 
-<Note>
-  Foglamp requires **AI SDK v7** (currently in beta). The SDK is built against
-  v7's first-class telemetry interface and does not support v5/v6.
-</Note>
+Foglamp works with **every major version of the Vercel AI SDK** — v4, v5, v6,
+and v7 (beta). You pick an instrumentation path by the version your app runs;
+both produce identical traces to the same backend.
 
-- `ai@7` installed in your project
+- `ai` installed — any of v4, v5, v6, or v7
 - A Foglamp API key (`fl_…`) — created in the dashboard, or printed by the
   seed script when [self-hosting](/self-hosting/overview)
 - An ingest endpoint URL — `https://ingest.foglamp.dev/ingest` for hosted, or
   your own when self-hosting
+
+<Info>
+  Not sure which version you're on? Run `npm ls ai` (or check the `ai` entry in
+  `package.json`). The two paths share the same trace context, configuration,
+  and flushing — only the call wiring differs.
+</Info>
 
 ## 1. Install
 
@@ -56,14 +61,42 @@ FOGLAMP_INGEST_URL=http://localhost:4000/ingest
 
 ## 3. Instrument
 
-You have two ways to wire Foglamp in. Pick whichever fits your app.
+How you attach Foglamp depends on your AI SDK version. Both paths capture the
+same traces — model steps, tool calls, tokens, cost, latency — and send them to
+the same endpoint. Pick the tab for the version your app runs.
 
 <Tabs>
-  <Tab title="Per-call (recommended)">
-    Attach the integration to individual `generateText`/`streamText` calls. This
-    is fully typed and lets you label each call with a name or agent, plus an
-    optional workflow and run. Every call needs a `traceName` **or** an
-    `agentName`; `workflowName` and `workflowRunId` are passed together.
+  <Tab title="AI SDK v4–v6">
+    Wrap the `ai` module once with `wrap()` from `foglamp/wrap`, then bind a
+    trace context with `fog.with(...)`. The returned functions have the AI SDK's
+    own, fully-typed signatures — use them exactly as before.
+
+    ```ts
+    import * as ai from "ai";
+    import { openai } from "@ai-sdk/openai";
+    import { wrap } from "foglamp/wrap";
+
+    const fog = wrap(ai);
+
+    // Bind a context; get the AI SDK's own signatures back, fully typed.
+    const { generateText } = fog.with({ agentName: "summarizer" });
+
+    const { text } = await generateText({
+      model: openai("gpt-4o"),
+      prompt: "Summarize the latest deploy.",
+    });
+    ```
+
+    `wrap()` also returns drop-in `ToolLoopAgent` / `Experimental_Agent`
+    classes, and `fog.run(context, fn)` sets run/session context ambiently with
+    no parameter threading. See [AI SDK v4–v6 (wrap)](/sdk/wrap) for the full
+    surface.
+  </Tab>
+  <Tab title="AI SDK v7 (beta)">
+    Attach the integration to individual `generateText`/`streamText` calls
+    through v7's `telemetry.integrations` array. Every call needs a `traceName`
+    **or** an `agentName`; `workflowName` and `workflowRunId` are passed
+    together.
 
     ```ts
     import { foglamp } from "foglamp";
@@ -92,17 +125,9 @@ You have two ways to wire Foglamp in. Pick whichever fits your app.
     // Or, for a one-off call that isn't an agent, just name it:
     // fog.integration({ traceName: "summarize-deploy" })
     ```
-  </Tab>
-  <Tab title="Global">
-    Register the integration once and instrument every call in the app. Reads
-    `functionId` as the agent name and reserved keys from `telemetry.metadata`.
 
-    ```ts
-    import { foglamp } from "foglamp";
-    import { registerTelemetry } from "ai";
-
-    registerTelemetry(foglamp());
-    ```
+    To instrument every call without touching call sites, register once with
+    `registerTelemetry(foglamp())` — see the [SDK overview](/sdk/overview).
   </Tab>
 </Tabs>
 

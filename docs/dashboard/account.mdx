@@ -7,6 +7,19 @@ Everything is scoped to a **project** inside an **organization**. Switch
 projects from the dropdown at the top of the sidebar; org-wide settings live
 under the **Configs** section of the nav.
 
+## Signing in
+
+The dashboard signs in with email + password by default; magic-link email and
+Google OAuth are optional (see [Configuration](/self-hosting/configuration)).
+Forgot your password? Use **Forgot password?** on the login screen to get a
+reset link by email, then set a new one — the link is valid for one hour.
+
+<Note>
+  Password-reset and magic-link emails require [email](/self-hosting/configuration)
+  to be configured (`RESEND_API_KEY`). On a self-hosted instance without it,
+  password login still works but reset links can't be sent.
+</Note>
+
 ## API keys
 
 Each project has its own ingest keys. On the **API Keys** page you can:
@@ -46,7 +59,7 @@ The **Usage** tab shows your consumption against plan limits for the current
 period:
 
 - **Spans this period** — the metered quota, with the reset date.
-- **Projects** and **Alerts** — counts against their limits.
+- **Projects**, **Alerts**, and **Evals** — counts against their limits.
 
 A bar turns red as it approaches its limit. When the span quota is nearly
 exhausted, an app-wide banner appears (amber at 90%, red at 100%).

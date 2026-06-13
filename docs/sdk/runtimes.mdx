@@ -15,6 +15,13 @@ can freeze or terminate before a batch is sent. The rule:
 The collector auto-detects its runtime and picks a flush strategy. You can
 always override with `fog.flush()` or by passing a `waitUntil` hook.
 
+<Note>
+  Flushing is identical on both entry points. The examples below use the v7
+  `foglamp()` collector, but a `wrap()` handle exposes the same `flush()` /
+  `shutdown()` methods, the same `waitUntil` config, and the same serverless
+  auto-detection — they apply verbatim on **AI SDK v4–v6**.
+</Note>
+
 ## Long-running (Node, Bun)
 
 Nothing to do. The collector flushes every `flushIntervalMs` (default 5s) and on

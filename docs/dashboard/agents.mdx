@@ -13,18 +13,22 @@ Set `agentName` on a call's [integration](/sdk/overview) to populate this view.
 
 A card per agent over the selected range: span count (and the LLM-span subset),
 tokens, p95 latency, and cost, with an error badge when any of its spans failed.
+A toggle switches between this card view and a compact table.
 
 ## Agent detail
 
 Opening an agent shows:
 
-- **Stat cards** — spans, tokens, latency (p50 / p95), and cost, plus an error
-  count.
-- **Latest trace flow** — a graph of the agent's most recent trace's steps and
-  tool calls (model logos for LLM steps, tool icons for tools). Click through to
-  the full [trace](/dashboard/traces).
-- **Recent traces** — the agent's latest runs with spans, tokens, duration,
-  cost, and a replay shortcut on each row.
+- **Stat cards** — spans, error rate, p95 latency, and total cost.
+- **Spans & errors** and **Latency** — per-bucket trend charts (spans with
+  errored spans overlaid; p50 / p95 / p99 latency) over the selected range.
+- **Cost breakdown** — a donut of cost per pricing dimension across the agent's
+  priced spans.
+- **Trace flow** — a graph of the agent's most recent trace's steps and tool
+  calls (model logos for LLM steps, tool icons for tools). Click through to the
+  full [trace](/dashboard/traces).
+- **Recent traces** — the agent's latest runs with spans, tokens, duration, and
+  cost; click a row to open the trace.
 
 <Tip>
   Agents and workflows are orthogonal. An agent rollup spans every workflow it

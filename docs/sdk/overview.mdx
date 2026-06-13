@@ -3,9 +3,23 @@ title: SDK overview
 description: "The foglamp() collector and its integration methods."
 ---
 
-The `foglamp` package exposes a single factory, `foglamp()`, which
-returns a **collector**. The collector batches spans and flushes them to your
-ingest endpoint, and produces telemetry integrations you attach to AI SDK calls.
+The `foglamp` package has **two entry points**, one per AI SDK generation. Both
+batch spans and flush them to your ingest endpoint, and both share the same
+trace-context fields, `fog.run()`, [configuration](/sdk/configuration), and
+[flushing](/sdk/runtimes) — they differ only in how they attach to your calls.
+
+<CardGroup cols={2}>
+  <Card title="wrap() — AI SDK v4–v6" icon="package" href="/sdk/wrap">
+    Wraps the `ai` module for the stable v4, v5, and v6 lines.
+  </Card>
+  <Card title="foglamp() — AI SDK v7" icon="bolt" href="#foglampconfig">
+    The native telemetry-integrations collector. Documented below.
+  </Card>
+</CardGroup>
+
+This page documents the v7 `foglamp()` collector; the v4–v6 `wrap()` API has its
+own [reference](/sdk/wrap). `foglamp()` returns a **collector** that batches
+spans and produces telemetry integrations you attach to AI SDK v7 calls.
 
 ```ts
 import { foglamp } from "foglamp";
@@ -14,12 +28,11 @@ const fog = foglamp();
 ```
 
 <Note>
-  The `foglamp()` collector uses the **AI SDK v7** telemetry-integrations API.
-  On **AI SDK v4/v5/v6**, use the [`foglamp/wrap`](/sdk/wrap) entry point instead —
-  same traces, same backend. Either way the SDK carries a single small runtime
+  Whichever entry point you use, the SDK carries a single small runtime
   dependency (`uuidv7`) and never forces a particular version of `zod` on your
   project — the wire types are a hand-written, zod-free mirror of the contract,
-  so `ai` is the only required peer dependency.
+  so `ai` is the only required peer dependency
+  (`ai@^4 || ^5 || ^6 || ^7.0.0-beta.1`).
 </Note>
 
 ## `foglamp(config?)`
@@ -69,7 +82,7 @@ fog.integration({ traceName: "classify-email" });
 | `workflowName` | string | the named process; pass with `workflowRunId` |
 | `workflowRunId` | string | groups traces into one run; pass with `workflowName` |
 | `sessionId` | string | ties traces to one conversation |
-| `metadata` | `Record<string, string \| number \| boolean>` | free-form labels |
+| `metadata` | `Record<string, string \| number \| boolean>` | free-form labels; values are coerced to strings on the wire |
 
 <Note>
   `traceName` **or** `agentName` is required (both is fine — the display label is
@@ -94,7 +107,9 @@ flush was already in flight. Use on graceful process shutdown in long-running
 servers.
 
 ```ts
-process.on("SIGTERM", () => fog.shutdown());
+process.on("SIGTERM", async () => {
+  await fog.shutdown();
+});
 ```
 
 <Note>

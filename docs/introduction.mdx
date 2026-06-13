@@ -7,14 +7,16 @@ Foglamp gives you unified observability for agents built on the
 [Vercel AI SDK](https://ai-sdk.dev) — cost, latency, token usage, distributed
 traces, and full prompt/response logs — with two lines of code.
 
-It is **TypeScript-only** and built for **AI SDK v7**. You instrument your app
-with `foglamp`, and traces stream to a backend you can run yourself
-or use as a hosted service.
+It is **TypeScript-only** and works with every major version of the
+[Vercel AI SDK](https://ai-sdk.dev) — v4, v5, v6, and v7. You instrument your
+app with `foglamp`, and traces stream to a backend you can run yourself or use
+as a hosted service.
 
 <Note>
-  Foglamp targets **AI SDK v7** (currently in beta). The SDK hooks into v7's
-  first-class telemetry interface — see the [Quickstart](/quickstart) for
-  version requirements.
+  Foglamp meets the AI SDK where it is. On the stable **v4, v5, and v6** lines
+  it wraps the module with [`foglamp/wrap`](/sdk/wrap); on **v7 (beta)** it uses
+  the native telemetry-integrations API. Same traces, same backend — the
+  [Quickstart](/quickstart) helps you pick your path.
 </Note>
 
 ## Why Foglamp
@@ -48,7 +50,7 @@ with its own cost and latency. Foglamp is built around that shape.
 your app ──foglamp──▶ ingest API ──▶ ClickHouse ──▶ dashboard
 ```
 
-- **SDK** — a telemetry integration that batches spans and flushes them
+- **SDK** — instruments your AI SDK calls, batching spans and flushing them
   fire-and-forget. Silent no-op when no API key is set; never throws, never adds
   latency to your model calls.
 - **Ingest API** — authenticates the API key, prices each span, and writes to

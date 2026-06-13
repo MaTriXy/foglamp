@@ -89,11 +89,26 @@
               }
             }
           },
+          "413": {
+            "description": "Request body exceeds INGEST_MAX_BODY_BYTES (default 10 MiB). Rejected before the body is parsed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error"],
+                  "properties": {
+                    "error": { "type": "string", "example": "payload too large" }
+                  }
+                }
+              }
+            }
+          },
           "429": {
-            "description": "Per-key rate limit exceeded.",
+            "description": "Too Many Requests — returned in two distinct cases. (1) Per-key rate limit: includes a `Retry-After` header; back off and retry after it. (2) Plan quota exceeded: a billing condition with no `Retry-After`; retrying won't succeed until the plan is upgraded or the quota resets.",
             "headers": {
               "Retry-After": {
-                "description": "Seconds to wait before retrying.",
+                "description": "Seconds to wait before retrying. Present only on the rate-limit variant, not the quota variant.",
+                "required": false,
                 "schema": { "type": "integer" }
               }
             },
@@ -103,10 +118,33 @@
                   "type": "object",
                   "required": ["error"],
                   "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "rate limit exceeded"
+                    "error": { "type": "string" }
+                  }
+                },
+                "examples": {
+                  "rateLimit": {
+                    "summary": "Per-key rate limit (carries Retry-After)",
+                    "value": { "error": "rate limit exceeded" }
+                  },
+                  "quota": {
+                    "summary": "Plan quota exceeded (no Retry-After)",
+                    "value": {
+                      "error": "Monthly span quota exceeded — upgrade your plan to keep ingesting."
                     }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server is shutting down and is no longer accepting new batches (graceful drain in progress). Retry against another replica or after restart.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error"],
+                  "properties": {
+                    "error": { "type": "string", "example": "shutting down" }
                   }
                 }
               }
@@ -244,10 +282,39 @@
           "modelId": { "type": "string", "maxLength": 256, "example": "gpt-4o" },
           "usage": { "$ref": "#/components/schemas/Usage" },
           "ttftMs": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Time to first token, milliseconds. May be fractional.",
+            "example": 320
+          },
+          "chunkOffsets": {
+            "type": "array",
+            "maxItems": 200,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "Streaming LLM spans only: ms from step start for each sampled output chunk. Parallel to chunkTokens."
+          },
+          "chunkTokens": {
+            "type": "array",
+            "maxItems": 200,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "Streaming LLM spans only: cumulative output tokens at each chunkOffsets sample."
+          },
+          "reasoningOffsets": {
+            "type": "array",
+            "maxItems": 200,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "Streaming reasoning models only: ms from step start for each sampled reasoning chunk. Parallel to reasoningChunkTokens."
+          },
+          "reasoningChunkTokens": {
+            "type": "array",
+            "maxItems": 200,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "Streaming reasoning models only: cumulative reasoning tokens at each reasoningOffsets sample."
+          },
+          "reasoningDurationMs": {
             "type": "integer",
             "minimum": 0,
-            "description": "Time to first token, milliseconds.",
-            "example": 320
+            "description": "Total wall-clock ms spent inside reasoning blocks for this step."
           },
           "input": {
             "type": "string",
@@ -258,6 +325,44 @@
             "type": "string",
             "maxLength": 1000000,
             "description": "Completion/output text. Omitted when recordOutputs is disabled."
+          },
+          "toolCatalog": {
+            "type": "string",
+            "maxLength": 1000000,
+            "description": "JSON catalog of tools offered for the call (name → {description, JSON-Schema params}). Stamped on llm and agent spans only."
+          },
+          "modelCallMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Pure model-call wall-clock for the step (ms), excluding client-side tool execution. v7 only; absent on v4–v6 wrap and non-model spans."
+          },
+          "systemFingerprint": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Provider model-build fingerprint (e.g. OpenAI system_fingerprint)."
+          },
+          "safetyMetadata": {
+            "type": "string",
+            "maxLength": 16384,
+            "description": "JSON blob of provider safety ratings, as reported. Absent when the provider reports none."
+          },
+          "sources": {
+            "type": "string",
+            "maxLength": 1000000,
+            "description": "JSON array of RAG/grounding citations (StepResult.sources). Recorded only when output capture is on."
+          },
+          "rateLimit": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Rate-limit headroom, normalized cross-provider from response headers (OpenAI x-ratelimit-*, Anthropic anthropic-ratelimit-*). Any subset may be present.",
+            "properties": {
+              "requestsLimit": { "type": "integer", "minimum": 0 },
+              "requestsRemaining": { "type": "integer", "minimum": 0 },
+              "requestsResetMs": { "type": "integer", "minimum": 0 },
+              "tokensLimit": { "type": "integer", "minimum": 0 },
+              "tokensRemaining": { "type": "integer", "minimum": 0 },
+              "tokensResetMs": { "type": "integer", "minimum": 0 }
+            }
           },
           "metadata": { "$ref": "#/components/schemas/Metadata" }
         }
@@ -280,8 +385,10 @@
       },
       "Metadata": {
         "type": "object",
-        "description": "Free-form string-to-string labels.",
-        "additionalProperties": { "type": "string" },
+        "description": "Free-form string-to-string labels. At most 64 entries; keys up to 128 chars, values up to 1024 chars.",
+        "maxProperties": 64,
+        "propertyNames": { "maxLength": 128 },
+        "additionalProperties": { "type": "string", "maxLength": 1024 },
         "example": { "environment": "production", "region": "us-east-1" }
       }
     }

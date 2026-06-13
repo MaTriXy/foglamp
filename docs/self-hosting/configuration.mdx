@@ -25,7 +25,7 @@ required. `apps/server/.env.example` mirrors this reference.
 | --- | --- | --- |
 | `CLICKHOUSE_URL` | `http://localhost:8123` | ClickHouse HTTP endpoint. |
 | `CLICKHOUSE_USER` | `default` | Username. |
-| `CLICKHOUSE_PASSWORD` | `` | Password. Empty is fine while ClickHouse is unreachable from outside your network (the default compose keeps 8123 internal); the server logs a warning if it's empty in production. |
+| `CLICKHOUSE_PASSWORD` | `` | Password. Empty is fine while ClickHouse is unreachable from outside your network (the base `docker-compose.yml` keeps 8123 off the host; the dev override publishes it to `localhost`); the server logs a warning if it's empty in production. |
 | `CLICKHOUSE_DATABASE` | `foglamp` | Database name. |
 
 ## Ingest (`apps/ingest`)
