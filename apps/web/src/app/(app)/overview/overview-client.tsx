@@ -708,6 +708,7 @@ export function OverviewClient() {
                 width={64}
                 tickFormatter={(v) => costAxisUsd.format(Number(v))}
                 dx={-4}
+                className="tabular-nums"
               />
               <LineChart.Tooltip
                 labelFormatter={(v) => formatBucketFull(String(v))}

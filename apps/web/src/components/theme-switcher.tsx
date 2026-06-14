@@ -44,7 +44,7 @@ export function ThemeSwitcher() {
   const pillId = useId();
 
   return (
-    <div className="inline-flex  items-center rounded-full p-1 dark:bg-input/20">
+    <div className="inline-flex  items-center rounded-full p-1 bg-input/20">
       {THEME_OPTIONS.map((opt) => {
         // Track the chosen setting (theme), not the resolved value, so "System"
         // is its own selectable state. Nothing is active until mounted, so the

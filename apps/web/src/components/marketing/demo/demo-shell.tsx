@@ -30,7 +30,11 @@ export function DemoShell({
   const container: Variants = {
     hidden: {},
     show: {
-      transition: { when: "beforeChildren", staggerChildren: 0.18, delayChildren: 0.1 },
+      transition: {
+        when: "beforeChildren",
+        staggerChildren: 0.18,
+        delayChildren: 0.1,
+      },
     },
   };
 
@@ -65,8 +69,11 @@ export function DemoShell({
       animate={inView ? "show" : "hidden"}
       variants={container}
       className={cn(
-        "relative flex h-[660px] w-full overflow-hidden rounded-3xl corner-squircle bg-sidebar",
-        "shadow-[0_1px_0_0_var(--border),0_24px_60px_-24px_rgba(0,0,0,0.35)]",
+        // The frame is darker than the page, so a plain dark drop shadow can't
+        // ground it and a light rim just paints a bright line across the top.
+        // Light keeps the crisp --custom-shadow; dark floats on a pure ambient
+        // shadow only (no light edges).
+        "relative flex h-[660px] w-full overflow-hidden rounded-3xl corner-squircle bg-sidebar shadow-(--custom-shadow) dark:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4),0_16px_40px_-12px_rgba(0,0,0,0.55)]"
       )}
     >
       {/* Sidebar surface */}
@@ -82,7 +89,7 @@ export function DemoShell({
       <motion.div
         variants={inset}
         style={{ willChange: "transform, opacity, filter" }}
-        className="relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl corner-squircle bg-background shadow-(--custom-shadow) max-md:ml-2"
+        className="relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl corner-squircle bg-background shadow-(--custom-shadow) max-md:ml-2 dark:shadow-none"
       >
         <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-380 flex-col gap-6 p-6 lg:p-8">

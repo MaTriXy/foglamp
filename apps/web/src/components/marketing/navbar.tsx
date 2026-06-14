@@ -64,12 +64,12 @@ export function MarketingNavbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-background/70 backdrop-blur-md shadow-[0_1px_0_0_var(--border)]">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+      <div className="relative mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
         <Link href="/" aria-label="Foglamp home" className="flex items-center">
           <Logo />
         </Link>
 
-        <NavigationMenu className="hidden md:flex">
+        <NavigationMenu className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:flex">
           <NavigationMenuList>
             <ProductsMenu />
             <NavigationMenuItem>
