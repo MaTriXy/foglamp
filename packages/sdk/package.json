@@ -26,7 +26,8 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc -b",
-    "dev": "tsdown --watch"
+    "dev": "tsdown --watch",
+    "prepack": "rm -rf dist && tsdown"
   },
   "dependencies": {
     "uuidv7": "catalog:"
