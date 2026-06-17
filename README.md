@@ -1,3 +1,16 @@
+<p align="center">
+  <a href="https://foglamp.dev">
+    <img src="./apps/web/src/app/opengraph-image.png" alt="Foglamp — ship AI agents you can actually see. Cost, latency, traces, and evals, shown over a product dashboard." width="100%">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/foglamp"><img src="https://shieldcn.dev/npm/foglamp.svg?logo=npm" alt="npm version"></a>
+  <a href="#license"><img src="https://shieldcn.dev/badge/license-Apache%202.0-FF5513.svg" alt="License: Apache 2.0"></a>
+  <a href="https://ai-sdk.dev"><img src="https://shieldcn.dev/badge/built%20for-Vercel%20AI%20SDK-000000.svg?logo=vercel" alt="Built for the Vercel AI SDK"></a>
+  <a href="./CONTRIBUTING.md"><img src="https://shieldcn.dev/badge/PRs-welcome-FF5513.svg" alt="PRs welcome"></a>
+</p>
+
 # Foglamp
 
 **The missing observability layer for the Vercel AI SDK.**
