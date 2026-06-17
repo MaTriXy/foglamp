@@ -49,7 +49,7 @@ const TILES: Tile[] = [
 
 // ─── Single metric tile ───────────────────────────────────────────────────────
 // `lit` switches between the fog version (muted) and the revealed version
-// (accent border + colored glow + tinted icon), so passing under the lamp reads
+// (accent border + colored glow + tinted icon), so being inside the beam reads
 // as the tile "powering on".
 
 function MetricTile({ tile, lit }: { tile: Tile; lit?: boolean }) {
@@ -105,9 +105,8 @@ function MetricTile({ tile, lit }: { tile: Tile; lit?: boolean }) {
 
 // ─── Volumetric fog texture ───────────────────────────────────────────────────
 // A drifting bank of mist made with fractal-noise turbulence (deterministic via
-// a fixed seed — SSR-safe). Several of these at different scales/speeds layer
-// into rolling fog. RGB is forced to a soft light grey; the noise drives alpha
-// so it reads as wisps that scatter light over the dark panel.
+// a fixed seed — SSR-safe). RGB is forced to a dark grey and the noise drives
+// alpha, so it reads as a dark, moody haze over the panel.
 
 function FogBank({
   id,
@@ -135,14 +134,14 @@ function FogBank({
           stitchTiles="stitch"
           result="noise"
         />
-        {/* RGB → soft cool grey; alpha → thresholded noise (wisps). */}
+        {/* RGB → dark grey; alpha → thresholded noise (wisps). */}
         <feColorMatrix
           in="noise"
           type="matrix"
-          values="0 0 0 0 0.82
-                  0 0 0 0 0.85
-                  0 0 0 0 0.93
-                  0 0 0 0.7 -0.22"
+          values="0 0 0 0 0.28
+                  0 0 0 0 0.30
+                  0 0 0 0 0.38
+                  0 0 0 0.85 -0.16"
         />
       </filter>
       <rect width="100%" height="100%" filter={`url(#${id})`} />
@@ -151,7 +150,8 @@ function FogBank({
 }
 
 // ─── Auto-sweep rAF hook ──────────────────────────────────────────────────────
-// Drifts the lamp left↔right until the user takes over with their pointer.
+// Drifts the beam's aim point left↔right until the user takes over with their
+// pointer, so the cone sweeps the panel like a searchlight on its own.
 
 function useAutoSweep(
   panelRef: React.RefObject<HTMLDivElement | null>,
@@ -170,13 +170,13 @@ function useAutoSweep(
 
     if (reduce || userTookOver) return;
 
-    const PERIOD_MS = 6400;
+    const PERIOD_MS = 7000;
     const step = (ts: number) => {
       if (startTsRef.current === null) startTsRef.current = ts;
       const t = (ts - startTsRef.current) / PERIOD_MS;
       const { width: w, height: h } = el.getBoundingClientRect();
-      const mx = w * (0.22 + 0.56 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
-      const my = h * (0.4 + 0.18 * Math.sin(t * Math.PI * 2 * 0.7 + 1.0));
+      const mx = w * (0.18 + 0.5 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
+      const my = h * (0.55 + 0.32 * Math.sin(t * Math.PI * 2 * 0.7 + 1.0));
       setPos({ mx, my });
       rafRef.current = requestAnimationFrame(step);
     };
@@ -202,20 +202,13 @@ export function CtaSection() {
   const smoothRaf = useRef<number>(0);
   const autoPos = useAutoSweep(panelRef, reduce, userTookOver);
 
-  // Write the lamp position to the inner div as CSS vars (read by the reveal
-  // mask, the inverse fog mask, the glow, and the bulb). Imperative so the rAF
-  // loop never re-renders React.
-  const writeCssVars = useCallback((mx: number, my: number) => {
-    const el = innerRef.current;
-    if (!el) return;
-    el.style.setProperty("--mx", `${mx}px`);
-    el.style.setProperty("--my", `${my}px`);
-  }, []);
-
-  // Spring-like smoothing toward the live (or auto-sweep) target.
+  // Each frame: smooth the aim point toward the live (or auto-sweep) target,
+  // then turn it into the cone's bearing from the top-right apex and publish it
+  // as `--ba` (degrees, conic convention: 0=up, 90=right, 180=down, 270=left).
+  // Imperative so the rAF loop never re-renders React.
   useEffect(() => {
     if (reduce) return;
-    const LERP = 0.14;
+    const LERP = 0.13;
     let curMx: number | null = null;
     let curMy: number | null = null;
     const tick = () => {
@@ -224,12 +217,23 @@ export function CtaSection() {
       if (curMy === null) curMy = target.my;
       curMx += (target.mx - curMx) * LERP;
       curMy += (target.my - curMy) * LERP;
-      writeCssVars(curMx, curMy);
+
+      const panel = panelRef.current;
+      const inner = innerRef.current;
+      if (panel && inner) {
+        const { width: w } = panel.getBoundingClientRect();
+        // Apex at the top-right corner (w, 0); bearing toward the aim point.
+        const dx = curMx - w;
+        const dy = curMy;
+        let deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        deg = ((deg % 360) + 360) % 360;
+        inner.style.setProperty("--ba", String(deg));
+      }
       smoothRaf.current = requestAnimationFrame(tick);
     };
     smoothRaf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(smoothRaf.current);
-  }, [reduce, autoPos, writeCssVars]);
+  }, [reduce, autoPos]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -246,20 +250,19 @@ export function CtaSection() {
     setUserTookOver(false);
   }, []);
 
-  // Reduced-motion: center the (unused) vars once.
-  useEffect(() => {
-    if (!reduce) return;
-    const el = panelRef.current;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    writeCssVars(width / 2, height / 2);
-  }, [reduce, writeCssVars]);
-
-  const LAMP_R = 240;
-  // Reveal mask for the sharp tiles: visible inside the lamp.
-  const revealMask = `radial-gradient(circle ${LAMP_R}px at var(--mx) var(--my), #000 0%, #000 32%, rgba(0,0,0,0.55) 56%, transparent 76%)`;
-  // Inverse mask for the fog: the lamp burns a hole in the mist.
-  const clearMask = `radial-gradient(circle ${LAMP_R + 30}px at var(--mx) var(--my), transparent 0%, transparent 40%, rgba(0,0,0,0.6) 58%, #000 82%)`;
+  // The cone = an angular wedge (conic) clipped by a distance falloff (radial),
+  // both anchored at the top-right apex, intersected. `--ba` rotates the wedge
+  // to aim at the cursor; a fallback keeps it pointed down-left before mount.
+  const conic =
+    "conic-gradient(from calc((var(--ba, 215) - 90) * 1deg) at 100% 0%, transparent 74deg, #000 83deg, #000 97deg, transparent 106deg)";
+  const radial =
+    "radial-gradient(150% 150% at 100% 0%, #000 0%, #000 40%, transparent 84%)";
+  const coneMask: React.CSSProperties = {
+    WebkitMaskImage: `${conic}, ${radial}`,
+    maskImage: `${conic}, ${radial}`,
+    WebkitMaskComposite: "source-in",
+    maskComposite: "intersect",
+  };
 
   return (
     <section className="mx-auto w-full max-w-7xl px-5 sm:px-8">
@@ -273,7 +276,7 @@ export function CtaSection() {
         {/* ── Faint dashboard grid so the panel reads as a surface under the fog. ── */}
         <div
           aria-hidden
-          className="absolute inset-0 z-0 opacity-50 dark:opacity-40"
+          className="absolute inset-0 z-0 opacity-40 dark:opacity-30"
           style={{
             backgroundImage:
               "radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)",
@@ -284,6 +287,47 @@ export function CtaSection() {
               "radial-gradient(ellipse 82% 72% at 50% 50%, #000 35%, transparent 100%)",
           }}
         />
+
+        {!reduce && (
+          <>
+            {/* Dark veil — deepens the panel so the fog reads moody, not bright. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 z-0"
+              style={{ background: "rgba(4,5,8,0.34)" }}
+            />
+            {/* A ghost of data, lost in the murk. */}
+            <div
+              className="absolute inset-0 z-0 select-none"
+              aria-hidden
+              style={{ filter: "blur(7px)", opacity: 0.28 }}
+            >
+              {TILES.map((tile, i) => (
+                <MetricTile key={i} tile={tile} />
+              ))}
+            </div>
+            {/* Rolling fog — drifting turbulence banks, dark and full-coverage.
+                The cone of light occludes it from above. */}
+            <div className="absolute inset-0 z-0" aria-hidden>
+              <motion.div
+                className="absolute -inset-[15%] opacity-90"
+                style={{ filter: "blur(7px)" }}
+                animate={{ x: ["-3%", "4%", "-3%"], y: ["-2%", "2%", "-2%"] }}
+                transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <FogBank id="fog-a" freq={0.0085} seed={7} />
+              </motion.div>
+              <motion.div
+                className="absolute -inset-[15%] opacity-70"
+                style={{ filter: "blur(13px)" }}
+                animate={{ x: ["3%", "-4%", "3%"], y: ["2%", "-3%", "2%"] }}
+                transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <FogBank id="fog-b" freq={0.014} seed={29} octaves={5} />
+              </motion.div>
+            </div>
+          </>
+        )}
 
         {/* ── Headline block — always fully legible, above the fog ── */}
         <div className="relative z-30 max-w-xl pointer-events-none">
@@ -302,95 +346,39 @@ export function CtaSection() {
           </div>
         </div>
 
-        {/* ── Lamp layers. The inner div carries --mx/--my. ── */}
+        {/* ── The cone of light. The inner div carries --ba (the beam bearing). ── */}
         <div ref={innerRef} className="absolute inset-0 z-10">
-          {/* Dim data underneath — there, but unreadable in the murk. */}
-          {!reduce && (
+          {reduce ? (
+            <div className="absolute inset-0 select-none" aria-hidden>
+              {TILES.map((tile, i) => (
+                <MetricTile key={i} tile={tile} lit />
+              ))}
+            </div>
+          ) : (
             <div
               className="absolute inset-0 select-none"
               aria-hidden
-              style={{ filter: "blur(6px)", opacity: 0.5 }}
+              style={{ ...coneMask, background: "var(--card)" }}
             >
+              {/* The beam itself — brightest at the apex, dissipating along it.
+                  Two stops: a hot core near the source plus a longer warm wash,
+                  so the cone clearly glows against the dark fog. */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(150% 150% at 100% 0%, rgba(255,251,242,0.5) 0%, rgba(255,247,230,0.26) 22%, rgba(255,243,220,0.1) 44%, transparent 68%)",
+                }}
+              />
               {TILES.map((tile, i) => (
-                <MetricTile key={i} tile={tile} />
+                <MetricTile key={i} tile={tile} lit />
               ))}
             </div>
           )}
-
-          {/* Warm lamp bloom — brightens whatever it's over (screen blend). */}
-          {!reduce && (
-            <div
-              className="absolute inset-0 pointer-events-none"
-              aria-hidden
-              style={{
-                mixBlendMode: "screen",
-                background: `radial-gradient(circle 320px at var(--mx) var(--my), rgba(255,243,214,0.20) 0%, rgba(255,221,158,0.12) 32%, rgba(255,196,120,0.05) 56%, transparent 76%)`,
-              }}
-            />
-          )}
-
-          {/* Crisp, lit tiles, clipped to the lamp circle. */}
-          <div
-            className="absolute inset-0 select-none"
-            aria-hidden
-            style={
-              reduce
-                ? undefined
-                : { WebkitMaskImage: revealMask, maskImage: revealMask }
-            }
-          >
-            {TILES.map((tile, i) => (
-              <MetricTile key={i} tile={tile} lit />
-            ))}
-          </div>
-
-          {/* Rolling fog — drifting turbulence banks. Sits above everything but
-              the lamp burns a hole in it (inverse mask), so the light clears a
-              pocket of mist and the data inside reads sharp. */}
-          {!reduce && (
-            <div
-              className="absolute inset-0 pointer-events-none"
-              aria-hidden
-              style={{ WebkitMaskImage: clearMask, maskImage: clearMask }}
-            >
-              <motion.div
-                className="absolute -inset-[15%] opacity-70"
-                style={{ filter: "blur(8px)" }}
-                animate={{ x: ["-3%", "4%", "-3%"], y: ["-2%", "2%", "-2%"] }}
-                transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <FogBank id="fog-a" freq={0.0085} seed={7} />
-              </motion.div>
-              <motion.div
-                className="absolute -inset-[15%] opacity-50"
-                style={{ filter: "blur(14px)" }}
-                animate={{ x: ["3%", "-4%", "3%"], y: ["2%", "-3%", "2%"] }}
-                transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <FogBank id="fog-b" freq={0.014} seed={29} octaves={5} />
-              </motion.div>
-            </div>
-          )}
-
-          {/* The "bulb" — a warm core riding the cursor. */}
-          {!reduce && (
-            <div
-              className="absolute size-2.5 rounded-full"
-              aria-hidden
-              style={{
-                left: "var(--mx)",
-                top: "var(--my)",
-                transform: "translate(-50%, -50%)",
-                background: "rgba(255,248,228,0.9)",
-                boxShadow:
-                  "0 0 12px 4px rgba(255,226,160,0.65), 0 0 30px 10px rgba(255,206,120,0.25)",
-              }}
-            />
-          )}
         </div>
 
-        {/* ── Headline scrim: keeps the copy legible even when a bright bank of
-              fog drifts behind it, without dimming the rest of the panel. ── */}
+        {/* ── Headline scrim: keeps the copy legible even when the beam or a
+              bright bank of fog drifts behind it. ── */}
         <div
           className="absolute inset-0 z-20 pointer-events-none"
           aria-hidden

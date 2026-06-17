@@ -124,9 +124,9 @@ export function Hero() {
             </motion.div>
             <motion.div {...rise(0.49)}>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="lg"
-                className="text-base h-9"
+                className="text-base"
                 onClick={copyPrompt}
                 aria-label="Copy the coding-agent prompt"
               >
