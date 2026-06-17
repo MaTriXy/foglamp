@@ -38,13 +38,12 @@ function FogBank({
           stitchTiles="stitch"
           result="noise"
         />
+        {/* Single-line `values` — the browser normalises this SVG attribute to
+            single spaces, so a multi-line string mismatches on hydration. */}
         <feColorMatrix
           in="noise"
           type="matrix"
-          values="0 0 0 0 0.20
-                  0 0 0 0 0.21
-                  0 0 0 0 0.27
-                  0 0 0 0.6 0.04"
+          values="0 0 0 0 0.20 0 0 0 0 0.21 0 0 0 0 0.27 0 0 0 0.6 0.04"
         />
       </filter>
       <rect width="100%" height="100%" filter={`url(#${id})`} />
@@ -117,8 +116,7 @@ export function CtaSection() {
             style={{
               WebkitMaskImage:
                 "linear-gradient(to right, transparent 5%, #000 52%)",
-              maskImage:
-                "linear-gradient(to right, transparent 5%, #000 52%)",
+              maskImage: "linear-gradient(to right, transparent 5%, #000 52%)",
             }}
           >
             <div
@@ -126,7 +124,7 @@ export function CtaSection() {
               style={{ background: "rgba(78,82,96,0.11)" }}
             />
             <motion.div
-              className="absolute -inset-[15%] opacity-80"
+              className="absolute inset-[-15%] opacity-80"
               style={{ filter: "blur(8px)" }}
               animate={{ x: ["-3%", "4%", "-3%"], y: ["-2%", "2%", "-2%"] }}
               transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
@@ -134,7 +132,7 @@ export function CtaSection() {
               <FogBank id="fog-a" freq={0.011} seed={7} />
             </motion.div>
             <motion.div
-              className="absolute -inset-[15%] opacity-60"
+              className="absolute inset-[-15%] opacity-60"
               style={{ filter: "blur(16px)" }}
               animate={{ x: ["3%", "-4%", "3%"], y: ["2%", "-3%", "2%"] }}
               transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
@@ -171,7 +169,7 @@ export function CtaSection() {
 
         {/* ── Headline scrim: keeps the copy legible over the fog. ── */}
         <div
-          className="absolute inset-0 z-[25] pointer-events-none"
+          className="absolute inset-0 z-25 pointer-events-none"
           aria-hidden
           style={{
             background:
@@ -181,7 +179,7 @@ export function CtaSection() {
 
         {/* ── Vignette: settles the far edges back into the card. ── */}
         <div
-          className="absolute inset-0 z-[25] pointer-events-none"
+          className="absolute inset-0 z-25 pointer-events-none"
           aria-hidden
           style={{
             background:

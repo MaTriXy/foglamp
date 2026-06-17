@@ -64,9 +64,27 @@ function useBeamStrength(reduce: boolean) {
   return strength;
 }
 
+// The dashboard demo wrapped in its house BorderBeam. Isolated into its own
+// component so the beam's strength ramp (a setState every 20ms for ~0.6s) only
+// re-renders the demo — not the hero copy, whose entrance animations shouldn't
+// churn (and risk flickering) while the beam powers on.
+function BeamedDemo({ reduce }: { reduce: boolean }) {
+  const beamStrength = useBeamStrength(reduce);
+  return (
+    <BorderBeam
+      size="pulse-outside"
+      colorVariant="colorful"
+      strength={beamStrength}
+      borderRadius={16}
+      className="w-full"
+    >
+      <HeroDemo />
+    </BorderBeam>
+  );
+}
+
 export function Hero() {
   const reduce = useReducedMotion() ?? false;
-  const beamStrength = useBeamStrength(reduce);
 
   // Motion props for a "blur up" reveal at a given delay — or nothing for
   // reduced-motion users, so the element simply renders in place.
@@ -149,16 +167,8 @@ export function Hero() {
       >
         {/* Same house border beam as the pricing page's featured card. Its
             circular-arc corners are matched by corner-round! on the demo frame
-            (see DemoShell). borderRadius 22 == the frame's rounded-3xl. */}
-        <BorderBeam
-          size="pulse-outside"
-          colorVariant="colorful"
-          strength={beamStrength}
-          borderRadius={16}
-          className="w-full"
-        >
-          <HeroDemo />
-        </BorderBeam>
+            (see DemoShell). borderRadius 16 == the frame's rounded-3xl. */}
+        <BeamedDemo reduce={reduce} />
       </motion.div>
     </section>
   );

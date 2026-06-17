@@ -1,5 +1,4 @@
 import { publicProcedure, router } from "../index";
-import { adminRouter } from "./admin";
 import { agentsRouter } from "./agents";
 import { alertsRouter } from "./alerts";
 import { evalsRouter } from "./evals";
@@ -30,7 +29,6 @@ export const appRouter = router({
   orgs: orgsRouter,
   providerKeys: providerKeysRouter,
   pricing: pricingRouter,
-  admin: adminRouter,
   platform: platformRouter,
 });
 export type AppRouter = typeof appRouter;

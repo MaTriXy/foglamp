@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   // values. Override in prod via NEXT_PUBLIC_SITE_URL (see SITE_URL in links.ts).
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Foglamp ··· Observability for AI agents",
-    template: "%s · Foglamp",
+    default: "Foglamp - Observability for AI agents",
+    template: "%s - Foglamp",
   },
   description:
     "The missing observability layer for AI agents built on the Vercel AI SDK. Costs, latency, tokens, distributed traces, evals, and alerts for every generateText / streamText call — in two lines.",
