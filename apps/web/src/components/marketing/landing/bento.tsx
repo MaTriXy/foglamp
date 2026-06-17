@@ -186,7 +186,7 @@ function EvalsWidget({ active }: WidgetProps) {
         <div className="flex min-w-0 items-center gap-2">
           <IconShieldLockFilled
             className={cn(
-              "size-6 shrink-0 rounded-xl corner-squircle p-1",
+              "size-5 shrink-0 rounded-lg corner-squircle p-1",
               FAMILY_CHIP.safety
             )}
           />

@@ -12,7 +12,7 @@ const TESTIMONIAL = {
   quote:
     "Caught a 10× cost regression 3 days after shipping. Foglamp paid for itself in week one.",
   author: "Gustavo Fior",
-  role: "Co-founder @ Foglamp (yes, it's me)",
+  role: "Co-founder @ Foglamp",
 };
 
 export function SocialProof() {
@@ -24,15 +24,20 @@ export function SocialProof() {
           {TESTIMONIAL.quote}
           <span className="text-muted-foreground">”</span>
         </blockquote>
-        <figcaption className="text-sm text-muted-foreground flex gap-1">
-          <Avatar className="size-5 mr-1">
-            <AvatarImage src="/avatar.jpg" alt="Gustavo" />
-            <AvatarFallback>G</AvatarFallback>
-          </Avatar>
-          <span className="font-medium text-foreground">
-            {TESTIMONIAL.author}
-          </span>{" "}
-          · {TESTIMONIAL.role}
+        <figcaption className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Avatar className="size-5">
+              <AvatarImage src="/avatar.jpg" alt="Gustavo" />
+              <AvatarFallback>G</AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-foreground whitespace-nowrap">
+              {TESTIMONIAL.author}
+            </span>
+          </span>
+          <span className="text-pretty">
+            · {TESTIMONIAL.role}{" "}
+            <span className="text-muted-foreground/50">yes, it's me :)</span>
+          </span>
         </figcaption>
       </figure>
     </section>

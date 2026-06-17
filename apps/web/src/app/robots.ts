@@ -18,7 +18,6 @@ export default function robots(): MetadataRoute.Robots {
     "/settings",
     "/traces",
     "/workflows",
-    "/admin",
   ];
   const authRoutes = ["/login", "/device", "/reset-password", "/accept-invitation/"];
 

@@ -69,7 +69,7 @@ export function CopyPromptButton({ className }: { className?: string }) {
       <Button
         variant="secondary"
         size="lg"
-        className={cn("text-base", className)}
+        className={cn("text-base h-9.5 pl-4", className)}
         onClick={copyPrompt}
         aria-label="Copy the coding-agent prompt"
       >

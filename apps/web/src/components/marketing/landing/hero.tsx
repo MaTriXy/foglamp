@@ -82,13 +82,13 @@ export function Hero() {
   return (
     // overflow-x-clip keeps the soft blur on the wide dashboard from ever
     // nudging a horizontal scrollbar during its entrance.
-    <section className="relative w-full overflow-x-clip pt-20 pb-16 sm:pt-28">
+    <section className="relative w-full overflow-x-clip pt-28 pb-16 sm:pt-28">
       {/* Copy: left-aligned, sharing the dashboard's max-w-7xl left edge. */}
       <div className="mx-auto flex max-w-7xl justify-between items-end px-5 sm:px-8">
         <div className="flex-col">
           <motion.h1
             {...rise(0.15)}
-            className="font-display mt-6 text-5xl font-semibold tracking-tight text-balance"
+            className="font-display mt-6 md:text-5xl text-4xl font-semibold tracking-tight text-balance"
           >
             Ship AI agents you can actually see
           </motion.h1>
@@ -121,7 +121,7 @@ export function Hero() {
 
         <motion.div
           {...rise(1.54)}
-          className="text-sm font-normal tracking-wide text-muted-foreground flex gap-1.5 items-center"
+          className="text-sm font-normal tracking-wide text-muted-foreground hidden md:flex gap-1.5 items-center"
         >
           <span className="text-muted-foreground/40">|</span> Tailor made for{" "}
           <div className="flex gap-1.5 items-center ">
@@ -145,7 +145,7 @@ export function Hero() {
         initial={reduce ? false : { opacity: 0, filter: "blur(0px)" }}
         animate={reduce ? undefined : { opacity: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.55, ease: EASE, delay: 0.6 }}
-        className="mx-auto mt-16 w-full max-w-7xl "
+        className="mx-auto mt-16 hidden w-full max-w-7xl md:block"
       >
         {/* Same house border beam as the pricing page's featured card. Its
             circular-arc corners are matched by corner-round! on the demo frame

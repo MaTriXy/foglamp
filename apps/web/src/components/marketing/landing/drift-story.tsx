@@ -145,7 +145,7 @@ export function DriftStory() {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-5 sm:px-8">
-      <div className="relative isolate overflow-hidden rounded-[64px] corner-squircle bg-card dark:bg-card/50 shadow-(--custom-shadow) px-6 py-20 sm:px-12 sm:py-24">
+      <div className="relative isolate overflow-hidden rounded-[64px] corner-squircle bg-card dark:bg-card/50 shadow-(--custom-shadow) px-2 py-3 sm:px-12 sm:py-24">
         <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-20">
           {/* Left: the drift timeline. No row gap — each row owns its full height
               so the rail segments stay contiguous and read as one line. */}
@@ -244,7 +244,8 @@ export function DriftStory() {
             })}
           </ol>
 
-          {/* Right: how you actually find out — a pile of incoming complaints. */}
+          {/* Right: how you actually find out — a pile of incoming complaints.
+              A touch of right padding on mobile keeps the cards off the edge. */}
           <div className="flex flex-col gap-4">
             {PINGS.map((p, i) => (
               <motion.div

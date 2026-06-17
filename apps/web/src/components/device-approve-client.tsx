@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/marketing/brand-mark";
 import { authClient } from "@/lib/auth-client";
+import { Card } from "@foglamp/ui/components/card";
 
 // The verification step of `npx foglamp login`. The CLI prints a URL that lands
 // the user here (already signed in — the page gates that). We first "claim" the
@@ -57,7 +58,7 @@ export function DeviceApprove({
 }) {
   const [code, setCode] = useState(initialUserCode.trim());
   const [phase, setPhase] = useState<Phase>(
-    initialUserCode.trim() ? "claiming" : "needCode",
+    initialUserCode.trim() ? "claiming" : "needCode"
   );
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,8 +120,8 @@ export function DeviceApprove({
           <h1 className="text-lg font-medium">Terminal connected</h1>
         </div>
         <p className="mt-2 text-sm text-muted-foreground text-balance">
-          You can return to your terminal — <code>foglamp login</code> will
-          finish setting up and write your API key. You can close this tab.
+          You can return to your terminal. Foglamp will finish setting up and
+          write your API key. You can close this tab.
         </p>
       </DeviceShell>
     );
@@ -204,11 +205,7 @@ export function DeviceApprove({
     <DeviceShell>
       <h1 className="mt-5 mb-1 text-lg font-medium">Connect your terminal</h1>
       <p className="mb-5 text-sm text-muted-foreground text-balance">
-        <span className="inline-flex items-center gap-1.5">
-          <IconTerminal2 className="size-4" />
-          <code>npx foglamp login</code>
-        </span>{" "}
-        wants to connect to your Foglamp account
+        Connect to your Foglamp account
         {userEmail ? (
           <>
             {" "}
@@ -218,12 +215,11 @@ export function DeviceApprove({
         and create an API key. Only approve this if you started it.
       </p>
 
-      <div className="mb-6 flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3">
-        <span className="text-xs text-muted-foreground">Code</span>
+      <Card className="mb-6 flex items-center justify-center bg-muted px-4 py-3">
         <code className="font-mono text-base tracking-widest uppercase">
           {code || "—"}
         </code>
-      </div>
+      </Card>
 
       <div className="flex flex-col gap-2.5">
         <Button

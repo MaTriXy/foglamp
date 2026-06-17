@@ -11,8 +11,6 @@ import {
   IconChartBar,
   IconChevronDown,
   IconDotsVertical,
-  IconFlask2,
-  IconFlask2Filled,
   IconLogout,
   IconPlus,
 } from "@tabler/icons-react";
@@ -59,10 +57,6 @@ import { NewProjectDialog } from "./new-project-dialog";
 import { ProjectProvider, useProject } from "./project-context";
 import { ProjectIcon } from "./project-icon";
 import { RangeProvider } from "./range-context";
-
-// Inlined by Next at build time. The Admin tools (synthetic ingest, raw pricing
-// table) are dev-only and never shipped in a production build (e.g. Docker).
-const isDev = process.env.NODE_ENV !== "production";
 
 function initials(value: string) {
   return value.slice(0, 2).toUpperCase();
@@ -329,30 +323,6 @@ function ShellBody({ children }: { children: React.ReactNode }) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-
-          {isDev && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Dev mode</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      isActive={isActive(pathname, "/admin")}
-                      render={<Link href="/admin" />}
-                    >
-                      <NavIcon
-                        icon={IconFlask2}
-                        activeIcon={IconFlask2Filled}
-                        active={isActive(pathname, "/admin")}
-                        className="dark:text-neutral-500 text-neutral-400"
-                      />
-                      <span>Admin</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
         </SidebarContent>
 
         <SidebarFooter>
