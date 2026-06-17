@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "SDK",
   description: product.tagline,
   openGraph: { title: "SDK · Foglamp", description: product.tagline },
+  alternates: { canonical: product.href },
 };
 
 export default function SdkPage() {

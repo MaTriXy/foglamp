@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "Evals",
   description: product.tagline,
   openGraph: { title: "Evals · Foglamp", description: product.tagline },
+  alternates: { canonical: product.href },
 };
 
 export default function EvalsPage() {

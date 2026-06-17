@@ -36,12 +36,15 @@ import {
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 
+import { JsonLd } from "@/components/marketing/json-ld";
 import { CtaSection } from "@/components/marketing/landing/cta";
+import { SITE_URL } from "@/lib/links";
 import { FeaturedBeam } from "./featured-beam";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description: "Simple, usage-based pricing for AI observability.",
+  alternates: { canonical: "/pricing" },
 };
 
 // Marketing pricing. The per-plan limits here mirror PLAN_LIMITS in
@@ -159,6 +162,41 @@ const PLANS: Plan[] = [
   },
 ];
 
+// schema.org Product/Offer for the pricing page so search + answer engines can
+// extract the plan structure. Built straight from PLANS: numeric prices become
+// real Offers; the "Custom" (Enterprise) tier has no fixed price, so it's
+// summarised by AggregateOffer.offerCount rather than emitting an invalid Offer.
+const pricedOffers = PLANS.map((plan) => ({
+  plan,
+  price: plan.price.replace(/[^0-9.]/g, ""),
+}))
+  .filter(({ price }) => price.length > 0)
+  .map(({ plan, price }) => ({
+    "@type": "Offer",
+    name: `${plan.name} plan`,
+    price,
+    priceCurrency: "USD",
+    description: plan.blurb,
+    url: `${SITE_URL}/pricing`,
+  }));
+
+const pricingJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "Foglamp",
+  description:
+    "Usage-based observability for AI agents — distributed traces, cost intelligence, evals, and alerts for every model call.",
+  brand: { "@type": "Brand", name: "Foglamp" },
+  offers: {
+    "@type": "AggregateOffer",
+    priceCurrency: "USD",
+    lowPrice: "0",
+    highPrice: "49",
+    offerCount: PLANS.length,
+    offers: pricedOffers,
+  },
+};
+
 function PlanCard({ plan }: { plan: Plan }) {
   const card = (
     <Card
@@ -269,6 +307,7 @@ function PlanCard({ plan }: { plan: Plan }) {
 export default function PricingPage() {
   return (
     <div className="flex flex-col gap-36 pb-42">
+      <JsonLd data={pricingJsonLd} />
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
         <div className="mt-32 max-w-2xl">
           <h1 className="font-display text-4xl font-semibold tracking-tight">

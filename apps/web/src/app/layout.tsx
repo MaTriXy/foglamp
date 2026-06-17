@@ -3,6 +3,7 @@ import { Geist_Mono, Host_Grotesk, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
 import Providers from "@/components/providers";
+import { SITE_URL } from "@/lib/links";
 import { cn } from "@foglamp/ui/lib/utils";
 import "../index.css";
 
@@ -21,17 +22,15 @@ const hostGrotesk = Host_Grotesk({
 });
 
 export const metadata: Metadata = {
-  // Absolute base for OG/Twitter image URLs (and any relative metadata URL).
-  // Override in prod via NEXT_PUBLIC_SITE_URL if the canonical domain changes.
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://foglamp.dev"
-  ),
+  // Absolute base for OG/Twitter image URLs and relative `alternates.canonical`
+  // values. Override in prod via NEXT_PUBLIC_SITE_URL (see SITE_URL in links.ts).
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Foglamp ··· Observability for AI agents",
     template: "%s · Foglamp",
   },
   description:
-    "The missing observability layer for AI agents. Costs, latency, tokens, distributed traces, evals, and alerts for every model call — in two lines.",
+    "The missing observability layer for AI agents built on the Vercel AI SDK. Costs, latency, tokens, distributed traces, evals, and alerts for every generateText / streamText call — in two lines.",
 };
 
 export default function RootLayout({

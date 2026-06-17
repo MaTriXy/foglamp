@@ -17,7 +17,9 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { GITHUB_URL } from "@/lib/links";
 
+import { GithubLogo } from "./github-logo";
 import { Logo } from "./logo";
 import { products } from "./products";
 import {
@@ -135,6 +137,18 @@ export function MarketingNavbar() {
         </NavigationMenu>
 
         <div className="flex items-center gap-2">
+          {/* Open-source signal: the same GitHub link as the footer, sitting
+              right next to the primary CTA. Icon-only to stay compact. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Foglamp on GitHub"
+            render={
+              <a href={GITHUB_URL} target="_blank" rel="noreferrer noopener" />
+            }
+          >
+            <GithubLogo className="size-4" />
+          </Button>
           {loggedIn ? (
             <Button size="sm" render={<Link href="/overview" />}>
               Dashboard

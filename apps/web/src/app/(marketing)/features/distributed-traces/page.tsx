@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     title: "Distributed traces · Foglamp",
     description: product.tagline,
   },
+  alternates: { canonical: product.href },
 };
 
 export default function DistributedTracesPage() {

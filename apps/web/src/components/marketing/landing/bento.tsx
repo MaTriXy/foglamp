@@ -8,9 +8,12 @@ import {
   IconChevronDown,
   IconCircleCheckFilled,
   IconLoader2,
+  IconShieldLockFilled,
 } from "@tabler/icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
+
+import { FAMILY_CHIP } from "@/app/(app)/evals/preset-meta";
 
 import { ClaudeLogo, GeminiLogo, OpenAILogo } from "../../brand-logos";
 import { productBySlug, type Product } from "../products";
@@ -45,7 +48,7 @@ function useCycle(length: number, ms: number, enabled: boolean) {
 function SdkWidget({ active }: WidgetProps) {
   // The whole pitch in two lines — with a live terminal caret.
   return (
-    <div className="flex h-full flex-col justify-center gap-1 font-mono text-xs leading-relaxed">
+    <div className="flex h-full flex-col justify-center gap-1 font-mono text-xs leading-relaxed mb-7">
       <span>
         <span className="text-violet-600 dark:text-violet-400">import</span>{" "}
         <span className="text-muted-foreground">{"{ foglamp }"}</span>{" "}
@@ -71,7 +74,7 @@ function SdkWidget({ active }: WidgetProps) {
 }
 
 const TRACE_BARS = [
-  { left: 0, width: 100, c: "bg-[#8b5e34]/70 dark:bg-[#c9a888]/70" },
+  { left: 0, width: 100, c: "bg-[#8b5e34]/70 dark:bg-green-700/85" },
   { left: 4, width: 22, c: "bg-violet-500/70" },
   { left: 26, width: 14, c: "bg-blue-500/70" },
   { left: 40, width: 34, c: "bg-blue-500/70" },
@@ -86,14 +89,14 @@ function TracesWidget({ active }: WidgetProps) {
       {TRACE_BARS.map((b, i) => (
         <div key={i} className="relative h-2">
           <span
-            className={cn("absolute top-0 h-2 rounded-full", b.c)}
+            className={cn("absolute top-0 h-1 rounded-full", b.c)}
             style={{ left: `${b.left}%`, width: `${b.width}%` }}
           />
         </div>
       ))}
       <span
         className={cn(
-          "pointer-events-none absolute inset-y-0 w-px bg-foreground/25",
+          "pointer-events-none absolute inset-y-0 w-px bg-foreground/5 border border-dashed",
           active &&
             "motion-safe:animate-[bento-sweep_4.4s_ease-in-out_infinite]"
         )}
@@ -103,11 +106,11 @@ function TracesWidget({ active }: WidgetProps) {
 }
 
 const COST_CALLS = [
-  { m: "Claude Opus 4.8", icon: ClaudeLogo, a: 0.142 },
-  { m: "GPT-5.5", icon: OpenAILogo, a: 0.088 },
-  { m: "Gemini 3.5 Flash", icon: GeminiLogo, a: 0.004 },
-  { m: "GPT-5.5 mini", icon: OpenAILogo, a: 0.011 },
-  { m: "Gemini 3.5 Pro", icon: GeminiLogo, a: 0.046 },
+  { m: "Claude Opus 4.8", icon: ClaudeLogo, a: 323.12 },
+  { m: "GPT-5.5", icon: OpenAILogo, a: 194.12 },
+  { m: "Gemini 3.5 Flash", icon: GeminiLogo, a: 491.36 },
+  { m: "GPT-5.5 mini", icon: OpenAILogo, a: 85.05 },
+  { m: "Gemini 3.5 Pro", icon: GeminiLogo, a: 43.06 },
 ];
 const COST_START = 1248.5;
 const COST_TICK = 0.05;
@@ -127,7 +130,7 @@ function CostWidget({ active }: WidgetProps) {
   const rows = [0, 1, 2].map((k) => COST_CALLS[(head - k + L) % L]);
 
   return (
-    <div className="flex h-full flex-col justify-center gap-0.5 text-xs">
+    <div className="flex h-full flex-col justify-center gap-1 text-xs">
       {rows.map((r, k) => {
         const Logo = r.icon;
         return (
@@ -140,25 +143,24 @@ function CostWidget({ active }: WidgetProps) {
                 "motion-safe:animate-[bento-stream_0.5s_ease-out]"
             )}
           >
-            <Logo className="size-3.5 shrink-0" />
+            <Logo className="size-[11px] shrink-0" />
             <span className="truncate text-muted-foreground">{r.m}</span>
             <span
               className={cn(
                 "ml-auto tabular-nums",
                 k === 0
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-foreground/55"
+                  ? "text-amber-600 dark:text-primary"
+                  : "text-muted-foreground"
               )}
             >
-              {`$${r.a.toFixed(3)}`}
+              {`$${r.a.toFixed(2)}`}
             </span>
           </div>
         );
       })}
-      <div className="my-0.5 h-px bg-border" />
-      <div className="flex items-center justify-between">
-        <span className="text-muted-foreground">total</span>
-        <span className="font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+      <div className="flex items-center justify-between border-t mt-1 pt-1.5">
+        <span className="text-primary">Total</span>
+        <span className="font-semibold tabular-nums text-amber-600 dark:text-primary">
           <NumberFlow
             value={total}
             format={{ style: "currency", currency: "USD" }}
@@ -177,8 +179,21 @@ function EvalsWidget({ active }: WidgetProps) {
   const rate = EVAL_RATES[useCycle(EVAL_RATES.length, 3600, active)];
   const filled = Math.max(1, Math.round(rate * EVAL_PILLS));
   return (
-    <div className="flex h-full flex-col justify-center gap-2 text-fuchsia-500 dark:text-fuchsia-400">
-      <div className="flex items-baseline justify-end gap-2">
+    <div className="flex h-full flex-col justify-center gap-2 text-fuchsia-500 dark:text-fuchsia-800">
+      <div className="flex items-center justify-between gap-2">
+        {/* Eval identity, opposite the pass rate — the evals tab's preset chip
+            + name (the "No PII" safety check). */}
+        <div className="flex min-w-0 items-center gap-2">
+          <IconShieldLockFilled
+            className={cn(
+              "size-6 shrink-0 rounded-xl corner-squircle p-1",
+              FAMILY_CHIP.safety
+            )}
+          />
+          <span className="truncate text-sm font-medium text-foreground">
+            No PII
+          </span>
+        </div>
         <span className="text-lg font-semibold tabular-nums text-foreground">
           <span className="text-xs text-muted-foreground mr-1.5">
             Pass rate:
@@ -402,11 +417,11 @@ const WIDGETS: Record<string, (props: WidgetProps) => React.ReactNode> = {
 // is unaffected.
 const CARD_ORDER = [
   "sdk",
-  "distributed-traces",
-  "cost-intelligence",
-  "evals",
-  "alerts",
   "agents",
+  "evals",
+  "distributed-traces",
+  "alerts",
+  "cost-intelligence",
 ];
 
 // Per-widget cycle lengths (ms): how long each widget needs to play its loop
@@ -451,7 +466,7 @@ function BentoCard({ product, active }: { product: Product; active: boolean }) {
       <p className="text-sm text-muted-foreground/80 text-pretty">
         {product.tagline}
       </p>
-      <div className="h-20 flex- mt-1">
+      <div className="mt-auto">
         {Widget ? <Widget active={active} /> : null}
       </div>
     </div>

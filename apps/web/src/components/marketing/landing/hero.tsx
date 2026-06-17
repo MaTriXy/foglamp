@@ -7,9 +7,7 @@ import { type MotionProps, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { type SVGProps, useEffect, useState } from "react";
 
-import { CopyIcon } from "@/components/app/copy-icon";
-import { useCopied } from "@/components/app/use-copied";
-import { buildLandingPrompt } from "@/lib/agent-prompt";
+import { CopyPromptButton } from "./copy-prompt-button";
 import {
   AnthropicLogo,
   ClaudeLogo,
@@ -69,13 +67,6 @@ function useBeamStrength(reduce: boolean) {
 export function Hero() {
   const reduce = useReducedMotion() ?? false;
   const beamStrength = useBeamStrength(reduce);
-  // Pre-signup "paste into your coding agent" prompt — the agent runs
-  // `npx foglamp login` to sign up + grab a key, then instruments the app.
-  const { copied, markCopied } = useCopied(2000);
-  const copyPrompt = () => {
-    void navigator.clipboard.writeText(buildLandingPrompt());
-    markCopied();
-  };
 
   // Motion props for a "blur up" reveal at a given delay — or nothing for
   // reduced-motion users, so the element simply renders in place.
@@ -123,20 +114,7 @@ export function Hero() {
               </Button>
             </motion.div>
             <motion.div {...rise(0.49)}>
-              <Button
-                variant="secondary"
-                size="lg"
-                className="text-base"
-                onClick={copyPrompt}
-                aria-label="Copy the coding-agent prompt"
-              >
-                Copy agent prompt
-                <CopyIcon
-                  copied={copied}
-                  className="size-4 ml-1 text-muted-foreground"
-                  checkClassName="size-4 text-green-400 ml-1"
-                />
-              </Button>
+              <CopyPromptButton />
             </motion.div>
           </div>
         </div>

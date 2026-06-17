@@ -144,136 +144,141 @@ export function DriftStory() {
         };
 
   return (
-    <section className="relative isolate overflow-hidden py-28 sm:py-36 bg-card/50 dark:shadow-(--custom-shadow)">
-      <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-14 px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-20">
-        {/* Left: the drift timeline. No row gap — each row owns its full height
-            so the rail segments stay contiguous and read as one line. */}
-        <ol className="font-display flex flex-col">
-          {BEATS.map((b, i) => {
-            const first = i === 0;
-            const last = i === BEATS.length - 1;
+    <section className="mx-auto w-full max-w-7xl px-5 sm:px-8">
+      <div className="relative isolate overflow-hidden rounded-[64px] corner-squircle bg-card dark:bg-card/50 shadow-(--custom-shadow) px-6 py-20 sm:px-12 sm:py-24">
+        <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-20">
+          {/* Left: the drift timeline. No row gap — each row owns its full height
+              so the rail segments stay contiguous and read as one line. */}
+          <ol className="font-display flex flex-col">
+            {BEATS.map((b, i) => {
+              const first = i === 0;
+              const last = i === BEATS.length - 1;
 
-            // The rail draws downward at a constant rate, one row-segment after
-            // another, so it reads as the story *evolving*. Each dot lights the
-            // instant the leading edge reaches its center: middle dots sit at
-            // their segment's midpoint (½ in), the final dot at its end.
-            const STEP = 0.6;
-            const lineDelay = i * STEP;
-            const dotDelay = first
-              ? 0
-              : last
-                ? i * STEP + STEP
-                : i * STEP + STEP / 2;
+              // The rail draws downward at a constant rate, one row-segment after
+              // another, so it reads as the story *evolving*. Each dot lights the
+              // instant the leading edge reaches its center: middle dots sit at
+              // their segment's midpoint (½ in), the final dot at its end.
+              const STEP = 0.6;
+              const lineDelay = i * STEP;
+              const dotDelay = first
+                ? 0
+                : last
+                  ? i * STEP + STEP
+                  : i * STEP + STEP / 2;
 
-            const lineMotion: MotionProps = reduce
-              ? {}
-              : {
-                  initial: { scaleY: 0 },
-                  whileInView: { scaleY: 1 },
-                  viewport: { once: true, margin: "-80px" },
-                  transition: {
-                    duration: STEP,
-                    ease: "linear",
-                    delay: lineDelay,
-                  },
-                };
-            const dotMotion: MotionProps = reduce
-              ? {}
-              : {
-                  initial: { scale: 0, opacity: 0 },
-                  whileInView: { scale: 1, opacity: 1 },
-                  viewport: { once: true, margin: "-80px" },
-                  transition: {
-                    duration: 0.4,
-                    ease: "backOut",
-                    delay: dotDelay,
-                  },
-                };
+              const lineMotion: MotionProps = reduce
+                ? {}
+                : {
+                    initial: { scaleY: 0 },
+                    whileInView: { scaleY: 1 },
+                    viewport: { once: true, margin: "-80px" },
+                    transition: {
+                      duration: STEP,
+                      ease: "linear",
+                      delay: lineDelay,
+                    },
+                  };
+              const dotMotion: MotionProps = reduce
+                ? {}
+                : {
+                    initial: { scale: 0, opacity: 0 },
+                    whileInView: { scale: 1, opacity: 1 },
+                    viewport: { once: true, margin: "-80px" },
+                    transition: {
+                      duration: 0.4,
+                      ease: "backOut",
+                      delay: dotDelay,
+                    },
+                  };
 
-            return (
-              <li key={b.t} className="flex min-h-24 items-center sm:min-h-28">
-                {/* Text rises in as the step activates (synced to the dot). */}
-                <motion.span
-                  className={cn(
-                    "w-16 shrink-0 text-right  text-xs font-medium tracking-wide text-muted-foreground/70 sm:w-20 sm:text-sm",
-                    b.accent && "text-rose-500 dark:text-rose-400"
-                  )}
-                  {...reveal(dotDelay, { y: 12 })}
+              return (
+                <li
+                  key={b.t}
+                  className="flex min-h-24 items-center sm:min-h-28"
                 >
-                  {b.t}
-                </motion.span>
-                {/* Rail cell: self-stretch fills the full row height (no padding
-                    to exclude), so the segments meet across rows and draw as one
-                    continuous line. Horizontal centering uses calc/margins, not
-                    a transform, so Motion is free to drive scaleY / scale. */}
-                <span className="relative w-8 shrink-0 self-stretch sm:w-10">
+                  {/* Text rises in as the step activates (synced to the dot). */}
                   <motion.span
-                    aria-hidden
                     className={cn(
-                      "absolute left-[calc(50%-0.5px)] w-px origin-top bg-border",
-                      first && "top-1/2 bottom-0",
-                      last && "top-0 bottom-1/2",
-                      !first && !last && "inset-y-0",
-                      b.accent && "bg-rose-500/40 dark:bg-rose-400/40"
+                      "w-16 shrink-0 text-right  text-xs font-medium tracking-wide text-muted-foreground/70 sm:w-20 sm:text-sm",
+                      b.accent && "text-rose-500 dark:text-rose-400"
                     )}
-                    {...lineMotion}
-                  />
+                    {...reveal(dotDelay, { y: 12 })}
+                  >
+                    {b.t}
+                  </motion.span>
+                  {/* Rail cell: self-stretch fills the full row height (no padding
+                      to exclude), so the segments meet across rows and draw as one
+                      continuous line. Horizontal centering uses calc/margins, not
+                      a transform, so Motion is free to drive scaleY / scale. */}
+                  <span className="relative w-8 shrink-0 self-stretch sm:w-10">
+                    <motion.span
+                      aria-hidden
+                      className={cn(
+                        "absolute left-[calc(50%-0.5px)] w-px origin-top bg-border",
+                        first && "top-1/2 bottom-0",
+                        last && "top-0 bottom-1/2",
+                        !first && !last && "inset-y-0",
+                        b.accent && "bg-rose-500/40 dark:bg-rose-400/40"
+                      )}
+                      {...lineMotion}
+                    />
+                    <motion.span
+                      aria-hidden
+                      className={cn(
+                        "absolute top-1/2 left-1/2 -mt-1 -ml-1 size-2 rounded-full ring-4 ring-card",
+                        b.accent
+                          ? "bg-rose-500 shadow-[0_0_12px_2px_rgba(244,63,94,0.5)] dark:bg-rose-400"
+                          : "bg-foreground shadow-[0_0_10px_1px_rgba(255,255,255,0.22)]"
+                      )}
+                      {...dotMotion}
+                    />
+                  </span>
                   <motion.span
-                    aria-hidden
-                    className={cn(
-                      "absolute top-1/2 left-1/2 -mt-1 -ml-1 size-2 rounded-full ring-4 ring-card",
-                      b.accent
-                        ? "bg-rose-500 shadow-[0_0_12px_2px_rgba(244,63,94,0.5)] dark:bg-rose-400"
-                        : "bg-foreground shadow-[0_0_10px_1px_rgba(255,255,255,0.22)]"
-                    )}
-                    {...dotMotion}
-                  />
-                </span>
-                <motion.span
-                  className="text-2xl font-medium tracking-tight text-balance text-foreground sm:text-3xl ml-2"
-                  {...reveal(dotDelay, { y: 12 })}
-                >
-                  {b.text}
-                </motion.span>
-              </li>
-            );
-          })}
-        </ol>
+                    className="text-2xl font-medium tracking-tight text-balance text-foreground sm:text-3xl ml-2"
+                    {...reveal(dotDelay, { y: 12 })}
+                  >
+                    {b.text}
+                  </motion.span>
+                </li>
+              );
+            })}
+          </ol>
 
-        {/* Right: how you actually find out — a pile of incoming complaints. */}
-        <div className="flex flex-col gap-4">
-          {PINGS.map((p, i) => (
-            <motion.div
-              key={p.name}
-              className="flex items-start gap-3 rounded-[36px] corner-squircle dark:shadow-(--custom-shadow) bg-card/50 p-3.5 shadow-sm backdrop-blur-sm"
-              {...reveal(2.4 + i * 0.4, { x: 4 })}
-            >
-              <span
-                className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-3xl corner-squircle dark:shadow-(--custom-shadow)",
-                  p.badge
-                )}
+          {/* Right: how you actually find out — a pile of incoming complaints. */}
+          <div className="flex flex-col gap-4">
+            {PINGS.map((p, i) => (
+              <motion.div
+                key={p.name}
+                className="flex items-start gap-3 rounded-[36px] corner-squircle dark:shadow-(--custom-shadow) bg-muted/50 p-3.5 shadow-sm backdrop-blur-sm"
+                {...reveal(2.4 + i * 0.4, { x: 4 })}
               >
-                <p.icon size={20} aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="truncate font-medium text-foreground">
-                    {p.name}
-                  </span>
-                  <span className="truncate text-muted-foreground">
-                    {p.meta}
-                  </span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground/50">
-                    {p.time}
-                  </span>
+                <span
+                  className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-3xl corner-squircle dark:shadow-(--custom-shadow)",
+                    p.badge
+                  )}
+                >
+                  <p.icon size={20} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="truncate font-medium text-foreground">
+                      {p.name}
+                    </span>
+                    <span className="truncate text-muted-foreground">
+                      {p.meta}
+                    </span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground/50">
+                      {p.time}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-pretty text-muted-foreground">
+                    {p.text}
+                  </p>
                 </div>
-                <p className="mt-0.5 text-sm text-pretty text-muted-foreground">
-                  {p.text}
-                </p>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

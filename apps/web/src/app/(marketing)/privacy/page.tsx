@@ -5,6 +5,7 @@ import { LegalList, LegalPage } from "@/components/marketing/legal";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How Foglamp collects, uses, and protects your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

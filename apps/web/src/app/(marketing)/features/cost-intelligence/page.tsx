@@ -21,6 +21,7 @@ export const metadata: Metadata = {
     title: "Cost intelligence · Foglamp",
     description: product.tagline,
   },
+  alternates: { canonical: product.href },
 };
 
 export default function CostIntelligencePage() {
