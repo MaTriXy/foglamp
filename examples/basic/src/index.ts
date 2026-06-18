@@ -20,10 +20,10 @@ const PROMPT = "In one sentence, what is Foglamp?";
 // A real provider when a key is present; otherwise a stand-in that returns a
 // fixed answer and token usage so the example produces a complete trace.
 const model = process.env.OPENAI_API_KEY
-  ? openai("gpt-4o-mini")
+  ? openai("gpt-5.4-pro")
   : new MockLanguageModelV4({
       provider: "openai",
-      modelId: "gpt-4o-mini",
+      modelId: "gpt-5.4-pro",
       doGenerate: async () => ({
         content: [
           {
