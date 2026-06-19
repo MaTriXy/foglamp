@@ -122,17 +122,18 @@ export function Hero() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <motion.div {...rise(0.39)}>
+              <CopyPromptButton />
+            </motion.div>
+            <motion.div {...rise(0.49)}>
               <Button
                 render={<Link href="/login" />}
                 size="lg"
                 className="text-base"
+                variant="secondary"
               >
                 Start free
                 <IconCircleChevronRightFilled className="size-5.5 ml-0.5 opacity-90" />
               </Button>
-            </motion.div>
-            <motion.div {...rise(0.49)}>
-              <CopyPromptButton />
             </motion.div>
           </div>
         </div>

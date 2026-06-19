@@ -57,11 +57,6 @@ patterns). A compliance unlock — the buyer is a compliance officer, not a dev.
 
 ## 🎯 Quality & evals
 
-### 🧪 Experiments / version comparison
-
-Tag traces with a prompt/model/git version and compare quality × cost × latency
-across versions. The A/B story for prompt changes.
-
 ### 🗃️ Datasets + save-trace-as-eval-case
 
 Turn production traces into labeled datasets, then run offline/CI evals against
@@ -152,11 +147,6 @@ the org feature.
 
 ## 📟 Reliability & ops
 
-### ⏱️ Latency SLO dashboards
-
-Surface p50/p95/p99 + TTFT distributions (quantiles already computed in
-ClickHouse) and alert on latency regressions.
-
 ### 🔔 More alert channels
 
 Slack / Discord / generic webhook delivery, alongside the existing email
@@ -182,13 +172,8 @@ roles. Required once a customer's org chart is bigger than one team.
 
 ### 📜 Audit logs
 
-Who did what, when: auth events, config changes, API key lifecycle, data
+Who did what, when: auth events, config changes, API key lifecycle, data  
 exports. Queryable in-app and streamable to the customer's SIEM.
-
-### 🗂️ Multi-workspace
-
-Multiple isolated workspaces under one org with centralized billing and member
-management — the agencies/business-units shape.
 
 ## 🌫️ AI-native (Foggy)
 

@@ -155,15 +155,16 @@ export function CtaSection() {
             your model and turn the light on.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
+            <CopyPromptButton />
             <Button
               render={<Link href="/login" />}
               size="lg"
               className="text-base"
+              variant="secondary"
             >
               Start free
               <IconCircleChevronRightFilled className="size-5 ml-0.5 opacity-90" />
             </Button>
-            <CopyPromptButton />
           </div>
         </div>
 

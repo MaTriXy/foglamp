@@ -67,7 +67,6 @@ export function CopyPromptButton({ className }: { className?: string }) {
       className="inline-flex rounded-full"
     >
       <Button
-        variant="secondary"
         size="lg"
         className={cn("text-base h-9.5 pl-4", className)}
         onClick={copyPrompt}
@@ -76,8 +75,8 @@ export function CopyPromptButton({ className }: { className?: string }) {
         Copy agent prompt
         <CopyIcon
           copied={copied}
-          className="size-4 ml-1 text-muted-foreground"
-          checkClassName="size-4 text-green-400 ml-1"
+          className="size-4 ml-1"
+          checkClassName="size-4 text-green-600 ml-1"
         />
       </Button>
     </BorderBeam>
