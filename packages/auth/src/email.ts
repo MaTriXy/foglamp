@@ -297,6 +297,43 @@ export async function sendQuotaWarningEmail({
 	}
 }
 
+export async function sendStorageAlertEmail({
+	to,
+	usedLabel,
+	thresholdLabel,
+	url,
+}: {
+	to: string;
+	usedLabel: string;
+	thresholdLabel: string;
+	url: string;
+}) {
+	const apiKey = env.RESEND_API_KEY;
+	const from = env.RESEND_FROM_EMAIL ?? DEFAULT_FROM;
+	if (!apiKey) {
+		log.info("storage.email.skipped_no_api_key", { to, usedLabel });
+		return;
+	}
+	const resend = new Resend(apiKey);
+	const html = emailLayout({
+		previewText: `ClickHouse storage is at ${usedLabel}.`,
+		eyebrow: { label: "Storage", color: "#d97706" },
+		title: `ClickHouse storage has passed ${esc(thresholdLabel)}`,
+		body: `<p style="margin:0;">The ClickHouse database is now using <strong style="font-weight:600;">${esc(usedLabel)}</strong> on disk, above the ${esc(thresholdLabel)} alert threshold. Review retention and disk headroom before the VM fills.</p>`,
+		cta: { label: "Open platform dashboard", url },
+	});
+	const { error } = await resend.emails.send({
+		from,
+		to: [to],
+		subject: `ClickHouse storage at ${usedLabel} (over ${thresholdLabel})`,
+		html,
+		text: `ClickHouse storage is at ${usedLabel}, above the ${thresholdLabel} alert threshold. Open the platform dashboard: ${url}`,
+	});
+	if (error) {
+		throw new Error(`Resend request failed: ${error.name} — ${error.message}`);
+	}
+}
+
 export type AlertEmailKind = "fired" | "resolved";
 
 export async function sendAlertEmail(params: {

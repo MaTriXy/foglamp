@@ -36,12 +36,15 @@ import type { Ch, Db } from "../types";
  * usage), so this is gated by operator email, not org role. Unset on
  * self-hosts → nobody, and the UI entry point stays hidden.
  */
-export function isPlatformAdmin(email: string): boolean {
-  const allow = (env.PLATFORM_ADMIN_EMAILS ?? "")
+export function getPlatformAdminEmails(): string[] {
+  return (env.PLATFORM_ADMIN_EMAILS ?? "")
     .split(/[\s,]+/)
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return allow.includes(email.toLowerCase());
+}
+
+export function isPlatformAdmin(email: string): boolean {
+  return getPlatformAdminEmails().includes(email.toLowerCase());
 }
 
 const log = createLogger();
@@ -127,6 +130,14 @@ async function getPostgresStats(db: Db) {
 
 // min() collapses the (rare) multi-owner case to one deterministic email.
 const ownerEmail = sql<string | null>`min(${user.email})`;
+// Owner avatar, paired with ownerEmail. min() over a different column can in
+// theory pick a different owner's image than email when an org has several
+// owners; acceptable for an operator dashboard (same tradeoff as ownerEmail).
+const ownerImage = sql<string | null>`min(${user.image})`;
+
+// How many orgs the platform "top organizations" panel surfaces. Volume leaders
+// come first; the rest is filled with the most recent (often zero-volume) orgs.
+const TOP_ORGS_DISPLAY = 12;
 
 /** Org lookup for the access-grant UI (name or slug, case-insensitive). */
 export async function searchOrgs(db: Db, query: string) {
@@ -275,15 +286,55 @@ export async function getPlatformStats(db: Db, ch: Ch) {
     getPostgresStats(db),
   ]);
 
-  // Resolve org names for the top-usage list (CH only has ids).
+  // Build the top-orgs panel: CH only has ids + span counts, so resolve org
+  // names and owner contact info from Postgres. We pull two sets and merge:
+  //   - the volume leaders (so a high-traffic but old org always resolves), and
+  //   - the most recent orgs (so freshly-signed-up, zero-volume orgs show too).
   const topOrgIds = topOrgRows.map((r) => r.org_id);
-  const orgNames = topOrgIds.length
-    ? await db
-        .select({ id: organization.id, name: organization.name })
-        .from(organization)
-        .where(inArray(organization.id, topOrgIds))
-    : [];
-  const nameById = new Map(orgNames.map((o) => [o.id, o.name]));
+  const spansById = new Map(
+    topOrgRows.map((r) => [r.org_id, Number(r.span_count)]),
+  );
+  const withOwner = {
+    id: organization.id,
+    name: organization.name,
+    ownerEmail,
+    ownerImage,
+    createdAt: organization.createdAt,
+  };
+  const [volumeOrgRows, recentOrgRows] = await Promise.all([
+    topOrgIds.length
+      ? db
+          .select(withOwner)
+          .from(organization)
+          .leftJoin(
+            member,
+            and(
+              eq(member.organizationId, organization.id),
+              eq(member.role, "owner"),
+            ),
+          )
+          .leftJoin(user, eq(user.id, member.userId))
+          .where(inArray(organization.id, topOrgIds))
+          .groupBy(organization.id)
+      : Promise.resolve([]),
+    db
+      .select(withOwner)
+      .from(organization)
+      .leftJoin(
+        member,
+        and(
+          eq(member.organizationId, organization.id),
+          eq(member.role, "owner"),
+        ),
+      )
+      .leftJoin(user, eq(user.id, member.userId))
+      .groupBy(organization.id)
+      .orderBy(desc(organization.createdAt))
+      .limit(TOP_ORGS_DISPLAY),
+  ]);
+  const orgById = new Map<string, (typeof recentOrgRows)[number]>();
+  for (const o of recentOrgRows) orgById.set(o.id, o);
+  for (const o of volumeOrgRows) orgById.set(o.id, o);
 
   const spans30d = usageByDay.reduce((acc, r) => acc + Number(r.span_count), 0);
   const spans24h = usageByDay
@@ -333,11 +384,24 @@ export async function getPlatformStats(db: Db, ch: Ch) {
         errorRate: err && err.spans > 0 ? err.errors / err.spans : 0,
       };
     }),
-    topOrgs: topOrgRows.map((r) => ({
-      orgId: r.org_id,
-      name: nameById.get(r.org_id) ?? r.org_id,
-      spans: Number(r.span_count),
-    })),
+    // Volume leaders first, then the most recent orgs (zero-volume included),
+    // capped to the panel size.
+    topOrgs: [...orgById.values()]
+      .map((o) => ({
+        orgId: o.id,
+        name: o.name,
+        ownerEmail: o.ownerEmail,
+        ownerImage: o.ownerImage,
+        spans: spansById.get(o.id) ?? 0,
+        createdAt: o.createdAt,
+      }))
+      .sort(
+        (a, b) =>
+          b.spans - a.spans ||
+          (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+      )
+      .slice(0, TOP_ORGS_DISPLAY)
+      .map(({ createdAt: _createdAt, ...rest }) => rest),
     postgres,
     clickhouse: {
       tables: chTables.map((t) => ({

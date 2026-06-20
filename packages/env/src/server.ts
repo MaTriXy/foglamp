@@ -73,6 +73,13 @@ const serverSchema = {
   // How often to sweep orgs for the 90% span-quota warning email; default 1h.
   QUOTA_WARN_INTERVAL_MS: z.coerce.number().default(3_600_000),
 
+  // --- ClickHouse storage watch (cron in apps/server) ---
+  // How often to check total ClickHouse on-disk size; default every 4h.
+  CLICKHOUSE_SIZE_WATCH_INTERVAL_MS: z.coerce.number().default(14_400_000),
+  // Email platform admins (at most once per UTC day) while the ClickHouse DB
+  // exceeds this on-disk size; default 20 GiB.
+  CLICKHOUSE_SIZE_ALERT_BYTES: z.coerce.number().default(21_474_836_480),
+
   // --- Optional Google OAuth (enabled only when both are present) ---
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

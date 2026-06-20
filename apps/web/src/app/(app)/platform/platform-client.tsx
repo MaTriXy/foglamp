@@ -10,6 +10,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@foglamp/ui/components/alert-dialog";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@foglamp/ui/components/avatar";
 import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
@@ -24,13 +29,17 @@ import {
   NativeSelectOption,
 } from "@foglamp/ui/components/native-select";
 import {
+  IconBoltFilled,
   IconBuilding,
+  IconBuildingSkyscraper,
   IconCoinFilled,
   IconCreditCard,
   IconFolderFilled,
+  IconGiftFilled,
   IconStack2Filled,
   IconUserFilled,
   IconUserPlus,
+  type Icon,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -61,6 +70,24 @@ function formatMrr(cents: number | null): string {
     maximumFractionDigits: dollars % 1 === 0 ? 0 : 2,
   })}/mo`;
 }
+
+function initials(value: string): string {
+  return value.slice(0, 2).toUpperCase();
+}
+
+// Icon + accent per plan, so the Plans card reads like the Signup funnel.
+// Unknown plans fall back to a neutral card icon.
+const PLAN_STYLE: Record<string, { icon: Icon; className: string }> = {
+  free: { icon: IconUserFilled, className: "text-sky-500" },
+  pro: { icon: IconBoltFilled, className: "text-amber-500" },
+  team: { icon: IconBuilding, className: "text-violet-500" },
+  enterprise: { icon: IconBuildingSkyscraper, className: "text-emerald-500" },
+  comp: { icon: IconGiftFilled, className: "text-fuchsia-500" },
+};
+const PLAN_STYLE_FALLBACK = {
+  icon: IconCreditCard,
+  className: "text-muted-foreground",
+};
 
 // Comp an org to enterprise limits for a chosen window. Grants are enforced at
 // plan-resolution time (getOrgPlan), so revocations/expiries apply within ~60s
@@ -311,6 +338,7 @@ export function PlatformClient() {
     },
   ];
   const funnelMax = Math.max(1, ...funnelSteps.map((s) => s.value));
+  const planMax = Math.max(1, ...d.plans.map((p) => p.orgs));
 
   return (
     <>
@@ -371,8 +399,6 @@ export function PlatformClient() {
         />
       </div>
 
-      <AccessGrantsCard />
-
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
@@ -409,19 +435,31 @@ export function PlatformClient() {
             <CardTitle>Plans</CardTitle>
             <CardDescription>Organizations by plan</CardDescription>
           </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <tbody>
-                {d.plans.map((p) => (
-                  <tr key={p.plan} className="border-t border-border/50">
-                    <td className="py-1 capitalize">{p.plan}</td>
-                    <td className="py-1 text-right tabular-nums">
+          <CardContent className="mt-2 flex flex-col gap-6">
+            {d.plans.map((p) => {
+              const style = PLAN_STYLE[p.plan] ?? PLAN_STYLE_FALLBACK;
+              return (
+                <div key={p.plan} className="flex flex-col gap-3.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center gap-2 capitalize">
+                      <style.icon className={`size-4 ${style.className}`} />
+                      {p.plan}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
                       {formatCount(p.orgs)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  </div>
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{
+                        width: `${Math.min(100, (p.orgs / planMax) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -476,21 +514,21 @@ export function PlatformClient() {
               <tbody>
                 {[...d.usageByDay].reverse().map((row) => (
                   <tr key={row.day} className="border-t border-border/50">
-                    <td className="py-1 tabular-nums">{row.day}</td>
-                    <td className="py-1 text-right tabular-nums">
+                    <td className="py-2.5 tabular-nums">{row.day}</td>
+                    <td className="py-2.5 text-right tabular-nums">
                       {formatCount(row.spans)}
                     </td>
-                    <td className="py-1 text-right tabular-nums">
+                    <td className="py-2.5 text-right tabular-nums">
                       {formatCount(row.errors)}
                     </td>
                     <td
-                      className={`py-1 text-right tabular-nums ${
+                      className={`py-2.5 text-right tabular-nums ${
                         row.errorRate > 0.05 ? "text-destructive" : ""
                       }`}
                     >
                       {(row.errorRate * 100).toFixed(1)}%
                     </td>
-                    <td className="py-1 text-right tabular-nums">
+                    <td className="py-2.5 text-right tabular-nums">
                       {row.activeOrgs}
                     </td>
                   </tr>
@@ -513,31 +551,49 @@ export function PlatformClient() {
         <Card>
           <CardHeader>
             <CardTitle>Top organizations, last 30 days</CardTitle>
-            <CardDescription>By span volume</CardDescription>
+            <CardDescription>By span volume · includes new orgs</CardDescription>
           </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <tbody>
-                {d.topOrgs.map((org) => (
-                  <tr key={org.orgId} className="border-t border-border/50">
-                    <td className="max-w-0 truncate py-1 pr-4">{org.name}</td>
-                    <td className="py-1 text-right tabular-nums">
-                      {formatCount(org.spans)}
-                    </td>
-                  </tr>
-                ))}
-                {d.topOrgs.length === 0 && (
-                  <tr>
-                    <td className="py-3 text-center text-muted-foreground">
-                      No usage yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <CardContent className="flex flex-col">
+            {d.topOrgs.map((org) => (
+              <div
+                key={org.orgId}
+                className="flex items-center justify-between gap-3 border-t border-border/50 py-2.5 first:border-t-0"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar size="sm">
+                    {org.ownerImage ? (
+                      <AvatarImage src={org.ownerImage} alt="" />
+                    ) : null}
+                    <AvatarFallback>
+                      {initials(org.ownerEmail ?? org.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm">{org.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {org.ownerEmail ?? "no owner"}
+                    </span>
+                  </div>
+                </div>
+                <span className="shrink-0 text-sm tabular-nums">
+                  {org.spans > 0 ? (
+                    formatCount(org.spans)
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </span>
+              </div>
+            ))}
+            {d.topOrgs.length === 0 && (
+              <p className="py-3 text-center text-sm text-muted-foreground">
+                No organizations yet.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <AccessGrantsCard />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

@@ -2,6 +2,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { startAlertEvaluator } from "@foglamp/api/alertCron";
 import { startQuotaWarnSweep } from "@foglamp/api/quotaCron";
 import { startScoringWorker } from "@foglamp/api/scoringCron";
+import { startStorageWatchSweep } from "@foglamp/api/storageCron";
 import { createContext } from "@foglamp/api/context";
 import { appRouter } from "@foglamp/api/routers/index";
 import { provisionCliKey } from "@foglamp/api/services/projects";
@@ -100,6 +101,9 @@ const stopAlertEvaluator = startAlertEvaluator();
 const stopScoringWorker = startScoringWorker();
 // Quota warning sweep: email owners/admins when an org nears its span quota.
 const stopQuotaWarnSweep = startQuotaWarnSweep();
+// ClickHouse storage watch: email platform admins when the DB grows past the
+// configured size threshold (every 4h by default).
+const stopStorageWatchSweep = startStorageWatchSweep();
 
 // Periodically shed stale foggy rate-limit entries (in-memory).
 const pruneTimer = setInterval(() => {
@@ -115,7 +119,12 @@ async function shutdown(signal: string): Promise<void> {
   try {
     log.emit({ outcome: "shutdown_start", signal });
     clearInterval(pruneTimer);
-    await Promise.all([stopAlertEvaluator(), stopScoringWorker(), stopQuotaWarnSweep()]);
+    await Promise.all([
+      stopAlertEvaluator(),
+      stopScoringWorker(),
+      stopQuotaWarnSweep(),
+      stopStorageWatchSweep(),
+    ]);
     log.emit({ outcome: "shutdown", signal });
   } catch (err) {
     log.error(err instanceof Error ? err : new Error(String(err)), { signal });
