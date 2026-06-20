@@ -1,6 +1,7 @@
 import { publicProcedure, router } from "../index";
 import { agentsRouter } from "./agents";
 import { alertsRouter } from "./alerts";
+import { customersRouter } from "./customers";
 import { evalsRouter } from "./evals";
 import { metricsRouter } from "./metrics";
 import { orgsRouter } from "./orgs";
@@ -22,6 +23,7 @@ export const appRouter = router({
   workflows: workflowsRouter,
   workflowRuns: workflowRunsRouter,
   agents: agentsRouter,
+  customers: customersRouter,
   sessions: sessionsRouter,
   metrics: metricsRouter,
   alerts: alertsRouter,

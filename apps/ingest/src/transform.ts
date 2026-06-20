@@ -1,4 +1,4 @@
-import type { SpanRow } from "@foglamp/clickhouse";
+import type { CustomerDimRow, SpanRow } from "@foglamp/clickhouse";
 import type { IngestPayload } from "@foglamp/contracts";
 import {
   EMPTY_BREAKDOWN,
@@ -102,6 +102,7 @@ export function buildSpanRows(args: {
         workflow_name: trace.workflowName ?? "",
         workflow_run_id: trace.workflowRunId ?? "",
         session_id: trace.sessionId ?? "",
+        customer_id: trace.customer?.id ?? "",
         metadata: { ...traceMeta, ...(span.metadata ?? {}) },
         input: span.input ?? "",
         output: span.output ?? "",
@@ -136,4 +137,31 @@ export function buildSpanRows(args: {
   }
 
   return rows;
+}
+
+/**
+ * Collect distinct customer display rows from a batch for the `customers`
+ * dimension table — one per `customer_id`, latest occurrence winning so the
+ * freshest name/image in the batch is what we upsert. Returns [] when no trace
+ * carries a customer. This feeds best-effort enrichment, kept off the span path.
+ */
+export function buildCustomerRows(args: {
+  payload: IngestPayload;
+  projectId: string;
+  now: number;
+}): CustomerDimRow[] {
+  const { payload, projectId, now } = args;
+  const byId = new Map<string, CustomerDimRow>();
+  for (const trace of payload.traces) {
+    const customer = trace.customer;
+    if (!customer) continue;
+    byId.set(customer.id, {
+      project_id: projectId,
+      customer_id: customer.id,
+      customer_name: customer.name ?? "",
+      customer_image_url: customer.imageUrl ?? "",
+      last_seen: now,
+    });
+  }
+  return [...byId.values()];
 }

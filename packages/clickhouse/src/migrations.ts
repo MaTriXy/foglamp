@@ -516,4 +516,56 @@ GROUP BY project_id, bucket, span_type, model_id, agent_name`,
       ),
     ],
   },
+  {
+    // Per-customer cost attribution. `customer_id` is denormalized onto every
+    // span (the stable grouping key, like session_id) and rolled up via the
+    // existing trace_summary MV — no dedicated per-minute view (customers roll
+    // up from trace_summary exactly like sessions). Display name/image live in
+    // a separate `customers` dimension table (last-write-wins) so they're not
+    // copied onto every span row. customer_id must exist on spans before the MV
+    // MODIFY QUERY references it. Expand-contract: ADD COLUMN to spans +
+    // trace_summary first, then MODIFY QUERY in place so the aggregate never gaps.
+    id: "0014_customers",
+    statements: [
+      `ALTER TABLE spans ADD COLUMN IF NOT EXISTS customer_id String DEFAULT ''`,
+      `ALTER TABLE spans ADD INDEX IF NOT EXISTS idx_customer_id customer_id TYPE bloom_filter GRANULARITY 1`,
+      `ALTER TABLE trace_summary ADD COLUMN IF NOT EXISTS customer_id SimpleAggregateFunction(any, String)`,
+      modifyMaterializedViewQuery(
+        "trace_summary_mv",
+        `SELECT
+  project_id,
+  trace_id,
+  CAST(any(agent_name) AS String) AS agent_name,
+  CAST(any(workflow_name) AS String) AS workflow_name,
+  CAST(any(trace_name) AS String) AS trace_name,
+  any(workflow_run_id) AS workflow_run_id,
+  any(session_id) AS session_id,
+  any(customer_id) AS customer_id,
+  min(start_time) AS trace_start,
+  max(end_time) AS trace_end,
+  toUInt64(count()) AS span_count,
+  toUInt64(countIf(span_type = 'llm')) AS llm_span_count,
+  toUInt64(countIf(span_type = 'tool')) AS tool_span_count,
+  toUInt64(countIf(status = 'error')) AS error_count,
+  sum(ifNull(spans.total_cost, CAST(0 AS ${SUMMED_DECIMAL}))) AS total_cost,
+  toUInt64(countIf(span_type = 'llm' AND spans.total_cost IS NOT NULL)) AS priced_span_count,
+  toUInt64(sum(input_tokens)) AS input_tokens,
+  toUInt64(sum(output_tokens)) AS output_tokens,
+  toUInt64(sum(total_tokens)) AS total_tokens,
+  groupUniqArrayStateIf(CAST(model_id AS String), span_type = 'llm' AND model_id != '') AS models
+FROM spans
+GROUP BY project_id, trace_id`,
+      ),
+      `CREATE TABLE IF NOT EXISTS customers
+(
+  project_id String,
+  customer_id String,
+  customer_name String DEFAULT '',
+  customer_image_url String DEFAULT '',
+  last_seen DateTime64(3)
+)
+ENGINE = ReplacingMergeTree(last_seen)
+ORDER BY (project_id, customer_id)`,
+    ],
+  },
 ];

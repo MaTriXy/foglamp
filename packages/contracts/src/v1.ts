@@ -62,6 +62,18 @@ export const metadataSchema = z
   });
 export type Metadata = z.infer<typeof metadataSchema>;
 
+// The end-customer a trace is serving, for per-customer cost attribution. Only
+// `id` is required (the stable grouping key, denormalized onto every span row);
+// `name`/`imageUrl` are display-only and stored in a separate dimension table.
+export const customerSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    name: z.string().max(256).optional(),
+    imageUrl: z.string().url().max(2048).optional(),
+  })
+  .strict();
+export type Customer = z.infer<typeof customerSchema>;
+
 const MAX_PAYLOAD_CHARS = 1_000_000; // 1MB soft cap per input/output blob.
 
 export const spanSchema = z
@@ -197,6 +209,7 @@ export const traceSchema = z
     workflowName: z.string().max(256).optional(),
     workflowRunId: z.string().max(128).optional(),
     sessionId: z.string().max(128).optional(),
+    customer: customerSchema.optional(),
 
     metadata: metadataSchema.optional(),
 

@@ -72,6 +72,7 @@ const blank = {
   workflow_name: "",
   workflow_run_id: "",
   session_id: "",
+  customer_id: "",
   metadata: {} as Record<string, string>,
   input: "",
   output: "",

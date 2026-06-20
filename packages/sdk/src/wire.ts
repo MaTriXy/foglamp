@@ -10,6 +10,12 @@
 
 export type Metadata = Record<string, string>;
 
+export interface Customer {
+  id: string;
+  name?: string;
+  imageUrl?: string;
+}
+
 export type SpanType = "agent" | "llm" | "tool" | "embedding" | "other";
 export type SpanStatus = "ok" | "error";
 
@@ -107,6 +113,7 @@ export interface Trace {
   workflowName?: string;
   workflowRunId?: string;
   sessionId?: string;
+  customer?: Customer;
   metadata?: Metadata;
   spans: Span[];
 }

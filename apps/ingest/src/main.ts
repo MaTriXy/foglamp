@@ -2,6 +2,7 @@ import {
   applySpansRetention,
   clickHouseConfigFromEnv,
   createClickHouseClient,
+  insertCustomers,
   runMigrations,
 } from "@foglamp/clickhouse";
 import { ingestPayloadSchema } from "@foglamp/contracts";
@@ -17,7 +18,7 @@ import { getProjectPricing, pruneCustomPricing } from "./customPricing";
 import { evlog, type AppEnv } from "./evlog";
 import { checkOrgQuota, pruneOrgLimits } from "./orgLimits";
 import { checkRateLimit, pruneRateLimits } from "./rateLimit";
-import { buildSpanRows } from "./transform";
+import { buildCustomerRows, buildSpanRows } from "./transform";
 
 // apps/ingest — write-heavy span ingestion. Per request: authenticate the API
 // key (→ project), rate-limit per key, validate the wire payload, price each
@@ -137,6 +138,7 @@ app.post(
     getPricingTable(),
     getProjectPricing(resolved.projectId),
   ]);
+  const now = Date.now();
   const rows = buildSpanRows({
     payload: parsed.data,
     projectId: resolved.projectId,
@@ -144,9 +146,23 @@ app.post(
     retentionDays: quota.retentionDays,
     table,
     rules,
-    now: Date.now(),
+    now,
   });
   buffer.push(rows);
+
+  // Best-effort: upsert the customer dimension (id → name/image) so the Overview
+  // can show display fields. Off the span path — a failure here never fails the
+  // 202; cost attribution by customer_id already lives on the span rows.
+  const customers = buildCustomerRows({
+    payload: parsed.data,
+    projectId: resolved.projectId,
+    now,
+  });
+  if (customers.length > 0) {
+    insertCustomers(client, customers).catch((err) => {
+      log.set({ customerDimError: err instanceof Error ? err.message : String(err) });
+    });
+  }
 
   log.set({ traceCount: parsed.data.traces.length, spanCount: rows.length });
   return c.json({ accepted: rows.length }, 202);

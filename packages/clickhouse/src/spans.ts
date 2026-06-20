@@ -51,6 +51,7 @@ export type SpanRow = {
   workflow_name: string;
   workflow_run_id: string;
   session_id: string;
+  customer_id: string; // '' when no customer; display name/image live in `customers`
   metadata: Record<string, string>;
   input: string;
   output: string;
@@ -126,6 +127,38 @@ export async function insertSpans(
   await client.insert({
     table: "spans",
     values: rows.map(toInsertRow),
+    format: "JSONEachRow",
+    clickhouse_settings: { date_time_input_format: "best_effort" },
+  });
+}
+
+// A row for the `customers` dimension table (id → display name/image). One per
+// distinct customer seen in an ingest batch; `last_seen` is epoch ms. The
+// ReplacingMergeTree keeps the latest by `last_seen`, so name/image can evolve.
+export type CustomerDimRow = {
+  project_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_image_url: string;
+  last_seen: number; // epoch ms
+};
+
+/**
+ * Upsert customer display rows. Best-effort enrichment that runs alongside span
+ * ingest (cost attribution by `customer_id` works without it); callers should
+ * keep failures off the span write path.
+ */
+export async function insertCustomers(
+  client: ClickHouseClient,
+  rows: CustomerDimRow[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  await client.insert({
+    table: "customers",
+    values: rows.map((row) => ({
+      ...row,
+      last_seen: toClickHouseDateTime64(row.last_seen),
+    })),
     format: "JSONEachRow",
     clickhouse_settings: { date_time_input_format: "best_effort" },
   });

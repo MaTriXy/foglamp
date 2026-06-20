@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Collector } from "./collector";
 import { resolveConfig } from "./config";
+import { mergeContext } from "./context";
 import type { Transport } from "./transport";
 import type { Span, Trace } from "./wire";
 
@@ -450,5 +451,74 @@ describe("Collector official performance stats (v7 beta/canary)", () => {
     collector.onEnd!({ callId, object: { a: 1 } } as never);
 
     expect(traces[0]!.spans.filter((s) => s.spanType === "llm").length).toBe(1);
+  });
+});
+
+describe("Collector customer attribution", () => {
+  test("the customer object flows onto the enqueued trace", () => {
+    const { collector, traces } = makeCollector();
+    const bound = collector.integration({
+      agentName: "support",
+      customer: { id: "cust_1", name: "Acme", imageUrl: "https://x/a.png" },
+    });
+    const callId = "call-cust";
+    bound.onStart!({ callId } as never);
+    bound.onStepStart!({ callId, stepNumber: 0 } as never);
+    bound.onStepFinish!({
+      callId,
+      stepNumber: 0,
+      usage: { inputTokens: 1, outputTokens: 1 },
+      finishReason: "stop",
+    } as never);
+    bound.onFinish!({ callId, text: "done" } as never);
+
+    expect(traces.length).toBe(1);
+    expect(traces[0]!.customer).toEqual({
+      id: "cust_1",
+      name: "Acme",
+      imageUrl: "https://x/a.png",
+    });
+  });
+
+  test("integration() rejects a customer without an id", () => {
+    const { collector } = makeCollector();
+    expect(() =>
+      collector.integration({ agentName: "a", customer: { id: "" } }),
+    ).toThrow(/customer\.id/);
+  });
+
+  test("a trace with no customer omits the field", () => {
+    const { collector, traces } = makeCollector();
+    const bound = collector.integration({ agentName: "solo" });
+    const callId = "call-nocust";
+    bound.onStart!({ callId } as never);
+    bound.onStepStart!({ callId, stepNumber: 0 } as never);
+    bound.onStepFinish!({
+      callId,
+      stepNumber: 0,
+      usage: { inputTokens: 1, outputTokens: 1 },
+      finishReason: "stop",
+    } as never);
+    bound.onFinish!({ callId, text: "done" } as never);
+
+    expect(traces[0]!.customer).toBeUndefined();
+  });
+});
+
+describe("mergeContext customer", () => {
+  test("an inner customer replaces the outer one (whole-object, not field-merge)", () => {
+    const merged = mergeContext(
+      { customer: { id: "a", name: "Outer" } },
+      { customer: { id: "b" } },
+    );
+    expect(merged.customer).toEqual({ id: "b" });
+  });
+
+  test("an outer customer survives when the inner layer omits it", () => {
+    const merged = mergeContext(
+      { customer: { id: "a", name: "Outer" } },
+      { agentName: "x" },
+    );
+    expect(merged.customer).toEqual({ id: "a", name: "Outer" });
   });
 });

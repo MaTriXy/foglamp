@@ -295,6 +295,11 @@ export class Collector implements Telemetry {
         "[foglamp] `workflowName` and `workflowRunId` must be passed together (both or neither).",
       );
     }
+    if (context.customer && !context.customer.id) {
+      throw new Error(
+        "[foglamp] `customer.id` is required when passing `customer` — it's the attribution key.",
+      );
+    }
     return new Collector(this.transport, this.config, context);
   }
 
@@ -991,6 +996,7 @@ export class Collector implements Telemetry {
       workflowName: ctx.workflowName,
       workflowRunId: ctx.workflowRunId,
       sessionId: ctx.sessionId,
+      customer: ctx.customer,
       metadata: coerceMetadata(ctx.metadata),
       spans,
     };

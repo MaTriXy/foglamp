@@ -16,6 +16,17 @@ export type WaitUntil = (promise: Promise<unknown>) => void;
  */
 export type MetadataInput = Record<string, string | number | boolean>;
 
+/**
+ * The end-customer a trace is serving, for per-customer cost attribution. Only
+ * `id` is required (the stable grouping key); `name`/`imageUrl` are optional
+ * display fields surfaced in the dashboard.
+ */
+export interface CustomerInput {
+  id: string;
+  name?: string;
+  imageUrl?: string;
+}
+
 /** Options for `foglamp(config)`. Every field is optional. */
 export interface FoglampConfig {
   /** API key. Defaults to `process.env.FOGLAMP_API_KEY`. Unset ⇒ no-op. */
@@ -71,6 +82,7 @@ export interface IntegrationContext {
   workflowName?: string;
   workflowRunId?: string;
   sessionId?: string;
+  customer?: CustomerInput;
   metadata?: MetadataInput;
 }
 
@@ -98,6 +110,7 @@ type IntegrationWorkflow =
 
 type IntegrationContextExtras = {
   sessionId?: string;
+  customer?: CustomerInput;
   metadata?: MetadataInput;
 };
 

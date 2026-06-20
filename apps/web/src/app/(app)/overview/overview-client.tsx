@@ -42,6 +42,7 @@ import * as LineChart from "@/components/evilcharts/charts/line-chart";
 import type { ChartConfig } from "@/components/evilcharts/ui/chart";
 import { ModelLogo, modelBrandColor } from "@/components/model-logo";
 import { AgentIcon, agentColor } from "@/components/app/agent-icon";
+import { CustomerAvatar } from "@/components/app/customer-avatar";
 import { useProject } from "@/components/app/project-context";
 import { useDelayedLoading } from "@/components/app/data-table";
 import { OnboardingPanel } from "@/components/app/onboarding-panel";
@@ -384,6 +385,11 @@ export function OverviewClient() {
     ...trpc.workflows.list.queryOptions({ ...args, limit: 100 }),
     enabled,
   });
+  // Top customers by cost for the "Customers" card (server default sort is cost desc).
+  const customers = useQuery({
+    ...trpc.customers.list.queryOptions({ ...args, limit: 100 }),
+    enabled,
+  });
   // Range-independent probe: empty == this project has never received a trace,
   // which gates the onboarding panel.
   const everReceived = useQuery({
@@ -401,6 +407,7 @@ export function OverviewClient() {
   const showModelsSkeleton = useDelayedLoading(models.isLoading);
   const showAgentsSkeleton = useDelayedLoading(agents.isLoading);
   const showWorkflowsSkeleton = useDelayedLoading(workflows.isLoading);
+  const showCustomersSkeleton = useDelayedLoading(customers.isLoading);
 
   // p50/p95/p99 latency + requests/errors per bucket. Keeps the raw bucket as
   // the x value (formatted on the axis) so we can thin the ticks.
@@ -606,11 +613,16 @@ export function OverviewClient() {
   const modelRows = models.data ?? [];
   const agentRows = agents.data?.agents ?? [];
   const workflowRows = workflows.data?.workflows ?? [];
+  const customerRows = customers.data?.customers ?? [];
   const maxModelCost = Math.max(1, ...modelRows.map((m) => m.totalCost ?? 0));
   const maxAgentCost = Math.max(1, ...agentRows.map((a) => a.totalCost ?? 0));
   const maxWorkflowCost = Math.max(
     1,
     ...workflowRows.map((w) => w.totalCost ?? 0)
+  );
+  const maxCustomerCost = Math.max(
+    1,
+    ...customerRows.map((c) => c.totalCost ?? 0)
   );
   // Raw load flags: drive empty-state detection here, and gate each chart card
   // (nothing pre-delay → ChartCardSkeleton after the delay → the real chart),
@@ -931,8 +943,8 @@ export function OverviewClient() {
       </Card>
       )}
 
-      {/* By model + by agent + by workflow, side by side */}
-      <section className="grid gap-4 lg:grid-cols-3">
+      {/* By model + by agent + by workflow + by customer, side by side */}
+      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {models.isLoading ? (
           showModelsSkeleton ? (
             <ListCardSkeleton />
@@ -1057,6 +1069,51 @@ export function OverviewClient() {
                       fraction={(w.totalCost ?? 0) / maxWorkflowCost}
                       color="var(--color-emerald-500)"
                       metrics={`${formatCount(w.runCount)} runs · ${formatCount(w.spanCount)} req · ${formatCount(w.errorCount)} err`}
+                    />
+                  ))}
+                </div>
+              </ScrollFade>
+            )}
+          </CardContent>
+        </Card>
+        )}
+
+        {customers.isLoading ? (
+          showCustomersSkeleton ? (
+            <ListCardSkeleton />
+          ) : null
+        ) : (
+        <Card size="sm" className="pb-0! group-data-[size=sm]/card:pb-0!">
+          <CardHeader>
+            <CardTitle>Customers</CardTitle>
+          </CardHeader>
+          <CardContent className="mt-3">
+            {customerRows.length === 0 ? (
+              <EmptyState
+                icon={IconChartAreaFilled}
+                title="No customer activity yet"
+                description="Set customer on a call to attribute its cost to an end-customer."
+                className="mb-6"
+              />
+            ) : (
+              <ScrollFade className="max-h-88 pr-1">
+                <div className="divide-y divide-border/40 pb-6">
+                  {customerRows.map((c) => (
+                    <BreakdownRow
+                      key={c.customerId}
+                      renderIcon={(cls) => (
+                        <CustomerAvatar
+                          customerId={c.customerId}
+                          customerName={c.customerName}
+                          imageUrl={c.customerImageUrl}
+                          className={cls}
+                        />
+                      )}
+                      title={c.customerName ?? c.customerId}
+                      value={formatCost(c.totalCost)}
+                      fraction={(c.totalCost ?? 0) / maxCustomerCost}
+                      color={agentColor(c.customerId)}
+                      metrics={`${formatCount(c.spanCount)} req · ${formatCount(c.errorCount)} err`}
                     />
                   ))}
                 </div>

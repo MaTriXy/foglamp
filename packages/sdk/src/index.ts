@@ -37,6 +37,7 @@ export function foglamp(config: FoglampConfig = {}): Collector {
 
 export { Collector } from "./collector";
 export type {
+  CustomerInput,
   IntegrationContext,
   IntegrationInput,
   MetadataInput,

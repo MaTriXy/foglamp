@@ -398,6 +398,88 @@ export function sessionListSummary(
 	);
 }
 
+export type CustomerListRow = {
+	customer_id: string;
+	customer_name: string;
+	customer_image_url: string;
+	span_count: string;
+	llm_span_count: string;
+	error_count: string;
+	total_cost: string;
+	priced_span_count: string;
+	total_tokens: string;
+	first_seen: string;
+	last_seen: string;
+};
+
+/**
+ * Per-customer cost rollup (the Overview "Customers" card). Rolls up
+ * `trace_summary` grouped by `customer_id` — the same shape as `listSessions` —
+ * and joins the small `customers` dimension table (FINAL, scoped to the project
+ * so the merge is cheap) for the display name/image. Default sort is cost desc:
+ * the card wants the top spenders. Time-windowed via HAVING on first/last-seen.
+ */
+export function listCustomers(
+	client: ClickHouseClient,
+	params: {
+		projectId: string;
+		from?: string;
+		to?: string;
+		limit?: number;
+		offset?: number;
+	},
+): Promise<CustomerListRow[]> {
+	const having: string[] = ["customer_id != ''"];
+	if (params.from !== undefined)
+		having.push("last_seen >= {from:DateTime64(3)}");
+	if (params.to !== undefined) having.push("first_seen < {to:DateTime64(3)}");
+	return rows<CustomerListRow>(
+		client,
+		`SELECT
+       r.customer_id AS customer_id,
+       dim.customer_name AS customer_name,
+       dim.customer_image_url AS customer_image_url,
+       r.span_count AS span_count,
+       r.llm_span_count AS llm_span_count,
+       r.error_count AS error_count,
+       r.total_cost AS total_cost,
+       r.priced_span_count AS priced_span_count,
+       r.total_tokens AS total_tokens,
+       r.first_seen AS first_seen,
+       r.last_seen AS last_seen
+     FROM (
+       SELECT
+         customer_id,
+         sum(span_count) AS span_count,
+         sum(llm_span_count) AS llm_span_count,
+         sum(error_count) AS error_count,
+         sum(total_cost) AS total_cost,
+         sum(priced_span_count) AS priced_span_count,
+         sum(total_tokens) AS total_tokens,
+         min(trace_summary.trace_start) AS first_seen,
+         max(trace_summary.trace_end) AS last_seen
+       FROM trace_summary
+       WHERE project_id = {projectId:String}
+       GROUP BY customer_id
+       HAVING ${having.join(" AND ")}
+     ) AS r
+     LEFT JOIN (
+       SELECT customer_id, customer_name, customer_image_url
+       FROM customers FINAL
+       WHERE project_id = {projectId:String}
+     ) AS dim ON dim.customer_id = r.customer_id
+     ORDER BY r.total_cost DESC
+     LIMIT {limit:UInt32} OFFSET {offset:UInt32}`,
+		{
+			projectId: params.projectId,
+			from: params.from,
+			to: params.to,
+			limit: params.limit ?? 50,
+			offset: params.offset ?? 0,
+		},
+	);
+}
+
 export type SessionTurnRow = {
 	trace_id: string;
 	name: string;

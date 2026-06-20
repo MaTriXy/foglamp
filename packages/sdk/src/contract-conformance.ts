@@ -15,6 +15,7 @@ type Assert<T extends true> = T;
 
 // If any of these error, src/wire.ts has drifted from the contract.
 export type _Metadata = Assert<Mutual<Wire.Metadata, Contract.Metadata>>;
+export type _Customer = Assert<Mutual<Wire.Customer, Contract.Customer>>;
 export type _Usage = Assert<Mutual<Wire.Usage, Contract.Usage>>;
 export type _SpanType = Assert<Mutual<Wire.SpanType, Contract.SpanType>>;
 export type _SpanStatus = Assert<Mutual<Wire.SpanStatus, Contract.SpanStatus>>;
