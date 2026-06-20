@@ -15,7 +15,7 @@ import { env } from "@foglamp/env/server";
 
 import type { AppEnv } from "./evlog";
 import { checkFoggyRateLimit } from "./foggyRateLimit";
-import { buildFoggyTools } from "./foggyTools";
+import { buildFoggyTools, untrusted } from "./foggyTools";
 
 // Foggy is enabled only when a Google key is configured.
 const google = env.GOOGLE_GENERATIVE_AI_API_KEY
@@ -25,14 +25,101 @@ const google = env.GOOGLE_GENERATIVE_AI_API_KEY
 // Dogfooding: a no-op collector unless FOGLAMP_API_KEY is set in the server env.
 const fog = foglamp();
 
-function systemPrompt(projectName: string): string {
+// Maps the in-app pathname the user is viewing into a short, trusted sentence
+// for the system prompt. Detail pages also surface their id/name so Foggy can
+// resolve "this trace/agent/…" without the user repeating it. The dynamic
+// segment is customer-controlled (agent/workflow names come straight from SDK
+// payloads, and the whole path is client-supplied), so it's wrapped in the same
+// [BEGIN_UNTRUSTED]…[END_UNTRUSTED] markers the tools use — the model may reuse
+// it verbatim as a tool argument but must never treat it as instructions.
+function describeLocation(pathname: string | undefined | null): string | null {
+  if (!pathname || typeof pathname !== "string") return null;
+  const path = pathname.split(/[?#]/)[0] ?? pathname;
+  const segs = path
+    .split("/")
+    .filter(Boolean)
+    .map((s) => {
+      try {
+        return decodeURIComponent(s);
+      } catch {
+        return s;
+      }
+    });
+  if (segs.length === 0) return null;
+  const [section, rawId] = segs;
+  const id = rawId ? untrusted(rawId) : null;
+
+  switch (section) {
+    case "overview":
+      return "the Overview dashboard (project-wide cost, usage, and error metrics).";
+    case "traces":
+      return id
+        ? `the detail page for a single trace, id ${id}. If they say "this trace", pass that id to getTrace.`
+        : "the Traces list.";
+    case "agents":
+      return id
+        ? `the detail page for the agent named ${id}. If they say "this agent", use that as agentName when filtering.`
+        : "the Agents list.";
+    case "workflows":
+      return id
+        ? `the detail page for the workflow named ${id}. If they say "this workflow", they mean that one.`
+        : "the Workflows list.";
+    case "sessions":
+      return id
+        ? `the detail page for one session, id ${id}. If they say "this session", pass that id to getSession.`
+        : "the Sessions list.";
+    case "evals":
+      return id
+        ? `the detail page for one eval, id ${id}. If they say "this eval", pass that id to getEvalScores (and find its summary via listEvals).`
+        : "the Evals list.";
+    case "alerts":
+      return "the Alerts page.";
+    case "settings":
+      return "the Settings area (API keys, provider keys, org settings).";
+    case "platform":
+      return "the Platform admin page.";
+    default:
+      return null;
+  }
+}
+
+// The client sends the time range the user has picked in the UI; turn valid
+// from/to into concrete Dates so the tools (and the prompt) default to it
+// instead of a hardcoded 7-day window. Ignores malformed/partial input.
+function resolveRange(
+  range: { from?: string; to?: string } | undefined,
+): { from: Date; to: Date } | undefined {
+  if (!range?.from || !range?.to) return undefined;
+  const from = new Date(range.from);
+  const to = new Date(range.to);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to) {
+    return undefined;
+  }
+  return { from, to };
+}
+
+function systemPrompt(
+  projectName: string,
+  location: string | null,
+  range: { from: Date; to: Date } | undefined,
+): string {
   const today = new Date().toISOString().slice(0, 10);
   return [
     "You are Foggy, the in-app assistant for Foglamp — an observability platform for AI agents built on the Vercel AI SDK.",
     `You are helping a user with their project "${projectName}". Today is ${today}.`,
+    ...(location
+      ? [
+          `The user is currently viewing ${location} Use this to resolve references to the current page, but they may still ask about anything else.`,
+        ]
+      : []),
+    ...(range
+      ? [
+          `Unless the user names a different period, data tools default to the time range selected in the app: ${range.from.toISOString()} to ${range.to.toISOString()}. For relative phrasing ("today", "last hour"), pass explicit from/to instead.`,
+        ]
+      : []),
     "",
     "You answer two kinds of questions:",
-    "1. About THIS project's data — use the data tools (getProjectSummary, listTraces, getTrace, breakdownByModel, listAgents, listWorkflows). They are already scoped to the current project.",
+    "1. About THIS project's data — use the data tools (getProjectSummary, listTraces, getTrace, getTraceIO, breakdownByModel, getTimeseries, getCostTimeseriesByModel, listAgents, listWorkflows, listSessions, getSession, listEvals, getEvalScores, listAlerts, getAlertHistory). They are already scoped to the current project.",
     `2. About how Foglamp works (SDK usage, the data model, concepts, self-hosting) — use the searchDocs tool and cite ${env.FOGGY_DOCS_URL}.`,
     "",
     "Guidelines:",
@@ -79,6 +166,8 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
     messages?: UIMessage[];
     projectId?: string;
     threadId?: string;
+    pathname?: string;
+    range?: { from?: string; to?: string };
   } | null;
   const projectId = body?.projectId;
   const messages = body?.messages;
@@ -102,11 +191,13 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
     return c.json({ error: "Project not found or not accessible" }, 403);
   }
 
+  const defaultWindow = resolveRange(body?.range);
+
   const result = streamText({
     model: google(env.FOGGY_MODEL),
-    system: systemPrompt(projectName),
+    system: systemPrompt(projectName, describeLocation(body?.pathname), defaultWindow),
     messages: await convertToModelMessages(messages),
-    tools: buildFoggyTools({ ch, userId, projectId }),
+    tools: buildFoggyTools({ ch, userId, projectId, defaultWindow }),
     stopWhen: stepCountIs(env.FOGGY_MAX_STEPS),
     maxOutputTokens: env.FOGGY_MAX_OUTPUT_TOKENS,
     telemetry: {

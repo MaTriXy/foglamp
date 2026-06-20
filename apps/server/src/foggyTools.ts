@@ -5,41 +5,67 @@ import { db } from "@foglamp/db";
 import { env } from "@foglamp/env/server";
 import type { Ch } from "@foglamp/api/types";
 import { getAgentList } from "@foglamp/api/services/agents";
-import { getModelBreakdown, getSummary } from "@foglamp/api/services/metrics";
+import { getAlertHistory, listAlerts } from "@foglamp/api/services/alerts";
+import { listEvals, listRecentScores } from "@foglamp/api/services/evals";
+import {
+  getCostTimeseriesByModel,
+  getModelBreakdown,
+  getSummary,
+  getTimeseries,
+} from "@foglamp/api/services/metrics";
+import { getSessionDetail, getSessionList } from "@foglamp/api/services/sessions";
 import { getTraceDetail, getTraceList } from "@foglamp/api/services/traces";
 import { getWorkflowList } from "@foglamp/api/services/workflowRuns";
 
 // Tools are bound to one authenticated user + project. Every wrapped service
 // already calls requireProjectAccess(db, userId, projectId), so the user can
 // never read another project's data. Tools are read-only.
-type ToolCtx = { ch: Ch; userId: string; projectId: string };
+// defaultWindow is the time range the user has selected in the app; tools fall
+// back to it (then to the last 7 days) when the model doesn't name a window, so
+// Foggy's numbers match what's on screen.
+type ToolCtx = {
+  ch: Ch;
+  userId: string;
+  projectId: string;
+  defaultWindow?: { from: Date; to: Date };
+};
 
 const DAY_MS = 86_400_000;
 
-// Optional ISO from/to → concrete Dates, defaulting to the last 7 days.
+// Optional ISO from/to → concrete Dates, defaulting to the user's selected range.
 const windowInput = {
   from: z
     .string()
     .optional()
-    .describe("Start of the window, ISO 8601. Defaults to 7 days ago."),
+    .describe(
+      "Start of the window, ISO 8601. Defaults to the start of the time range the user has selected in the app.",
+    ),
   to: z
     .string()
     .optional()
-    .describe("End of the window, ISO 8601. Defaults to now."),
+    .describe(
+      "End of the window, ISO 8601. Defaults to the end of the user's selected range (usually now).",
+    ),
 };
-function resolveWindow(from?: string, to?: string) {
-  const toDate = to ? new Date(to) : new Date();
-  const fromDate = from ? new Date(from) : new Date(toDate.getTime() - 7 * DAY_MS);
-  return { from: fromDate, to: toDate };
-}
 
 // User-controlled strings (span names, error messages, trace/agent/workflow
 // names arrive verbatim from customer SDK payloads) are wrapped in delimiters
 // so the model treats them as opaque data rather than instructions — the
 // prompt-injection mitigation paired with the rule in foggy.ts's system prompt.
-function untrusted(v: string | null | undefined): string | null {
+// Exported so the current-page resolver in foggy.ts can wrap names/ids pulled
+// from the (client-supplied) pathname before they reach the system prompt.
+export function untrusted(v: string | null | undefined): string | null {
   if (v == null || v === "") return v ?? null;
   return `[BEGIN_UNTRUSTED]${v}[END_UNTRUSTED]`;
+}
+
+// Truncate free-form customer text (session messages, score reasons) before it
+// goes back to the model — a single session turn or judge rationale can be huge,
+// and Foggy only needs the gist. Marks where it cut so the model knows it's a
+// preview. Pair with untrusted() for the prompt-injection wrapping.
+function clip(v: string | null | undefined, max: number): string | null {
+  if (v == null || v === "") return null;
+  return v.length > max ? `${v.slice(0, max)}…` : v;
 }
 
 // Docs corpus fetcher: Mintlify auto-serves /llms.txt (index + summaries) and
@@ -69,7 +95,24 @@ async function fetchDocs(full: boolean): Promise<string | null> {
   }
 }
 
-export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
+export function buildFoggyTools({
+  ch,
+  userId,
+  projectId,
+  defaultWindow,
+}: ToolCtx): ToolSet {
+  // The window a tool uses when the model omits from/to: the user's selected
+  // range, else the last 7 days. Each field falls back independently so a
+  // half-specified window still resolves sensibly.
+  const fallback = defaultWindow ?? {
+    from: new Date(Date.now() - 7 * DAY_MS),
+    to: new Date(),
+  };
+  const resolveWindow = (from?: string, to?: string) => ({
+    from: from ? new Date(from) : fallback.from,
+    to: to ? new Date(to) : fallback.to,
+  });
+
   return {
     getProjectSummary: tool({
       description:
@@ -146,7 +189,9 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
       inputSchema: z.object({ traceId: z.string() }),
       execute: async ({ traceId }) => {
         const detail = await getTraceDetail(db, ch, userId, { projectId, traceId });
-        // Drop the large input/output payloads to keep the tool result small.
+        // Drop the large input/output payloads to keep the tool result small, but
+        // keep the per-dimension token + cost split so questions like "how much of
+        // this was prompt vs completion?" can be answered without the dashboard.
         const spans = detail.spans.slice(0, 60).map((s) => ({
           name: untrusted(s.name),
           spanType: s.spanType,
@@ -155,10 +200,55 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
           modelId: s.modelId,
           durationMs: s.durationMs,
           ttftMs: s.ttftMs,
+          inputTokens: s.inputTokens,
+          outputTokens: s.outputTokens,
+          reasoningTokens: s.reasoningTokens,
+          cachedInputTokens: s.cachedInputTokens,
           totalTokens: s.totalTokens,
+          promptCost: s.promptCost,
+          completionCost: s.completionCost,
+          reasoningCost: s.reasoningCost,
+          cacheReadCost: s.cacheReadCost,
+          cacheWriteCost: s.cacheWriteCost,
           totalCost: s.totalCost,
         }));
         return { traceId, link: `/traces/${encodeURIComponent(traceId)}`, spans };
+      },
+    }),
+
+    getTraceIO: tool({
+      description:
+        "Read the actual input/output payloads of a trace's spans by id — the prompt/messages sent in and the model or tool output. Use to explain WHY a trace produced a wrong, odd, or empty answer; metrics alone don't show content. Only spans that carry content are returned, and each payload is truncated.",
+      inputSchema: z.object({
+        traceId: z.string(),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(12)
+          .optional()
+          .describe("Max spans (with content) to return, in tree order. Default 6."),
+      }),
+      execute: async ({ traceId, limit }) => {
+        const detail = await getTraceDetail(db, ch, userId, { projectId, traceId });
+        const withIO = detail.spans.filter((s) => s.input || s.output);
+        const spans = withIO.slice(0, limit ?? 6).map((s) => ({
+          name: untrusted(s.name),
+          spanType: s.spanType,
+          modelId: s.modelId,
+          status: s.status,
+          // Customer payloads: clipped to bound context, untrusted-wrapped so the
+          // model treats their contents as data, not instructions.
+          input: untrusted(clip(s.input, 2500)),
+          output: untrusted(clip(s.output, 2500)),
+        }));
+        return {
+          traceId,
+          link: `/traces/${encodeURIComponent(traceId)}`,
+          spansReturned: spans.length,
+          spansWithContent: withIO.length,
+          spans,
+        };
       },
     }),
 
@@ -203,6 +293,256 @@ export function buildFoggyTools({ ch, userId, projectId }: ToolCtx): ToolSet {
             ? `/workflows/${encodeURIComponent(wf.workflowName)}`
             : "/workflows/~ungrouped",
         }));
+      },
+    }),
+
+    listSessions: tool({
+      description:
+        "List conversation sessions (a session groups the traces that share a sessionId — e.g. one chat thread) in a window. Filter by agent name or errors-only, sort, and paginate. Returns a summary (session/error counts, total cost/tokens) plus rows; each row includes a `link` to the session.",
+      inputSchema: z.object({
+        ...windowInput,
+        agentName: z
+          .string()
+          .optional()
+          .describe("Only sessions for this agent (exact match)."),
+        errorsOnly: z
+          .boolean()
+          .optional()
+          .describe("Only sessions that had at least one error."),
+        sort: z
+          .object({
+            field: z.enum(["last", "cost", "tokens", "turns"]),
+            dir: z.enum(["asc", "desc"]),
+          })
+          .optional()
+          .describe("Sort order. Defaults to most recent first."),
+        limit: z.number().int().min(1).max(50).optional().describe("Default 15."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Rows to skip, for paging. Default 0."),
+      }),
+      execute: async ({ from, to, agentName, errorsOnly, sort, limit, offset }) => {
+        const w = resolveWindow(from, to);
+        const { summary, sessions } = await getSessionList(db, ch, userId, {
+          projectId,
+          ...w,
+          agentName,
+          errorsOnly,
+          sort,
+          limit: limit ?? 15,
+          offset,
+        });
+        return {
+          summary,
+          sessions: sessions.map((s) => ({
+            sessionId: s.sessionId,
+            agentName: untrusted(s.agentName),
+            turnCount: s.turnCount,
+            spanCount: s.spanCount,
+            errorCount: s.errorCount,
+            totalCost: s.totalCost,
+            totalTokens: s.totalTokens,
+            firstSeen: s.firstSeen,
+            lastSeen: s.lastSeen,
+            link: `/sessions/${encodeURIComponent(s.sessionId)}`,
+          })),
+        };
+      },
+    }),
+
+    getSession: tool({
+      description:
+        "Get one conversation session by id — its turns in order (each turn is a trace: the user message, a short assistant output preview, status, cost, tokens) plus session totals. Use to explain what happened in a chat thread.",
+      inputSchema: z.object({ sessionId: z.string() }),
+      execute: async ({ sessionId }) => {
+        const detail = await getSessionDetail(db, ch, userId, { projectId, sessionId });
+        // Cap the turns and clip the free-form message text — a long session can
+        // carry hundreds of turns with large payloads.
+        const turns = detail.turns.slice(0, 30).map((t) => ({
+          traceId: t.traceId,
+          name: untrusted(t.name),
+          status: t.status,
+          durationMs: t.durationMs,
+          totalCost: t.totalCost,
+          totalTokens: t.totalTokens,
+          errorCount: t.errorCount,
+          userMessage: untrusted(clip(t.userMessage, 300)),
+          assistantOutput: untrusted(clip(t.assistantOutput, 300)),
+          link: `/traces/${encodeURIComponent(t.traceId)}`,
+        }));
+        return {
+          sessionId: detail.sessionId,
+          agentName: untrusted(detail.agentName),
+          stats: detail.stats,
+          turnsReturned: turns.length,
+          totalTurns: detail.turns.length,
+          link: `/sessions/${encodeURIComponent(detail.sessionId)}`,
+          turns,
+        };
+      },
+    }),
+
+    listEvals: tool({
+      description:
+        "List the evals (automated scorers) configured for this project, with their windowed results — score count, pass rate, average score, spend, status, and last run. Each row includes a `link` to the eval. Use for 'how are my evals doing' or to find an eval's id.",
+      inputSchema: z.object(windowInput),
+      execute: async ({ from, to }) => {
+        const w = resolveWindow(from, to);
+        const evals = await listEvals(db, ch, userId, { projectId, ...w });
+        return evals.map((e) => ({
+          id: e.id,
+          name: untrusted(e.name),
+          presetId: e.presetId,
+          targetLevel: e.targetLevel,
+          enabled: e.enabled,
+          status: e.status,
+          scoreCount: e.scoreCount,
+          passRate: e.passRate,
+          avgScore: e.avgScore,
+          cost: e.cost,
+          lastScoredAt: e.lastScoredAt,
+          link: `/evals/${encodeURIComponent(e.id)}`,
+        }));
+      },
+    }),
+
+    getEvalScores: tool({
+      description:
+        "Recent individual scores for one eval by id — per-score label, numeric score, pass/fail verdict, the judge's reason, model, cost, and the trace it scored. Use to inspect why an eval is passing/failing or to surface the worst scores (sort by score asc).",
+      inputSchema: z.object({
+        evalId: z.string(),
+        ...windowInput,
+        sort: z
+          .object({
+            field: z.literal("score"),
+            dir: z.enum(["asc", "desc"]),
+          })
+          .optional()
+          .describe("Sort by score. Defaults to most recent first."),
+        limit: z.number().int().min(1).max(50).optional().describe("Default 15."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Rows to skip, for paging. Default 0."),
+      }),
+      execute: async ({ evalId, from, to, sort, limit, offset }) => {
+        const w = resolveWindow(from, to);
+        // Keep Foggy bound to the current project. listRecentScores resolves
+        // access via the eval's *own* project, so for a multi-project user it
+        // could otherwise read an eval outside the one we're scoped to; gate on
+        // this project's eval list first (cheap — definitions only, no window).
+        const evals = await listEvals(db, ch, userId, { projectId });
+        if (!evals.some((e) => e.id === evalId)) {
+          return { evalId, error: "No eval with that id exists in this project." };
+        }
+        const { scores, total } = await listRecentScores(db, ch, userId, {
+          evalId,
+          ...w,
+          sort,
+          limit: limit ?? 15,
+          offset,
+        });
+        return {
+          evalId,
+          total,
+          link: `/evals/${encodeURIComponent(evalId)}`,
+          scores: scores.map((s) => ({
+            scoreId: s.scoreId,
+            traceId: s.traceId,
+            targetType: s.targetType,
+            label: untrusted(s.label),
+            score: s.score,
+            passed: s.passed,
+            reason: untrusted(clip(s.reason, 500)),
+            modelId: s.modelId,
+            cost: s.cost,
+            scoredAt: s.scoredAt,
+            link: `/traces/${encodeURIComponent(s.traceId)}`,
+          })),
+        };
+      },
+    }),
+
+    listAlerts: tool({
+      description:
+        "List this project's alert rules and their current state — metric, comparison, threshold, window, enabled, status, the last evaluated value, and when each last fired. Use for 'what alerts do I have' or 'which alerts are firing'.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const alerts = await listAlerts(db, userId, projectId);
+        return alerts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          metric: a.metric,
+          comparison: a.comparison,
+          threshold: a.threshold,
+          windowSeconds: a.windowSeconds,
+          enabled: a.enabled,
+          status: a.status,
+          lastValue: a.lastValue,
+          lastFiredAt: a.lastFiredAt,
+          lastEvaluatedAt: a.lastEvaluatedAt,
+          evalId: a.evalId,
+          link: "/alerts",
+        }));
+      },
+    }),
+
+    getAlertHistory: tool({
+      description:
+        "Recent firing/resolve history for one alert rule by id — each event's type, the metric value, and the threshold at that time. Use for 'how often has this alert fired' or 'when did it last trip'.",
+      inputSchema: z.object({
+        ruleId: z.string(),
+        limit: z.number().int().min(1).max(50).optional().describe("Default 20."),
+      }),
+      execute: async ({ ruleId, limit }) => {
+        // Same cross-project guard as getEvalScores: the underlying service
+        // resolves access via the rule's own project, so confirm it belongs to
+        // the one we're scoped to first.
+        const alerts = await listAlerts(db, userId, projectId);
+        if (!alerts.some((a) => a.id === ruleId)) {
+          return { ruleId, error: "No alert rule with that id exists in this project." };
+        }
+        const events = await getAlertHistory(db, userId, { ruleId, limit: limit ?? 20 });
+        return { ruleId, events };
+      },
+    }),
+
+    getTimeseries: tool({
+      description:
+        "Time-bucketed trend over a window — per bucket: span and error counts, cost, tokens (in/out), and latency/TTFT percentiles. Bucket size auto-scales to the window. Optionally narrow to one model, agent, or span type. Use for cost/latency/error trends and spotting spikes over time.",
+      inputSchema: z.object({
+        ...windowInput,
+        modelId: z.string().optional().describe("Only this model id."),
+        agentName: z.string().optional().describe("Only this agent (exact match)."),
+        spanType: z
+          .string()
+          .optional()
+          .describe("Only this span type, e.g. 'llm'."),
+      }),
+      execute: async ({ from, to, modelId, agentName, spanType }) => {
+        const w = resolveWindow(from, to);
+        return getTimeseries(db, ch, userId, {
+          projectId,
+          ...w,
+          modelId,
+          agentName,
+          spanType,
+        });
+      },
+    }),
+
+    getCostTimeseriesByModel: tool({
+      description:
+        "Time-bucketed cost per model over a window (one row per bucket + model) — for a stacked 'cost over time by model' view or to see which model drove a spike.",
+      inputSchema: z.object(windowInput),
+      execute: async ({ from, to }) => {
+        const w = resolveWindow(from, to);
+        return getCostTimeseriesByModel(db, ch, userId, { projectId, ...w });
       },
     }),
 

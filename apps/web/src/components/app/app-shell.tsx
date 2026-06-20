@@ -56,7 +56,7 @@ import { account, nav } from "./nav";
 import { NewProjectDialog } from "./new-project-dialog";
 import { ProjectProvider, useProject } from "./project-context";
 import { ProjectIcon } from "./project-icon";
-import { RangeProvider } from "./range-context";
+import { RangeProvider, useRange } from "./range-context";
 
 function initials(value: string) {
   return value.slice(0, 2).toUpperCase();
@@ -258,6 +258,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ShellBody({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { range } = useRange();
   const { projectId } = useProject();
   // Foggy chat open state. Lifted here so the launcher (carved into the inset)
   // and the panel (a flex sibling of the inset) can share it.
@@ -363,6 +364,8 @@ function ShellBody({ children }: { children: React.ReactNode }) {
         <FoggyWidget
           key={projectId}
           projectId={projectId}
+          pathname={pathname}
+          range={range}
           open={foggyOpen}
           onOpenChange={setFoggyOpen}
         />

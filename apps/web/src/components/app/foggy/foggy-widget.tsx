@@ -222,10 +222,14 @@ export function FoggyLauncher({ onOpen }: { onOpen: () => void }) {
 
 export function FoggyWidget({
   projectId,
+  pathname,
+  range,
   open,
   onOpenChange,
 }: {
   projectId: string;
+  pathname: string;
+  range: { from: Date; to: Date };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -239,13 +243,45 @@ export function FoggyWidget({
   // Not rendered to the DOM, so generating it during render is hydration-safe.
   const [threadId, setThreadId] = useState(() => crypto.randomUUID());
 
+  // The page and the selected time range both change as the user navigates and
+  // adjusts the range picker, but we don't want to rebuild the transport (and
+  // risk disturbing the chat) each time. Hold them in refs the transport reads
+  // at send time, so each message carries the live path + range.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+
   // One transport per project + conversation; a new threadId resets the body.
+  // prepareSendMessagesRequest re-creates the default body and tacks on the
+  // current pathname + range, so the server knows which page the question came
+  // from and which window to default its tools to.
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: `${env.NEXT_PUBLIC_SERVER_URL}/foggy`,
         credentials: "include",
         body: { projectId, threadId },
+        prepareSendMessagesRequest: ({
+          body,
+          messages,
+          id,
+          trigger,
+          messageId,
+        }) => ({
+          body: {
+            ...body,
+            id,
+            messages,
+            trigger,
+            messageId,
+            pathname: pathnameRef.current,
+            range: {
+              from: rangeRef.current.from.toISOString(),
+              to: rangeRef.current.to.toISOString(),
+            },
+          },
+        }),
       }),
     [projectId, threadId]
   );
