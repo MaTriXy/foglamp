@@ -68,6 +68,14 @@ function clip(v: string | null | undefined, max: number): string | null {
   return v.length > max ? `${v.slice(0, max)}…` : v;
 }
 
+// Postgres timestamp columns come back as Date objects. Tool output is fed back
+// into the model on the next step, where the AI SDK re-validates the message and
+// rejects non-JSON values (a Date throws in standardizePrompt). Emit ISO strings.
+function iso(v: Date | string | null | undefined): string | null {
+  if (v == null) return null;
+  return v instanceof Date ? v.toISOString() : v;
+}
+
 // Docs corpus fetcher: Mintlify auto-serves /llms.txt (index + summaries) and
 // /llms-full.txt (the whole docs text). Cached in-process for 5 minutes and
 // capped so a runaway docs build can't blow up the model context; on fetch
@@ -403,7 +411,7 @@ export function buildFoggyTools({
           passRate: e.passRate,
           avgScore: e.avgScore,
           cost: e.cost,
-          lastScoredAt: e.lastScoredAt,
+          lastScoredAt: iso(e.lastScoredAt),
           link: `/evals/${encodeURIComponent(e.id)}`,
         }));
       },
@@ -461,7 +469,7 @@ export function buildFoggyTools({
             reason: untrusted(clip(s.reason, 500)),
             modelId: s.modelId,
             cost: s.cost,
-            scoredAt: s.scoredAt,
+            scoredAt: iso(s.scoredAt),
             link: `/traces/${encodeURIComponent(s.traceId)}`,
           })),
         };
@@ -484,8 +492,8 @@ export function buildFoggyTools({
           enabled: a.enabled,
           status: a.status,
           lastValue: a.lastValue,
-          lastFiredAt: a.lastFiredAt,
-          lastEvaluatedAt: a.lastEvaluatedAt,
+          lastFiredAt: iso(a.lastFiredAt),
+          lastEvaluatedAt: iso(a.lastEvaluatedAt),
           evalId: a.evalId,
           link: "/alerts",
         }));
