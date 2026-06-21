@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "motion/react";
 
 import { formatCost, formatDuration, formatTokens, formatTps } from "./format";
 import { rows, type HudStep, type HudToolCall, type HudTrace, type RunStatus } from "./model";
@@ -23,6 +24,9 @@ type Mode = "closed" | "pill" | "expanded";
 type StatusKind = "" | "run" | "err";
 
 const DEFAULT_PORT = 8517;
+// Snappy springs — the morph and the streaming rows both ride these.
+const SPRING = { type: "spring", stiffness: 420, damping: 34 } as const;
+const SPRING_QUICK = { type: "spring", stiffness: 520, damping: 38 } as const;
 
 /**
  * Floating overlay that streams live agent execution from the local Foglamp
@@ -96,7 +100,6 @@ function HudApp(props: FoglampHUDProps) {
   const { state, conn } = useHudStream(port);
   const [mode, setMode] = useState<Mode>(props.defaultOpen ? "expanded" : "closed");
 
-  // Esc steps back down a level.
   useEffect(() => {
     if (mode === "closed") return;
     const onKey = (e: KeyboardEvent) => {
@@ -111,7 +114,6 @@ function HudApp(props: FoglampHUDProps) {
   const running = state.traces.some((t) => t.status === "running");
   const status: StatusKind = running ? "run" : active?.status === "error" ? "err" : "";
 
-  // Tick while running so live durations advance.
   const [, force] = useState(0);
   useEffect(() => {
     if (!running) return;
@@ -144,11 +146,9 @@ function HudApp(props: FoglampHUDProps) {
 }
 
 /**
- * Morphs the shell to fit its content as the mode changes — same idea as the
- * dashboard's stepped dialog, done with a plain CSS transition (no animation
- * library, so the bundle stays dependency-free). The single child is measured
- * (offsetWidth/Height) and the shell's width/height eased to it; the first
- * measurement is snapped, later ones tween. Content crossfades per mode.
+ * The shell springs its width/height to whatever the current mode's content
+ * measures (offsetWidth/Height; first measurement snapped, later ones tweened) —
+ * the dashboard's stepped-dialog morph. Content fades+lifts in on each change.
  */
 function Morph({ mode, children }: { mode: Mode; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -169,17 +169,24 @@ function Morph({ mode, children }: { mode: Mode; children: ReactNode }) {
   }, [size]);
 
   return (
-    <div
+    <motion.div
       className="fl-shell"
       data-mode={mode}
-      style={size ? { width: size.w, height: size.h, transition: ready.current ? undefined : "none" } : undefined}
+      animate={size ? { width: size.w, height: size.h } : undefined}
+      transition={ready.current ? SPRING : { duration: 0 }}
     >
       <div ref={ref} className="fl-measure">
-        <div key={mode} className="fl-content">
+        <motion.div
+          key={mode}
+          className="fl-mode"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.16, ease: [0.32, 0.72, 0, 1] }}
+        >
           {children}
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -231,6 +238,14 @@ function Panel({
   redact: boolean;
   onCollapse: () => void;
 }) {
+  const treeRef = useRef<HTMLDivElement>(null);
+  const rowList = trace ? rows(trace) : [];
+  // Follow the stream: keep the newest row in view as the agent runs.
+  useEffect(() => {
+    const el = treeRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [rowList.length]);
+
   return (
     <div className="fl-panel" role="dialog" aria-label="Foglamp HUD">
       <div className="fl-header">
@@ -258,19 +273,35 @@ function Panel({
         </div>
       )}
 
-      <div className="fl-tree">
+      <div className="fl-tree" ref={treeRef}>
         {!trace ? (
           <div className="fl-empty">
             {conn === "open" ? "Run an agent to see it light up." : "Connecting to the local broker…"}
           </div>
         ) : (
-          rows(trace).map((row) =>
-            row.kind === "step" ? (
-              <StepRow key={row.key} step={row.step} />
-            ) : (
-              <ToolRow key={row.key} tool={row.tool} redact={redact} />
-            ),
-          )
+          <AnimatePresence initial={false}>
+            {rowList.map((row) => {
+              const isErr =
+                row.kind === "step" ? row.step.status === "error" : row.tool.status === "error";
+              return (
+                <motion.div
+                  key={row.key}
+                  layout
+                  className={`fl-row ${row.kind === "tool" ? "tool" : ""} ${isErr ? "err" : ""}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={SPRING_QUICK}
+                >
+                  {row.kind === "step" ? (
+                    <StepInner step={row.step} />
+                  ) : (
+                    <ToolInner tool={row.tool} redact={redact} />
+                  )}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
 
@@ -283,7 +314,7 @@ function dotClass(status: RunStatus): string {
   return `fl-dot ${status}`;
 }
 
-function StepRow({ step }: { step: HudStep }) {
+function StepInner({ step }: { step: HudStep }) {
   const meta = [
     step.ttftMs != null ? `ttft ${formatDuration(step.ttftMs)}` : null,
     step.outputTokens > 0 ? `${formatTokens(step.outputTokens)} tok` : null,
@@ -292,7 +323,7 @@ function StepRow({ step }: { step: HudStep }) {
     .filter(Boolean)
     .join(" · ");
   return (
-    <div className={`fl-row ${step.status === "error" ? "err" : ""}`}>
+    <>
       <span className={dotClass(step.status)} />
       <div className="fl-row-main">
         <span className="fl-row-label">
@@ -301,11 +332,11 @@ function StepRow({ step }: { step: HudStep }) {
         {meta && <span className="fl-row-sub">{meta}</span>}
       </div>
       <span className="fl-row-meta">{formatDuration(step.durationMs)}</span>
-    </div>
+    </>
   );
 }
 
-function ToolRow({ tool, redact }: { tool: HudToolCall; redact: boolean }) {
+function ToolInner({ tool, redact }: { tool: HudToolCall; redact: boolean }) {
   const sub =
     tool.status === "error"
       ? redact
@@ -317,7 +348,7 @@ function ToolRow({ tool, redact }: { tool: HudToolCall; redact: boolean }) {
           : undefined
         : preview(tool.output);
   return (
-    <div className={`fl-row tool ${tool.status === "error" ? "err" : ""}`}>
+    <>
       <span className={dotClass(tool.status)} />
       <div className="fl-row-main">
         <span className="fl-row-label">
@@ -326,7 +357,7 @@ function ToolRow({ tool, redact }: { tool: HudToolCall; redact: boolean }) {
         {sub && <span className="fl-row-sub">{sub}</span>}
       </div>
       <span className="fl-row-meta">{formatDuration(tool.durationMs)}</span>
-    </div>
+    </>
   );
 }
 
@@ -366,25 +397,26 @@ function BrandMark({ className }: { className?: string }) {
   );
 }
 
-// Eight squares around a diamond path; CSS fades them in sequence (loading-ui).
-const DIAMOND_RECTS: ReadonlyArray<readonly [number, number]> = [
-  [10.4, 1.4],
-  [16.76, 4.04],
-  [19.4, 10.4],
-  [16.76, 16.76],
-  [10.4, 19.4],
-  [4.04, 16.76],
-  [1.4, 10.4],
-  [4.04, 4.04],
+// loading-ui "diamond": eight 4×4 pixels around a diamond, each fading in
+// sequence (the comet chase is driven by .fl-px-* delays in styles.ts).
+const DIAMOND_PIXELS: ReadonlyArray<readonly [number, number]> = [
+  [8, 0], // top
+  [12, 4], // top-right
+  [16, 8], // right
+  [12, 12], // bottom-right
+  [8, 16], // bottom
+  [4, 12], // bottom-left
+  [0, 8], // left
+  [4, 4], // top-left
 ];
 
 function Diamond({ status }: { status: StatusKind }) {
   return (
     <span className={`fl-status ${status}`}>
-      <svg className="fl-diamond" viewBox="0 0 24 24" aria-hidden="true">
-        {DIAMOND_RECTS.map(([x, y], i) => (
+      <svg className="fl-diamond" viewBox="0 0 20 20" fill="currentColor" role="status" aria-label="Loading">
+        {DIAMOND_PIXELS.map(([x, y], i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed 8-element array
-          <rect key={i} x={x} y={y} width="3.2" height="3.2" rx="0.6" />
+          <rect key={i} className={`fl-px fl-px-${i + 1}`} x={x} y={y} width="4" height="4" />
         ))}
       </svg>
     </span>
@@ -407,7 +439,6 @@ function ChevronDown() {
   );
 }
 
-// First line / first ~48 chars of a serialized payload, for the row subtitle.
 function preview(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const flat = value.replace(/\s+/g, " ").trim();

@@ -62,11 +62,10 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
   overflow: hidden;
   background: var(--fl-bg);
   box-shadow: var(--fl-shadow);
+  /* width/height are spring-animated by motion; only radius + lift transition here. */
   transition:
-    width 0.34s cubic-bezier(0.32,0.72,0,1),
-    height 0.34s cubic-bezier(0.32,0.72,0,1),
-    border-radius 0.28s cubic-bezier(0.32,0.72,0,1),
-    margin-bottom 0.28s cubic-bezier(0.32,0.72,0,1);
+    border-radius 0.3s cubic-bezier(0.32,0.72,0,1),
+    margin-bottom 0.3s cubic-bezier(0.32,0.72,0,1);
 }
 .fl-shell[data-mode="closed"]   { border-radius: 11px 11px 0 0; margin-bottom: 0; }
 .fl-shell[data-mode="pill"]     { border-radius: 9999px; margin-bottom: 18px; }
@@ -74,9 +73,6 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 
 /* The single measured child — its natural size is what the shell animates to. */
 .fl-measure { width: max-content; }
-/* Each mode's content crossfades in (keyed remount on mode change). */
-.fl-content { animation: fl-content-in 0.18s ease both; }
-@keyframes fl-content-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Closed: a small tab emerging from the bottom edge ---- */
 .fl-tab {
@@ -100,22 +96,23 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-pill-collapse:hover { color: var(--fl-fg); background: var(--fl-subtle); }
 .fl-pill-collapse svg { width: 13px; height: 13px; }
 
-/* ---- Diamond status loader (8 squares fading in sequence; uses currentColor) ---- */
+/* ---- Diamond status (loading-ui): eight pixels, comet-chase via spin-pixel ---- */
 .fl-status { flex: none; display: inline-flex; color: var(--fl-muted); }
 .fl-status.run { color: var(--fl-ok); }
 .fl-status.err { color: var(--fl-err); }
 .fl-diamond { width: 15px; height: 15px; display: block; }
-.fl-diamond rect { fill: currentColor; opacity: 1; }
-.fl-status.run .fl-diamond rect { animation: fl-diamond 1.1s linear infinite; }
-.fl-diamond rect:nth-child(1) { animation-delay: 0s; }
-.fl-diamond rect:nth-child(2) { animation-delay: -0.1375s; }
-.fl-diamond rect:nth-child(3) { animation-delay: -0.275s; }
-.fl-diamond rect:nth-child(4) { animation-delay: -0.4125s; }
-.fl-diamond rect:nth-child(5) { animation-delay: -0.55s; }
-.fl-diamond rect:nth-child(6) { animation-delay: -0.6875s; }
-.fl-diamond rect:nth-child(7) { animation-delay: -0.825s; }
-.fl-diamond rect:nth-child(8) { animation-delay: -0.9625s; }
-@keyframes fl-diamond { 0%, 100% { opacity: 0.18; } 30% { opacity: 1; } }
+.fl-diamond rect { fill: currentColor; }
+.fl-px { opacity: 1; } /* idle / error: a solid diamond */
+.fl-status.run .fl-px { opacity: 0; animation: fl-spin-pixel 0.8s ease-in-out infinite; }
+.fl-status.run .fl-px-1 { animation-delay: 0s; }
+.fl-status.run .fl-px-2 { animation-delay: 0.1s; }
+.fl-status.run .fl-px-3 { animation-delay: 0.2s; }
+.fl-status.run .fl-px-4 { animation-delay: 0.3s; }
+.fl-status.run .fl-px-5 { animation-delay: 0.4s; }
+.fl-status.run .fl-px-6 { animation-delay: 0.5s; }
+.fl-status.run .fl-px-7 { animation-delay: 0.6s; }
+.fl-status.run .fl-px-8 { animation-delay: 0.7s; }
+@keyframes fl-spin-pixel { 0% { opacity: 0; } 1% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---- Expanded panel ---- */
 .fl-panel { width: 384px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; }
@@ -133,9 +130,11 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-chip.used { background: var(--fl-ok-bg); color: var(--fl-ok); border-color: transparent; }
 
 .fl-tree { max-height: 360px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
-.fl-row { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 9px; animation: fl-fade 0.22s ease both; }
+/* Row entrance/reflow is driven by motion; only the error flash is CSS (background-only,
+   so it doesn't fight motion's transform/opacity). */
+.fl-row { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 9px; }
 .fl-row.tool { margin-left: 16px; }
-.fl-row.err { background: var(--fl-err-bg); animation: fl-fade 0.22s ease both, fl-flash 0.6s ease 1; }
+.fl-row.err { background: var(--fl-err-bg); animation: fl-flash 0.6s ease 1; }
 .fl-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--fl-muted); }
 .fl-dot.run { background: var(--fl-ok); animation: fl-pulse 1.1s ease-in-out infinite; }
 .fl-dot.ok { background: var(--fl-ok); }
@@ -154,11 +153,11 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-empty { padding: 28px 16px; text-align: center; color: var(--fl-muted); font-size: 12px; }
 
 @keyframes fl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-@keyframes fl-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes fl-flash { 0% { background: var(--fl-err-bg); } 35% { background: var(--fl-err); } 100% { background: var(--fl-err-bg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .fl-dot.run, .fl-status.run .fl-diamond rect, .fl-content { animation: none; }
-  .fl-row, .fl-shell { transition: none; }
+  .fl-dot.run, .fl-status.run .fl-px { animation: none; }
+  .fl-status.run .fl-px { opacity: 1; }
+  .fl-shell { transition: none; }
 }
 `;

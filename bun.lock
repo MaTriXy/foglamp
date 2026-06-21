@@ -296,6 +296,7 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "ai": "catalog:",
+        "motion": "^12.40.0",
         "react": "catalog:",
         "react-dom": "catalog:",
         "tsdown": "^0.16.5",
@@ -304,10 +305,12 @@
       },
       "peerDependencies": {
         "ai": "^4 || ^5 || ^6 || ^7.0.0-beta.1",
+        "motion": "^11 || ^12",
         "react": "^18 || ^19",
         "react-dom": "^18 || ^19",
       },
       "optionalPeers": [
+        "motion",
         "react",
         "react-dom",
       ],
