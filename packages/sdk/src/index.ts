@@ -19,7 +19,7 @@
 // batches on a timer — call `await fog.flush()` before a short-lived process
 // exits, or `fog.shutdown()` to stop and drain.
 
-import { Collector } from "./collector";
+import { Collector, prewarmHud } from "./collector";
 import { resolveConfig } from "./config";
 import { Transport } from "./transport";
 import type { FoglampConfig } from "./types";
@@ -32,6 +32,9 @@ import type { FoglampConfig } from "./types";
 export function foglamp(config: FoglampConfig = {}): Collector {
   const resolved = resolveConfig(config);
   const transport = new Transport(resolved);
+  // Start the local HUD broker eagerly (dev only; no-op otherwise) so the
+  // <FoglampHUD/> overlay can connect before the first trace.
+  prewarmHud(resolved);
   return new Collector(transport, resolved);
 }
 

@@ -127,6 +127,19 @@
         "typescript": "^5",
       },
     },
+    "examples/hud-demo": {
+      "name": "foglamp-example-hud-demo",
+      "dependencies": {
+        "ai": "catalog:",
+        "foglamp": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@foglamp/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "^5",
+      },
+    },
     "packages/api": {
       "name": "@foglamp/api",
       "dependencies": {
@@ -267,22 +280,36 @@
     },
     "packages/sdk": {
       "name": "foglamp",
-      "version": "0.3.1",
+      "version": "0.4.1",
+      "bin": {
+        "foglamp": "./dist/cli.mjs",
+      },
       "dependencies": {
         "uuidv7": "catalog:",
       },
       "devDependencies": {
         "@foglamp/config": "workspace:*",
         "@foglamp/contracts": "workspace:*",
+        "@foglamp/cost": "workspace:*",
         "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
         "ai": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
         "tsdown": "^0.16.5",
         "typescript": "^5",
         "zod": "catalog:",
       },
       "peerDependencies": {
         "ai": "^4 || ^5 || ^6 || ^7.0.0-beta.1",
+        "react": "^18 || ^19",
+        "react-dom": "^18 || ^19",
       },
+      "optionalPeers": [
+        "react",
+        "react-dom",
+      ],
     },
     "packages/ui": {
       "name": "@foglamp/ui",
@@ -1372,6 +1399,8 @@
     "foglamp": ["foglamp@workspace:packages/sdk"],
 
     "foglamp-example-basic": ["foglamp-example-basic@workspace:examples/basic"],
+
+    "foglamp-example-hud-demo": ["foglamp-example-hud-demo@workspace:examples/hud-demo"],
 
     "formdata-polyfill": ["formdata-polyfill@4.0.10", "", { "dependencies": { "fetch-blob": "^3.1.2" } }, "sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g=="],
 

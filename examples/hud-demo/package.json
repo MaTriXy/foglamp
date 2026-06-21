@@ -1,0 +1,21 @@
+{
+  "name": "foglamp-example-hud-demo",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "verify": "bun run src/verify.ts",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "foglamp": "workspace:*",
+    "ai": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@foglamp/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "^5"
+  }
+}

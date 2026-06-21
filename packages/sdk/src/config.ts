@@ -35,12 +35,36 @@ export function resolveConfig(config: FoglampConfig): ResolvedConfig {
 
   const enabled = Boolean(apiKey) && typeof fetchImpl === "function";
 
-  if (!apiKey && debug) {
+  // Local HUD overlay. Dev/Node only: never on a serverless/edge runtime (no
+  // long-lived process to host the SSE server) and never in production. Opt in
+  // via `hud: true` or `FOGLAMP_HUD=1`. It does NOT need an API key — the
+  // collector builds traces whenever `active`, but the transport still gates on
+  // `enabled`, so HUD-only runs stream locally without POSTing to ingest.
+  const nodeRuntime =
+    typeof process !== "undefined" && Boolean(process.versions?.node);
+  const isProduction = env.NODE_ENV === "production";
+  const hudRequested = config.hud === true || isTruthy(env.FOGLAMP_HUD);
+  const hud = hudRequested && nodeRuntime && !serverless && !isProduction;
+  const hudPort = positive(
+    config.hudPort ?? numberOrUndefined(env.FOGLAMP_HUD_PORT),
+    8517,
+  );
+  const active = enabled || hud;
+
+  if (!apiKey && !hud && debug) {
     console.warn("[foglamp] FOGLAMP_API_KEY not set — telemetry disabled (no-op).");
+  }
+  if (hud && debug) {
+    console.warn(
+      `[foglamp] HUD enabled — streaming live execution to http://127.0.0.1:${hudPort} (dev only).`,
+    );
   }
 
   return {
     enabled,
+    active,
+    hud,
+    hudPort,
     apiKey,
     endpoint,
     flushIntervalMs: positive(config.flushIntervalMs, 5_000),
@@ -61,4 +85,17 @@ export function resolveConfig(config: FoglampConfig): ResolvedConfig {
 
 function positive(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function numberOrUndefined(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// Env truthiness for opt-in flags: "1"/"true"/"yes"/"on" (case-insensitive).
+function isTruthy(value: string | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
 }
