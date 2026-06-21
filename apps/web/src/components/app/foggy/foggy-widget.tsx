@@ -211,7 +211,7 @@ export function FoggyLauncher({ onOpen }: { onOpen: () => void }) {
                 if (pressed) onOpen();
               }}
             >
-              <Kbd className="text-[10px] dark:bg-card">F</Kbd>
+              <Kbd className="text-[10px] dark:bg-card bg-white">F</Kbd>
             </motion.span>
           </motion.span>
         </Button>
