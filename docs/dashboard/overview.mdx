@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: "The dashboard home — KPIs, trends, and per-model/agent/workflow breakdowns."
+description: "The dashboard home — KPIs, trends, and per-model/agent/workflow/customer breakdowns."
 ---
 
 The **Overview** is the dashboard home: a single screen that answers "what is my
@@ -32,6 +32,9 @@ went up (worse), green means it went down.
 - **By agent** — the same, grouped by `agentName`.
 - **By workflow** — the same, grouped by `workflowName` (traces with no workflow
   roll into **Ungrouped**).
+- **By customer** — cost, requests, and errors grouped by `customer` (the
+  end-customer a call serves), with the customer's avatar and name. Only traces
+  that set a `customer` appear here.
 
 <Note>
   Models Foglamp can't price are labelled `(unknown)` in the breakdowns rather

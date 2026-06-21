@@ -23,10 +23,12 @@ function instrumentationBody(startStep: number): string {
    way, read my codebase and map each agent to \`agentName\`, any multi-step
    pipeline to a shared \`workflowName\` + \`workflowRunId\`, and any conversation
    thread to a \`sessionId\` — real user conversations only; a batch/cron/pipeline
-   run is a workflow, not a session (one-off calls get a \`traceName\`). Don't
+   run is a workflow, not a session (one-off calls get a \`traceName\`). Only if
+   the app serves distinct end-customers/tenants, also attach a \`customer\`
+   (\`{ id, name?, imageUrl? }\`) so spend is attributed per customer. Don't
    just label everything with one name. Names (\`agentName\`/\`workflowName\`/\`traceName\`)
    must be static string literals — anything dynamic (an id, slug, URL, date)
-   goes in \`metadata\`, \`workflowRunId\`, or \`sessionId\`, never in a name.
+   goes in \`metadata\`, \`workflowRunId\`, \`sessionId\`, or \`customer.id\`, never in a name.
 ${startStep + 1}. Do NOT write smoke tests, scripts, or demo endpoints to produce a first
    trace. When you're done, just tell me how to trigger my app's real AI flows
    (which command to run, which page to hit) — I'll run them and watch the

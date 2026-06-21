@@ -236,6 +236,17 @@
           "workflowName": { "type": "string", "maxLength": 256, "example": "deploy-digest" },
           "workflowRunId": { "type": "string", "maxLength": 128, "example": "run_2024_05_24" },
           "sessionId": { "type": "string", "maxLength": 128, "example": "session_abc123" },
+          "customer": {
+            "type": "object",
+            "description": "The end-customer this call serves, for per-customer cost attribution. Only `id` is required; `name`/`imageUrl` are display-only.",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 128, "example": "cus_acme" },
+              "name": { "type": "string", "maxLength": 256, "example": "Acme Inc" },
+              "imageUrl": { "type": "string", "format": "uri", "maxLength": 2048, "example": "https://logo.clearbit.com/acme.com" }
+            }
+          },
           "metadata": { "$ref": "#/components/schemas/Metadata" },
           "spans": {
             "type": "array",

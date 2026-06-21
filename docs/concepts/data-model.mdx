@@ -1,6 +1,6 @@
 ---
 title: Data model
-description: "Traces, spans, workflows, runs, agents, and sessions."
+description: "Traces, spans, workflows, runs, agents, sessions, and customers."
 ---
 
 Foglamp's model maps directly onto how the Vercel AI SDK executes. Five
@@ -20,6 +20,7 @@ A **trace** is one top-level model call — a single `generateText`, `streamText
 | `workflowName` | string? | up to 256 chars |
 | `workflowRunId` | string? | up to 128 chars — groups traces into one run |
 | `sessionId` | string? | up to 128 chars |
+| `customer` | object? | `{ id, name?, imageUrl? }` — the end-customer served (see [Customer](#customer)) |
 | `metadata` | map? | string → string |
 | `spans` | span[] | 1–2000 spans |
 
@@ -97,6 +98,24 @@ produced, independent of which workflow they ran in.
 A **session** (`sessionId`) ties together traces that belong to one
 conversation or user interaction, cutting across workflows and agents. Use it to
 follow a single end-user thread end to end.
+
+## Customer
+
+A **customer** (`customer`) is the end-customer a call serves — the tenant or
+user *your* app is acting on behalf of. It rolls cost up per customer (the
+**Customers** card on the [Overview](/dashboard/overview)), so it's the building
+block for usage-based pricing on top of Foglamp.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | **required** — 1–128 chars, the stable grouping key. Unlike names, this is a high-cardinality identifier (one per customer), so a dynamic id is correct here |
+| `name` | string? | up to 256 chars — display label; the latest value seen wins |
+| `imageUrl` | string? | up to 2048 chars — avatar URL; falls back to a generated icon |
+
+`name` and `imageUrl` are display-only and may change over time (Foglamp keeps
+the latest). Only `id` is denormalized onto spans for attribution; the name and
+image live in a small dimension table. `customer` is optional and purely
+additive — omitting it changes nothing.
 
 ## How it streams
 

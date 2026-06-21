@@ -110,6 +110,7 @@ are before writing any context. The full context surface:
 | `workflowName` + `workflowRunId` | A named multi-step process, and one execution of it | `workflowName` stable like an agent name (`"ticket-pipeline"`); `workflowRunId` an id the app already has for this execution — request id, job id, ticket id. |
 | `traceName` | Human label for a one-off call that isn't an agent | The call's purpose: `"classify-email"`. |
 | `sessionId` | Ties traces in one conversation or user thread together, across workflows and agents | The app's existing chat/conversation/thread id. Conversations only — a batch/cron/pipeline run id is a `workflowRunId`, not a session. |
+| `customer` *(optional)* | The end-customer this call serves, for per-customer cost. `{ id, name?, imageUrl? }` | Only set it if the app serves distinct end-customers/tenants. `id` is a **dynamic, high-cardinality** identifier (the customer's id) — the one place an id belongs in a first-class field rather than `metadata`. `name`/`imageUrl` are optional display fields. |
 | `metadata` | Everything else, as string key/values | `userId`, tenant, environment, prompt version, A/B variant. |
 
 Rules the SDK enforces (at the type level and at ingest):

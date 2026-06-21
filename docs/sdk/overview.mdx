@@ -68,6 +68,7 @@ fog.integration({
   workflowName: "deploy-digest",
   workflowRunId: run.id,
   sessionId: user.threadId,
+  customer: { id: account.id, name: account.name, imageUrl: account.logoUrl },
   metadata: { environment: "production", region: "us-east-1" },
 });
 
@@ -82,6 +83,7 @@ fog.integration({ traceName: "classify-email" });
 | `workflowName` | string | the named process; pass with `workflowRunId` |
 | `workflowRunId` | string | groups traces into one run; pass with `workflowName` |
 | `sessionId` | string | ties traces to one conversation |
+| `customer` | `{ id: string; name?: string; imageUrl?: string }` | the end-customer this call serves; powers per-customer cost. Only `id` is required |
 | `metadata` | `Record<string, string \| number \| boolean>` | free-form labels; values are coerced to strings on the wire |
 
 <Note>

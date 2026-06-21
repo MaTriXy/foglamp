@@ -109,6 +109,7 @@ const { text } = await generateText({
         workflowName: "ticket-triage",
         workflowRunId: run.id,
         sessionId: user.sessionId,
+        customer: { id: account.id, name: account.name },
         metadata: { tenant: "acme", plan: "pro" },
       }),
     ],
@@ -153,7 +154,7 @@ Creates a collector that is both an AI SDK `Telemetry` integration (pass to
 ### `Collector` methods
 
 - **`fog.integration(ctx)`** — a per-call integration bound to
-  `{ traceName, agentName, workflowName, workflowRunId, sessionId, metadata }`.
+  `{ traceName, agentName, workflowName, workflowRunId, sessionId, customer, metadata }`.
   Requires `traceName` or `agentName`.
 - **`fog.flush()`** — flush buffered traces now. `await` it before a short-lived
   process exits.
@@ -180,6 +181,7 @@ Creates a collector that is both an AI SDK `Telemetry` integration (pass to
 | **`workflowName`** | A named pipeline the call belongs to. First-class, indexed. |
 | **`workflowRunId`** | A single execution of a workflow; renamable in the UI. |
 | **`sessionId`** | Groups traces for one user/conversation. First-class, indexed. |
+| **`customer`** | The end-customer a call serves — `{ id, name?, imageUrl? }`. Powers per-customer cost on the Overview. Only `id` is required. |
 | **`metadata`** | Free-form `Record<string, string>` — anything else you want to slice by. |
 
 Spans are stored in **ClickHouse**; org/project/key/pricing/alert state in

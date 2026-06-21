@@ -63,6 +63,8 @@ const { text } = await generateText({
         workflowName: "demo",
         workflowRunId: "run_demo_1",
         sessionId: "sess_demo_1",
+        // Optional: attribute spend to an end-customer (only `id` is required).
+        customer: { id: "cus_demo_1", name: "Acme Inc" },
         metadata: { example: "basic", env: "local" },
       }),
     ],

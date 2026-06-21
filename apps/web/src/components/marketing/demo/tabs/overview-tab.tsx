@@ -22,6 +22,7 @@ import * as LineChart from "@/components/evilcharts/charts/line-chart";
 import type { ChartConfig } from "@/components/evilcharts/ui/chart";
 import { navItem } from "@/components/app/nav";
 import { AgentIcon } from "@/components/app/agent-icon";
+import { CustomerAvatar } from "@/components/app/customer-avatar";
 import {
   CardSparkline,
   PageHeader,
@@ -446,8 +447,8 @@ export function OverviewTab() {
         </CardContent>
       </Card>
 
-      {/* Models / Agents / Workflows breakdown */}
-      <section className="grid gap-4 lg:grid-cols-3">
+      {/* Models / Agents / Workflows / Customers breakdown */}
+      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <BreakdownCard title="Models">
           {OVERVIEW_BREAKDOWN.models.map((m) => (
             <BreakdownRow
@@ -492,6 +493,22 @@ export function OverviewTab() {
               fraction={w.fraction}
               color={w.color}
               metrics={w.metrics}
+            />
+          ))}
+        </BreakdownCard>
+
+        <BreakdownCard title="Customers">
+          {OVERVIEW_BREAKDOWN.customers.map((c) => (
+            <BreakdownRow
+              key={c.name}
+              renderIcon={(cls) => (
+                <CustomerAvatar customerId={c.name} className={cls} />
+              )}
+              title={c.name}
+              value={formatCost(c.cost)}
+              fraction={c.fraction}
+              color={c.color}
+              metrics={c.metrics}
             />
           ))}
         </BreakdownCard>

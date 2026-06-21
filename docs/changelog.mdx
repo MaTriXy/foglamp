@@ -3,6 +3,19 @@ title: Changelog
 description: "What's new in Foglamp."
 ---
 
+<Update label="June 21, 2026">
+
+## New features
+
+**Per-customer cost attribution.** Tag a call with a `customer`
+(`fog.integration({ customer: { id, name?, imageUrl? } })`) to attribute its
+spend to the end-customer it serves. A new **Customers** card on the
+[Overview](/dashboard/overview) ranks your top customers by cost, with their
+avatar and name. Only `id` is required and the field is fully optional — see the
+[data model](/concepts/data-model#customer).
+
+</Update>
+
 <Update label="June 19, 2026">
 
 ## New features

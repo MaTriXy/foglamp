@@ -240,6 +240,7 @@ export const OVERVIEW_BREAKDOWN: {
   models: OverviewBreakdownItem[];
   agents: OverviewBreakdownItem[];
   workflows: OverviewBreakdownItem[];
+  customers: OverviewBreakdownItem[];
 } = {
   models: [
     {
@@ -315,6 +316,36 @@ export const OVERVIEW_BREAKDOWN: {
       fraction: 0.621,
       metrics: "842 runs · 3.2k req · 6 err",
       color: "var(--color-emerald-500)",
+    },
+  ],
+  customers: [
+    {
+      name: "Acme Inc",
+      cost: 261.7,
+      fraction: 1,
+      metrics: "4.7k req · 14 err",
+      color: agentColor("Acme Inc"),
+    },
+    {
+      name: "Globex",
+      cost: 173.5,
+      fraction: 0.663,
+      metrics: "3.1k req · 9 err",
+      color: agentColor("Globex"),
+    },
+    {
+      name: "Initech",
+      cost: 132.9,
+      fraction: 0.508,
+      metrics: "2.6k req · 21 err",
+      color: agentColor("Initech"),
+    },
+    {
+      name: "Hooli",
+      cost: 64.2,
+      fraction: 0.245,
+      metrics: "1.4k req · 3 err",
+      color: agentColor("Hooli"),
     },
   ],
 };

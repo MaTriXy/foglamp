@@ -98,6 +98,7 @@ const { generateText, ToolLoopAgent } = fog.with({
   agentName: "retriever",
   workflowName: "support-ticket",
   workflowRunId: ticket.id,
+  customer: { id: account.id, name: account.name }, // optional — per-customer cost
 });
 ```
 
