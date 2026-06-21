@@ -51,6 +51,8 @@ import { Spinner } from "@foglamp/ui/components/spinner";
 import { NoProject } from "@/components/app/page-parts";
 import { QuotaBanner } from "@/components/app/quota-banner";
 
+import { FoglampHUD } from "foglamp/hud";
+
 import { FoggyLauncher, FoggyWidget } from "./foggy/foggy-widget";
 import { account, nav } from "./nav";
 import { NewProjectDialog } from "./new-project-dialog";
@@ -370,6 +372,11 @@ function ShellBody({ children }: { children: React.ReactNode }) {
           onOpenChange={setFoggyOpen}
         />
       )}
+
+      {/* Dogfood: the live HUD overlay, dev only. `foglamp({ hud: true })` in
+          apps/server streams Foggy's own execution to the local broker; this
+          renders it. Tree-shaken out of production builds (static NODE_ENV). */}
+      {process.env.NODE_ENV === "development" && <FoglampHUD />}
     </SidebarProvider>
   );
 }

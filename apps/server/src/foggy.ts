@@ -23,7 +23,10 @@ const google = env.GOOGLE_GENERATIVE_AI_API_KEY
   : null;
 
 // Dogfooding: a no-op collector unless FOGLAMP_API_KEY is set in the server env.
-const fog = foglamp();
+// `hud: true` also streams Foggy's own execution to the local HUD overlay in
+// dev (self-gated off in production/edge/serverless), so asking Foggy a question
+// lights up the <FoglampHUD/> in the dashboard — no API key required for that.
+const fog = foglamp({ hud: true });
 
 // Maps the in-app pathname the user is viewing into a short, trusted sentence
 // for the system prompt. Detail pages also surface their id/name so Foggy can
