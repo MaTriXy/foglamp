@@ -6,6 +6,7 @@ import { env } from "@foglamp/env/server";
 import type { Ch } from "@foglamp/api/types";
 import { getAgentList } from "@foglamp/api/services/agents";
 import { getAlertHistory, listAlerts } from "@foglamp/api/services/alerts";
+import { getCustomerList } from "@foglamp/api/services/customers";
 import { listEvals, listRecentScores } from "@foglamp/api/services/evals";
 import {
   getCostTimeseriesByModel,
@@ -292,6 +293,34 @@ export function buildFoggyTools({
           link: wf.workflowName
             ? `/workflows/${encodeURIComponent(wf.workflowName)}`
             : "/workflows/~ungrouped",
+        }));
+      },
+    }),
+
+    listCustomers: tool({
+      description:
+        "Per-customer cost breakdown over a window, ranked by spend (a customer is the end-customer a call serves, tagged via the SDK's `customer` field). Returns cost, requests, errors, tokens, and first/last-seen per customer — use for 'which customer costs the most' or usage-based-pricing questions. Customers appear on the Overview's Customers card; there's no dedicated page, so rows have no link. Only traces tagged with a customer are included.",
+      inputSchema: z.object({
+        ...windowInput,
+        limit: z.number().int().min(1).max(50).optional().describe("Default 15."),
+      }),
+      execute: async ({ from, to, limit }) => {
+        const w = resolveWindow(from, to);
+        const { customers } = await getCustomerList(db, ch, userId, {
+          projectId,
+          ...w,
+          limit: limit ?? 15,
+        });
+        return customers.map((c) => ({
+          customerId: c.customerId,
+          // Customer-supplied display name: untrusted-wrapped for the model.
+          customerName: untrusted(c.customerName),
+          spanCount: c.spanCount,
+          errorCount: c.errorCount,
+          totalCost: c.totalCost,
+          totalTokens: c.totalTokens,
+          firstSeen: c.firstSeen,
+          lastSeen: c.lastSeen,
         }));
       },
     }),
