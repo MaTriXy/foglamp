@@ -68,7 +68,10 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
     margin-bottom 0.3s cubic-bezier(0.32,0.72,0,1);
 }
 .fl-shell[data-mode="closed"]   { border-radius: 11px 11px 0 0; margin-bottom: 0; }
-.fl-shell[data-mode="pill"]     { border-radius: 9999px; margin-bottom: 18px; }
+/* 19px = half the 38px pill height → a perfect stadium, but a concrete value so
+   it morphs cleanly to the panel's 18px instead of clamping-then-snapping the
+   way 9999px does as the box grows. */
+.fl-shell[data-mode="pill"]     { border-radius: 19px; margin-bottom: 18px; }
 .fl-shell[data-mode="expanded"] { border-radius: 18px; margin-bottom: 18px; }
 
 /* The single measured child — its natural size is what the shell animates to. */
