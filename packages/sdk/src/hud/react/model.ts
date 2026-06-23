@@ -52,9 +52,11 @@ export interface HudTrace {
 export interface HudState {
   /** Most-recent-first, capped. */
   traces: HudTrace[];
+  /** Monotonic count of runs seen this session — uncapped, unlike `traces`. */
+  sessionCount: number;
 }
 
-export const initialState: HudState = { traces: [] };
+export const initialState: HudState = { traces: [], sessionCount: 0 };
 
 const MAX_TRACES = 30;
 
@@ -112,7 +114,10 @@ export function reduce(state: HudState, action: HudAction): HudState {
       tools: [],
     };
     const without = traces.filter((t) => t.traceId !== event.traceId);
-    return { traces: [trace, ...without].slice(0, MAX_TRACES) };
+    return {
+      traces: [trace, ...without].slice(0, MAX_TRACES),
+      sessionCount: state.sessionCount + 1,
+    };
   }
 
   // Any other event for an unknown trace (e.g. connected mid-run, missed
@@ -132,23 +137,26 @@ export function reduce(state: HudState, action: HudAction): HudState {
 
   switch (event.type) {
     case "step.start":
-      trace = upsertStep(trace, event.stepNumber, (s) => ({
-        ...s,
-        startedAt: s.startedAt || event.ts,
-      }));
+      // First event for a step/tool stamps its startedAt (= this event's ts) via
+      // upsert's base, so the waterfall positions each bar at its real time —
+      // not all at trace.startedAt (which left-aligned every live row).
+      trace = upsertStep(trace, event.stepNumber, event.ts, (s) => s);
       break;
     case "step.firstToken":
-      trace = upsertStep(trace, event.stepNumber, (s) => ({ ...s, ttftMs: event.ttftMs ?? s.ttftMs }));
+      trace = upsertStep(trace, event.stepNumber, event.ts, (s) => ({
+        ...s,
+        ttftMs: event.ttftMs ?? s.ttftMs,
+      }));
       break;
     case "step.tokens":
-      trace = upsertStep(trace, event.stepNumber, (s) => ({
+      trace = upsertStep(trace, event.stepNumber, event.ts, (s) => ({
         ...s,
         outputTokens: Math.max(s.outputTokens, event.outputTokens),
         reasoningTokens: event.reasoningTokens ?? s.reasoningTokens,
       }));
       break;
     case "step.end":
-      trace = upsertStep(trace, event.stepNumber, (s) => ({
+      trace = upsertStep(trace, event.stepNumber, event.ts, (s) => ({
         ...s,
         status: event.status === "error" ? "error" : "ok",
         ttftMs: event.ttftMs ?? s.ttftMs,
@@ -159,15 +167,14 @@ export function reduce(state: HudState, action: HudAction): HudState {
       }));
       break;
     case "tool.start":
-      trace = upsertTool(trace, event.toolCallId, (t) => ({
+      trace = upsertTool(trace, event.toolCallId, event.ts, (t) => ({
         ...t,
         toolName: event.toolName,
         input: event.input ?? t.input,
-        startedAt: t.startedAt || event.ts,
       }));
       break;
     case "tool.end":
-      trace = upsertTool(trace, event.toolCallId, (t) => ({
+      trace = upsertTool(trace, event.toolCallId, event.ts, (t) => ({
         ...t,
         toolName: event.toolName,
         status: event.status === "error" ? "error" : "ok",
@@ -190,20 +197,23 @@ export function reduce(state: HudState, action: HudAction): HudState {
   }
 
   const without = traces.filter((t) => t.traceId !== event.traceId);
-  return { traces: [trace, ...without].slice(0, MAX_TRACES) };
+  return {
+    traces: [trace, ...without].slice(0, MAX_TRACES),
+    sessionCount: state.sessionCount,
+  };
 }
 
 function upsertStep(
   trace: HudTrace,
   stepNumber: number,
+  ts: number,
   update: (step: HudStep) => HudStep,
 ): HudTrace {
   const steps = trace.steps.slice();
   const i = steps.findIndex((s) => s.stepNumber === stepNumber);
+  // New step: stamp startedAt with the first event's ts (its real start time).
   const base: HudStep =
-    i >= 0
-      ? steps[i]!
-      : { stepNumber, status: "running", outputTokens: 0, startedAt: trace.startedAt };
+    i >= 0 ? steps[i]! : { stepNumber, status: "running", outputTokens: 0, startedAt: ts };
   const next = update(base);
   if (i >= 0) steps[i] = next;
   else steps.push(next);
@@ -213,12 +223,13 @@ function upsertStep(
 function upsertTool(
   trace: HudTrace,
   toolCallId: string,
+  ts: number,
   update: (tool: HudToolCall) => HudToolCall,
 ): HudTrace {
   const tools = trace.tools.slice();
   const i = tools.findIndex((t) => t.toolCallId === toolCallId);
   const base: HudToolCall =
-    i >= 0 ? tools[i]! : { toolCallId, toolName: "tool", status: "running", startedAt: trace.startedAt };
+    i >= 0 ? tools[i]! : { toolCallId, toolName: "tool", status: "running", startedAt: ts };
   const next = update(base);
   if (i >= 0) tools[i] = next;
   else tools.push(next);

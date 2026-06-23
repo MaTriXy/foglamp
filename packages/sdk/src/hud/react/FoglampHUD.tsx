@@ -306,11 +306,13 @@ function HudApp(props: FoglampHUDProps) {
       ? "err"
       : "";
 
-  // Tick while running so live durations advance.
+  // Tick while running so live durations advance. ~100ms (under the bars'
+  // 0.2s CSS transition) so the timeline reads as continuous motion rather than
+  // stepping every quarter-second.
   const [, force] = useState(0);
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => force((n) => n + 1), 250);
+    const id = setInterval(() => force((n) => n + 1), 100);
     return () => clearInterval(id);
   }, [running]);
 
@@ -354,7 +356,7 @@ function HudApp(props: FoglampHUDProps) {
   return (
     <Morph dataMode={mode} viewKey={viewKey} direction={direction}>
       {mode === "pill" ? (
-        <Pill count={traces.length} status={pillStatus} onExpand={expand} />
+        <Pill count={state.sessionCount} status={pillStatus} onExpand={expand} />
       ) : selected ? (
         <TraceDetail
           trace={selected}
@@ -365,6 +367,7 @@ function HudApp(props: FoglampHUDProps) {
       ) : (
         <TraceList
           traces={traces}
+          sessionCount={state.sessionCount}
           conn={conn}
           status={pillStatus}
           onSelect={select}
@@ -473,7 +476,7 @@ function AgentBadge({ name }: { name: string }) {
  * A live timeline of the session's runs on a single shared axis: every run is a
  * pill on one line (concurrent runs overlap), tagged with the agent's icon and
  * color so you can tell them apart. While a run is live the window tracks `now`
- * (auto-scaling) and the pills CSS-transition so the 250ms ticks read as
+ * (auto-scaling) and the pills CSS-transition so the ~100ms ticks read as
  * continuous motion. Tap a pill to open its detail.
  */
 function TraceTimeline({
@@ -481,11 +484,13 @@ function TraceTimeline({
   onSelect,
   scrollRef,
   onScroll,
+  followingRef,
 }: {
   traces: HudTrace[];
   onSelect: (id: string) => void;
   scrollRef: RefObject<HTMLDivElement | null>;
   onScroll: () => void;
+  followingRef: RefObject<boolean>;
 }) {
   const now = Date.now();
   const sessionStart = traces.length ? Math.min(...traces.map((t) => t.startedAt)) : now;
@@ -499,7 +504,8 @@ function TraceTimeline({
   for (let ago = 0; ago <= dataMs; ago += TICK_MS) ticks.push(ago);
   const tickLeft = (ago: number) => ((dataMs - ago) / totalMs) * 100;
 
-  // Start at the right (latest) and stick there while near it — live follow.
+  // Start at the right (latest); keep sticking there only while `following`
+  // (set false when the user scrolls back to a past period — see onChartScroll).
   const didInit = useRef(false);
   useEffect(() => {
     const el = scrollRef.current;
@@ -510,8 +516,8 @@ function TraceTimeline({
       didInit.current = true;
       return;
     }
-    if (max - el.scrollLeft < 80) el.scrollLeft = max;
-  }, [scrollRef, totalMs, traces.length]);
+    if (followingRef.current) el.scrollLeft = max;
+  }, [scrollRef, totalMs, traces.length, followingRef]);
 
   if (traces.length === 0) return null;
 
@@ -613,12 +619,14 @@ function TraceTimeline({
 /** The session's traces, newest first — tap one to open its detail. */
 function TraceList({
   traces,
+  sessionCount,
   conn,
   status,
   onSelect,
   onCollapse,
 }: {
   traces: HudTrace[];
+  sessionCount: number;
   conn: ConnStatus;
   status: StatusKind;
   onSelect: (id: string) => void;
@@ -630,12 +638,17 @@ function TraceList({
   const chartRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const syncing = useRef(false);
+  // Live-follow only while parked at the right edge (now). Scrolling left to a
+  // past period sets this false, so the chart stops auto-advancing until you
+  // scroll back to the edge.
+  const following = useRef(true);
   const onChartScroll = () => {
     if (syncing.current) return;
     const c = chartRef.current;
     const l = listRef.current;
     if (!c || !l) return;
     const cMax = c.scrollWidth - c.clientWidth;
+    following.current = cMax - c.scrollLeft < 24;
     const lMax = l.scrollHeight - l.clientHeight;
     if (cMax <= 1 || lMax <= 1) return;
     syncing.current = true;
@@ -665,8 +678,8 @@ function TraceList({
         <div className="fl-title">
           <b>Traces</b>
           <span>
-            {traces.length > 0
-              ? `${traces.length} this session`
+            {sessionCount > 0
+              ? `${sessionCount} this session`
               : conn === "open"
                 ? "Waiting for a run…"
                 : "connecting…"}
@@ -688,6 +701,7 @@ function TraceList({
         onSelect={onSelect}
         scrollRef={chartRef}
         onScroll={onChartScroll}
+        followingRef={following}
       />
 
       <div className="fl-list" ref={listRef} onScroll={onListScroll}>

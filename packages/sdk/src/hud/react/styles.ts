@@ -153,10 +153,10 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-tl-track { position: relative; height: 24px; }
 .fl-tl-axis { position: absolute; left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-50%); background: var(--fl-border); }
 /* Vertical 15s grid + the time captions below (rightmost = now). */
-.fl-tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-0.5px); background: var(--fl-sep); }
+.fl-tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-0.5px); background: var(--fl-sep); transition: left 0.25s linear; }
 .fl-tl-grid.now { background: var(--fl-border); }
 .fl-tl-axislabels { position: relative; height: 13px; margin-top: 6px; }
-.fl-tl-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 9.5px; line-height: 1; color: var(--fl-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fl-tl-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 9.5px; line-height: 1; color: var(--fl-muted); white-space: nowrap; font-variant-numeric: tabular-nums; transition: left 0.25s linear; }
 .fl-tl-tick.now { color: var(--fl-fg); font-weight: 500; }
 .fl-tl-bar {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -175,6 +175,7 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
   display: flex; align-items: center; justify-content: flex-start; gap: 4px;
   height: 22px; min-width: 54px; padding: 0 7px 0 3px; border-radius: 9999px;
   background: var(--fl-bg); box-shadow: 0 0 0 1.5px var(--fl-border); cursor: pointer;
+  transition: left 0.25s linear, width 0.25s linear;
 }
 .fl-tl-cdots { display: inline-flex; }
 .fl-tl-cdot { width: 16px; height: 16px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px var(--fl-bg); }
