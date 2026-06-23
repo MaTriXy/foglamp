@@ -24,6 +24,16 @@ const usage = (i: number, o: number) => ({
 
 type Move = { tool: string; input: unknown } | null;
 
+// Pick a varied subset of an agent's tools for a single run: a random count
+// (always ≥2) and a random selection, but re-sorted to keep the declared
+// pipeline order. So successive runs exercise different tool cascades instead of
+// firing every tool every time.
+function pickTools(all: string[]): string[] {
+  const n = rand(2, all.length + 1); // 2..all.length inclusive
+  const idx = [...all.keys()].sort(() => Math.random() - 0.5).slice(0, n);
+  return idx.sort((a, b) => a - b).map((i) => all[i]!);
+}
+
 function model(meta: AgentMeta, script: Move[]) {
   let step = 0;
   return new MockLanguageModelV4({
@@ -89,23 +99,35 @@ export async function runAgent(id: string): Promise<void> {
 
   if (meta.id === "support") {
     // The storyboard: lookup → refund FAILS → refund retry succeeds → email.
+    // The surrounding steps vary (sometimes a stock check up front, a Slack ping
+    // at the end), and apply_credit stays in the armory but is rarely used.
+    const pre = Math.random() < 0.5 ? [{ tool: "check_inventory", input: { sku: "sku_19" } }] : [];
+    const post = Math.random() < 0.5 ? [{ tool: "notify_slack", input: { channel: "#support" } }] : [];
     script = [
+      ...pre,
       { tool: "lookup_order", input: { orderId: "o_8842" } },
       { tool: "issue_refund", input: { orderId: "o_8842" } },
       { tool: "issue_refund", input: { orderId: "o_8842", retry: true } },
       { tool: "send_email", input: { to: "alex@acme.com" } },
+      ...post,
       null,
     ];
     let firstRefund = true;
-    tools = {
-      lookup_order: tool({
-        description: "Look up an order",
+    const okTool = (desc: string, ms: [number, number], out: object) =>
+      tool({
+        description: desc,
         inputSchema: z.object({}).loose(),
         execute: async () => {
-          await sleep(rand(700, 1300));
-          return { status: "found", total: 42 };
+          await sleep(rand(ms[0], ms[1]));
+          return out;
         },
-      }),
+      });
+    tools = {
+      lookup_order: okTool("Look up an order", [700, 1300], { status: "found", total: 42 }),
+      check_inventory: okTool("Check inventory", [500, 1000], { inStock: true }),
+      apply_credit: okTool("Apply account credit", [600, 1100], { credited: true }),
+      send_email: okTool("Email the customer", [600, 1200], { sent: true }),
+      notify_slack: okTool("Notify the support channel", [400, 900], { posted: true }),
       issue_refund: tool({
         description: "Issue a refund",
         inputSchema: z.object({}).loose(),
@@ -118,21 +140,14 @@ export async function runAgent(id: string): Promise<void> {
           return { refunded: true, amount: 42 };
         },
       }),
-      send_email: tool({
-        description: "Email the customer",
-        inputSchema: z.object({}).loose(),
-        execute: async () => {
-          await sleep(rand(600, 1200));
-          return { sent: true };
-        },
-      }),
     };
   } else {
-    script = [...meta.tools.map((t) => ({ tool: t, input: { q: meta.name } })), null];
+    // Fire a varied subset each run, but register the full armory so the HUD
+    // still shows every available tool (with only the used ones highlighted).
+    const used = pickTools(meta.tools);
+    script = [...used.map((t) => ({ tool: t, input: { q: meta.name } })), null];
     const fail =
-      meta.id === "triage" && Math.random() < 0.5
-        ? meta.tools[meta.tools.length - 1]
-        : undefined;
+      meta.id === "triage" && Math.random() < 0.5 ? used[used.length - 1] : undefined;
     tools = buildTools(meta.tools, fail);
   }
 

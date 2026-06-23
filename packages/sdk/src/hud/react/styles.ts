@@ -63,14 +63,14 @@ export const HUD_CSS = /* css */ `
 * { box-sizing: border-box; }
 button { font: inherit; border: none; background: none; cursor: pointer; color: inherit; }
 
-/* The morphing shell. motion animates width/height; radius + lift transition by
-   mode. overflow:hidden clips content during the size morph. */
+/* The morphing shell. A vendored rAF spring animates width/height (inline style);
+   radius + lift transition by mode. overflow:hidden clips content during the morph. */
 .fl-shell {
   position: relative;
   overflow: hidden;
   background: var(--fl-bg);
   box-shadow: var(--fl-shadow);
-  /* width/height are spring-animated by motion; only radius + lift + shadow here. */
+  /* width/height are spring-animated via inline style; only radius + lift + shadow here. */
   transition:
     box-shadow 0.22s ease,
     border-radius 0.3s cubic-bezier(0.32,0.72,0,1),
@@ -86,8 +86,10 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
   box-shadow: var(--fl-shadow-hover);
 }
 
-/* The entering view is measured directly; its natural size drives the shell. */
-.fl-mode { width: max-content; }
+/* The entering view is measured directly; its natural size drives the shell.
+   Keyed remount on view change → this fade-in replays (the cross-fade). */
+.fl-mode { width: max-content; animation: fl-fade-in 0.16s cubic-bezier(0.32,0.72,0,1); }
+@keyframes fl-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Pill (the whole row is the expand target) ---- */
 .fl-pill { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; cursor: pointer; transition: background-color 0.2s ease; }
@@ -215,7 +217,13 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 
 .fl-tree { max-height: 440px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 1px; }
 .fl-panel-detail .fl-tree { max-height: 520px; }
-.fl-row-item { display: flex; flex-direction: column; }
+/* Streaming rows fade+rise in as they arrive (plays once on mount per keyed row). */
+.fl-row-item { display: flex; flex-direction: column; animation: fl-row-in 0.26s cubic-bezier(0.22,1,0.36,1); }
+@keyframes fl-row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* Expanding detail: grid-rows 0fr→1fr is the CSS-only way to animate height:auto. */
+.fl-row-detail { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.22s cubic-bezier(0.32,0.72,0,1), opacity 0.18s ease; }
+.fl-row-detail.open { grid-template-rows: 1fr; opacity: 1; }
+.fl-row-detail-inner { overflow: hidden; min-height: 0; }
 .fl-row {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
   padding: 7px 9px; border-radius: 9px; cursor: pointer; transition: background 0.12s ease;
@@ -238,6 +246,9 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-wf-track { position: relative; flex: 1; height: 16px; min-width: 0; }
 /* Dotted leader connecting the label to the duration; the bar paints over it. */
 .fl-wf-track::before { content: ""; position: absolute; left: -8px; right: 0; top: 50%; transform: translateY(-50%); border-top: 1px dotted var(--fl-border); }
+/* Errored span: tint both dotted segments red to match the bar + row. */
+.fl-row.err .fl-wf-lead::after,
+.fl-row.err .fl-wf-track::before { border-top-color: color-mix(in oklab, var(--fl-err) 55%, transparent); }
 .fl-wf-bar { position: absolute; top: 50%; transform: translateY(-50%); height: 8px; min-width: 4px; border-radius: 999px; box-shadow: 0 0 0 2px var(--fl-bg); transition: left 0.2s linear, width 0.2s linear; }
 .fl-wf-bar.step { background: #6366f1; }
 .fl-wf-bar.tool { background: #14b8a6; }
@@ -283,5 +294,7 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
   .fl-status.run .fl-px, .fl-tl-bar.run, .fl-wf-bar.run, .fl-listening span { animation: none; }
   .fl-status.run .fl-px { opacity: 1; }
   .fl-shell { transition: none; }
+  .fl-mode, .fl-row-item { animation: none; }
+  .fl-row-detail { transition: none; }
 }
 `;

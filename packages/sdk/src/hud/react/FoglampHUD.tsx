@@ -9,7 +9,6 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
 
 import { formatCost, formatDuration, formatTokens, formatTps } from "./format";
 import {
@@ -38,14 +37,81 @@ type Mode = "pill" | "expanded";
 type StatusKind = "" | "run" | "err";
 
 const DEFAULT_PORT = 8517;
-// Snappy springs — the morph and the streaming rows both ride these.
-const SPRING_QUICK = { type: "spring", stiffness: 520, damping: 38 } as const;
 // Shell size springs — pill↔expanded is fast + snappy; list↔detail a touch
-// softer. Views themselves just cross-fade (see VIEW_VARIANTS).
-const SPRING_PILL = { type: "spring", stiffness: 620, damping: 42 } as const;
-const SPRING_VIEW = { type: "spring", stiffness: 540, damping: 44 } as const;
-const SNAP = { duration: 0 } as const;
-const FADE_FAST = { duration: 0.13, ease: [0.32, 0.72, 0, 1] } as const;
+// softer. Driven by the vendored micro-spring below (no motion dependency).
+// Views themselves just cross-fade (CSS, see .fl-mode).
+const SPRING_PILL = { stiffness: 620, damping: 42 } as const;
+const SPRING_VIEW = { stiffness: 540, damping: 44 } as const;
+
+type Size = { w: number; h: number };
+type SpringParams = { stiffness: number; damping: number };
+
+/**
+ * A tiny rAF spring that tweens width+height toward a target — the morph's whole
+ * reason for ever needing `motion`. The first target snaps (no animation on
+ * mount); later targets spring with a small overshoot (damping < critical).
+ * Integrated at a fixed 1/240s sub-step so the stiff springs stay stable
+ * regardless of frame rate. Retargets mid-flight (reads the latest target/params
+ * via refs). No `Date.now`/`Math.random` — rAF timestamps only.
+ */
+function useSizeSpring(target: Size | undefined, params: SpringParams): Size | undefined {
+  const [val, setVal] = useState<Size | undefined>(target);
+  const cur = useRef<{ w: number; h: number; vw: number; vh: number } | null>(null);
+  const targetRef = useRef(target);
+  const paramsRef = useRef(params);
+  const raf = useRef<number | null>(null);
+  const last = useRef(0);
+  targetRef.current = target;
+  paramsRef.current = params;
+
+  useEffect(() => {
+    if (!target) return;
+    // First measured size: snap into place, no animation.
+    if (!cur.current) {
+      cur.current = { w: target.w, h: target.h, vw: 0, vh: 0 };
+      setVal({ w: target.w, h: target.h });
+      return;
+    }
+    if (raf.current != null) return; // a loop is already chasing the (updated) target
+    last.current = 0;
+    const tick = (ts: number) => {
+      const s = cur.current!;
+      const tg = targetRef.current!;
+      const { stiffness, damping } = paramsRef.current;
+      let dt = last.current ? (ts - last.current) / 1000 : 1 / 60;
+      last.current = ts;
+      dt = Math.min(dt, 0.064); // clamp tab-switch gaps
+      for (let t = dt; t > 0; t -= 1 / 240) {
+        const h = Math.min(t, 1 / 240);
+        s.vw += (-stiffness * (s.w - tg.w) - damping * s.vw) * h;
+        s.w += s.vw * h;
+        s.vh += (-stiffness * (s.h - tg.h) - damping * s.vh) * h;
+        s.h += s.vh * h;
+      }
+      const settled =
+        Math.abs(s.w - tg.w) < 0.5 && Math.abs(s.vw) < 1 &&
+        Math.abs(s.h - tg.h) < 0.5 && Math.abs(s.vh) < 1;
+      if (settled) {
+        s.w = tg.w; s.h = tg.h; s.vw = 0; s.vh = 0;
+        setVal({ w: tg.w, h: tg.h });
+        raf.current = null;
+        return;
+      }
+      setVal({ w: s.w, h: s.h });
+      raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+  }, [target?.w, target?.h]);
+
+  useEffect(
+    () => () => {
+      if (raf.current != null) cancelAnimationFrame(raf.current);
+    },
+    [],
+  );
+
+  return val;
+}
 
 // Per-agent bar colors for the timeline — a stable hash so the same agent keeps
 // its color across runs (an error run overrides to the error red).
@@ -302,18 +368,13 @@ function HudApp(props: FoglampHUDProps) {
   );
 }
 
-// Views cross-fade in place — the shell springs the size between them.
-const VIEW_VARIANTS = {
-  enter: { opacity: 0 },
-  center: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
 /**
  * The shell springs its width/height to the *entering* view's measured size
- * (snapped on first paint, tweened after). Views cross-fade via popLayout, and
- * because we measure the entering element directly (not a shared container), the
- * shell resizes from the start of the transition rather than racing it.
+ * (snapped on first paint, tweened after). Views cross-fade via CSS: the inner
+ * `.fl-mode` is keyed on the view, so React remounts it on every change and its
+ * fade-in keyframe replays. Measuring the entering element directly (it's
+ * `width: max-content`, so its natural size is unaffected by the shell's
+ * animated width) lets the shell resize from the start of the transition.
  */
 function Morph({
   dataMode,
@@ -326,13 +387,12 @@ function Morph({
   direction: number;
   children: ReactNode;
 }) {
-  const [size, setSize] = useState<{ w: number; h: number }>();
-  const ready = useRef(false);
+  const [size, setSize] = useState<Size>();
   const roRef = useRef<ResizeObserver | null>(null);
 
-  // Measure the *entering* view's element directly (popLayout makes the exiting
-  // one position:absolute, so it can't pollute this). The shell then resizes
-  // from the start of the transition, concurrent with the slide.
+  // Measure the entering view directly and keep tracking it (live streaming rows
+  // grow the list). `.fl-mode` is `width: max-content`, so this reads the view's
+  // natural size even while the shell's own width is mid-spring.
   const measureRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
     roRef.current?.disconnect();
@@ -343,38 +403,19 @@ function Morph({
     roRef.current = ro;
   }, []);
   useEffect(() => () => roRef.current?.disconnect(), []);
-  useEffect(() => {
-    if (size) ready.current = true;
-  }, [size]);
 
-  const sizeTransition = !ready.current
-    ? SNAP
-    : direction === 0
-      ? SPRING_PILL
-      : SPRING_VIEW;
+  const animSize = useSizeSpring(size, direction === 0 ? SPRING_PILL : SPRING_VIEW);
 
   return (
-    <motion.div
+    <div
       className="fl-shell"
       data-mode={dataMode}
-      animate={size ? { width: size.w, height: size.h } : undefined}
-      transition={sizeTransition}
+      style={animSize ? { width: animSize.w, height: animSize.h } : undefined}
     >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={viewKey}
-          ref={measureRef}
-          className="fl-mode"
-          variants={VIEW_VARIANTS}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={FADE_FAST}
-        >
-          {children}
-        </motion.div>
-      </AnimatePresence>
-    </motion.div>
+      <div key={viewKey} ref={measureRef} className="fl-mode">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -652,9 +693,9 @@ function TraceList({
             <p>{conn === "open" ? "Listening for runs…" : "Connecting to the broker…"}</p>
           </div>
         ) : (
-          // Plain rows (no per-row motion): the Morph already slides the whole
-          // view, so animating rows here made them rise from the bottom on entry
-          // and lag the list's exit on leave.
+          // Plain rows (no per-row animation): the Morph already fades the whole
+          // view in, so animating rows here made them rise from the bottom on
+          // entry and lag the list on leave.
           traces.map((t) => {
             const errs = errorCount(t);
             const toolCount = t.tools.length;
@@ -790,53 +831,40 @@ function TraceDetail({
       )}
 
       <div className="fl-tree" ref={treeRef}>
-        <AnimatePresence initial={false}>
-          {rowList.map((row) => {
-            const isErr =
-              row.kind === "step"
-                ? row.step.status === "error"
-                : row.tool.status === "error";
-            const isOpen = open.has(row.key);
-            return (
-              <motion.div
-                key={row.key}
-                className={`fl-row-item ${row.kind === "tool" ? "tool" : ""}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={SPRING_QUICK}
+        {rowList.map((row) => {
+          const isErr =
+            row.kind === "step"
+              ? row.step.status === "error"
+              : row.tool.status === "error";
+          const isOpen = open.has(row.key);
+          return (
+            <div
+              key={row.key}
+              className={`fl-row-item ${row.kind === "tool" ? "tool" : ""}`}
+            >
+              <button
+                type="button"
+                className={`fl-row ${isErr ? "err" : ""} ${isOpen ? "open" : ""}`}
+                onClick={() => toggle(row.key)}
+                aria-expanded={isOpen}
               >
-                <button
-                  type="button"
-                  className={`fl-row ${isErr ? "err" : ""} ${isOpen ? "open" : ""}`}
-                  onClick={() => toggle(row.key)}
-                  aria-expanded={isOpen}
-                >
-                  <WaterfallRow row={row} tStart={tStart} tDur={tDur} now={now} />
-                  <RowCaret open={isOpen} />
-                </button>
-                <AnimatePresence initial={false}>
-                  {isOpen && (
-                    <motion.div
-                      className="fl-row-detail"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-                      style={{ overflow: "hidden" }}
-                    >
-                      {row.kind === "step" ? (
-                        <StepDetail step={row.step} />
-                      ) : (
-                        <ToolDetail tool={row.tool} redact={redact} />
-                      )}
-                    </motion.div>
+                <WaterfallRow row={row} tStart={tStart} tDur={tDur} now={now} />
+                <RowCaret open={isOpen} />
+              </button>
+              {/* Always rendered; the grid-rows 0fr→1fr trick animates open AND
+                  close in pure CSS (height:auto is otherwise un-transitionable). */}
+              <div className={`fl-row-detail ${isOpen ? "open" : ""}`}>
+                <div className="fl-row-detail-inner">
+                  {row.kind === "step" ? (
+                    <StepDetail step={row.step} />
+                  ) : (
+                    <ToolDetail tool={row.tool} redact={redact} />
                   )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <Footer trace={trace} />

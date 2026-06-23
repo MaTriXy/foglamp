@@ -27,17 +27,10 @@ export default defineConfig({
   clean: false,
   // The published `.` entry intentionally has no workspace runtime deps — wire
   // types are mirrored locally in src/wire.ts (see contract-conformance.ts).
-  // `ai` stays a peer dep. React + motion (used only by the `hud` entry) are
-  // externalized so they're never bundled and resolve to the host app's copies —
-  // critically, motion must NOT be pre-bundled or its optional Node require
-  // (`@emotion/is-prop-valid`, `node:module`) breaks the app's bundler (Turbopack).
-  external: [
-    "ai",
-    "@vercel/functions",
-    "react",
-    "react-dom",
-    "react/jsx-runtime",
-    "motion",
-    "motion/react",
-  ],
+  // `ai` stays a peer dep. React (used only by the `hud` entry) is externalized
+  // so it's never bundled and resolves to the host app's single copy — otherwise
+  // a second React instance would break hooks. The HUD has no other runtime deps:
+  // the pill↔panel morph rides a vendored ~60-line rAF spring (no `motion`), so
+  // dropping `<FoglampHUD/>` in needs nothing beyond React.
+  external: ["ai", "@vercel/functions", "react", "react-dom", "react/jsx-runtime"],
 });
