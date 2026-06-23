@@ -312,13 +312,13 @@ function HudApp(props: FoglampHUDProps) {
       ? "err"
       : "";
 
-  // Tick while running so live durations advance. ~100ms (under the bars'
-  // 0.2s CSS transition) so the timeline reads as continuous motion rather than
-  // stepping every quarter-second.
+  // Tick while running so live durations advance and the timeline follows `now`.
+  // ~50ms: the follow offset is sub-pixel-accurate per tick (scroll floor + a
+  // fractional transform), so a faster tick just shrinks each step → smoother.
   const [, force] = useState(0);
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => force((n) => n + 1), 100);
+    const id = setInterval(() => force((n) => n + 1), 50);
     return () => clearInterval(id);
   }, [running]);
 
@@ -536,6 +536,10 @@ function TraceTimeline({
 
   // Follow the right edge while `following`; layout-effect re-pins atomically
   // with the track growth (an async effect would leave a one-frame jump).
+  // scrollLeft is integer-only, so the view would jump a whole pixel each step —
+  // pin scroll to the floor and carry the sub-pixel remainder on the track's
+  // transform, so the follow is smooth instead of stair-stepping.
+  const innerRef = useRef<HTMLDivElement>(null);
   const didInit = useRef(false);
   useIsoLayoutEffect(() => {
     const el = scrollRef.current;
@@ -544,9 +548,11 @@ function TraceTimeline({
     if (!didInit.current) {
       el.scrollLeft = max;
       didInit.current = true;
-      return;
+    } else if (followingRef.current) {
+      const floor = Math.floor(max);
+      el.scrollLeft = floor;
+      if (innerRef.current) innerRef.current.style.transform = `translateX(${floor - max}px)`;
     }
-    if (followingRef.current) el.scrollLeft = max;
   }, [scrollRef, trackW, traces.length, followingRef]);
 
   if (traces.length === 0) return null;
@@ -554,7 +560,7 @@ function TraceTimeline({
   return (
     <div className="fl-timeline">
       <div className="fl-tl-scroll" ref={scrollRef} onScroll={onScroll}>
-        <div className="fl-tl-inner" style={{ width: `${trackW}px` }}>
+        <div className="fl-tl-inner" ref={innerRef} style={{ width: `${trackW}px` }}>
           <div className="fl-tl-track">
             <span className="fl-tl-axis" />
             {ticks.map((g) => (
