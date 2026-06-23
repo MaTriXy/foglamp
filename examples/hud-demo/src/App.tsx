@@ -41,12 +41,12 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-12 pb-0 pt-12">
-          {/* Left spacer balances the right-hand actions so the brand sits dead-center. */}
-          <div className="flex-1" />
-          <div className="flex items-center gap-2.5">
+    <div className="flex min-h-screen flex-col justify-center bg-background text-foreground">
+      {/* Header + agents share one centered container, so they're centered
+          together (vertically + horizontally) as a single block. */}
+      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <header className="mb-10 flex items-center gap-3">
+          <div className="flex flex-1 items-center gap-2.5">
             <FoglampMark className="h-5 w-auto" />
             <span
               className="text-lg leading-none"
@@ -55,18 +55,14 @@ export default function App() {
               Foglamp HUD
             </span>
           </div>
-          <div className="flex flex-1 items-center justify-end gap-3">
-            <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-              {dark ? <IconSun /> : <IconMoon />}
-            </Button>
-            <Button onClick={() => trigger("/api/storm")}>
-              <IconBoltFilled /> Run storm
-            </Button>
-          </div>
-        </div>
-      </header>
+          <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+            {dark ? <IconSun /> : <IconMoon />}
+          </Button>
+          <Button onClick={() => trigger("/api/storm")}>
+            <IconBoltFilled /> Run storm
+          </Button>
+        </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {AGENTS.map((agent) => (
             <Card key={agent.id} className="flex flex-col">
@@ -105,7 +101,7 @@ export default function App() {
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono">&lt;FoglampHUD /&gt;</code>{" "}
           in the client.
         </p>
-      </main>
+      </div>
 
       {/* Connect to the broker through this server's own origin (proxied at
           /hud/events) so it works both locally and on the hosted demo. */}
