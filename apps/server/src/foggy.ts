@@ -5,12 +5,14 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
+import { eq } from "drizzle-orm";
 import { foglamp } from "foglamp";
 import type { Context } from "hono";
 
 import { ch } from "@foglamp/api/clickhouse";
 import { requireProjectAccess } from "@foglamp/api/services/access";
 import { db } from "@foglamp/db";
+import { organization } from "@foglamp/db/schema/organization";
 import { env } from "@foglamp/env/server";
 
 import type { AppEnv } from "./evlog";
@@ -188,11 +190,25 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
   const sessionId = `foggy:${threadId || userId}`;
 
   let projectName: string;
+  let orgId: string;
   try {
-    projectName = (await requireProjectAccess(db, userId, projectId)).name;
+    const access = await requireProjectAccess(db, userId, projectId);
+    projectName = access.name;
+    orgId = access.orgId;
   } catch {
     return c.json({ error: "Project not found or not accessible" }, 403);
   }
+
+  // Dogfooding: every Foggy chat is served on behalf of the project's org, so
+  // attribute its spend to that org as the end-customer — it shows up on our own
+  // Overview's Customers card. One PK lookup for the display name; id is enough
+  // on its own if the name can't be resolved.
+  const orgRow = await db
+    .select({ name: organization.name })
+    .from(organization)
+    .where(eq(organization.id, orgId))
+    .limit(1);
+  const orgName = orgRow[0]?.name;
 
   const defaultWindow = resolveRange(body?.range);
 
@@ -208,6 +224,7 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
         fog.integration({
           agentName: "foggy",
           sessionId,
+          customer: { id: orgId, name: orgName },
           metadata: { userId, projectId },
         }),
       ],
