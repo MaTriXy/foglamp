@@ -31,7 +31,7 @@
     "build": "tsdown",
     "check-types": "tsc -b",
     "dev": "tsdown --watch",
-    "prepack": "rm -rf dist && tsdown"
+    "prepack": "rm -rf dist && bun run build"
   },
   "dependencies": {
     "uuidv7": "catalog:"
