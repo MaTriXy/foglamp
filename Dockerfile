@@ -80,3 +80,29 @@ ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
 CMD ["bun", "run", "start"]
+
+# ---------- hud-demo (hosted live HUD example) ----------
+# The Vite app (which imports `foglamp/hud`) + a Bun server that runs mock agents
+# and proxies the loopback HUD broker's SSE onto its own origin. Build foglamp
+# first so `foglamp/hud` resolves to dist/ during the Vite build.
+FROM base AS hud-demo-build
+RUN bun run --filter foglamp build \
+ && bun run --filter foglamp-example-hud-demo build
+
+FROM oven/bun:${BUN_VERSION}-slim AS hud-demo
+WORKDIR /app
+# NOT production: foglamp's HUD is gated to non-production runtimes, so the broker
+# only starts when NODE_ENV !== "production". (Cloud Run: deploy single-instance
+# with CPU always allocated so the broker + heartbeat keep running.)
+ENV NODE_ENV=development
+COPY --from=hud-demo-build /app/node_modules ./node_modules
+# node_modules/foglamp is a workspace symlink to packages/sdk — copy the target
+# (incl. its dist/, with the lazy HUD broker chunk) or the symlink dangles.
+COPY --from=hud-demo-build /app/packages/sdk ./packages/sdk
+COPY --from=hud-demo-build /app/examples/hud-demo/dist ./examples/hud-demo/dist
+COPY --from=hud-demo-build /app/examples/hud-demo/src ./examples/hud-demo/src
+COPY --from=hud-demo-build /app/examples/hud-demo/package.json ./examples/hud-demo/package.json
+ENV PORT=8080
+EXPOSE 8080
+USER bun
+CMD ["bun", "run", "examples/hud-demo/src/server.ts"]

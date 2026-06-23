@@ -129,7 +129,9 @@ export default function App() {
         </p>
       </main>
 
-      <FoglampHUD port={8518} />
+      {/* Connect to the broker through this server's own origin (proxied at
+          /hud/events) so it works both locally and on the hosted demo. */}
+      <FoglampHUD url="/hud/events" />
     </div>
   );
 }

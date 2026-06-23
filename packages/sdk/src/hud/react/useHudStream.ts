@@ -13,7 +13,10 @@ export type ConnStatus = "connecting" | "open" | "closed";
  * ring buffer, and the reducer's upserts + `trace.end` span-snap make the replay
  * idempotent. `clear` resets the session view (the list's trash button).
  */
-export function useHudStream(port: number): {
+export function useHudStream(
+  port: number,
+  url?: string,
+): {
   state: HudState;
   conn: ConnStatus;
   clear: () => void;
@@ -24,8 +27,10 @@ export function useHudStream(port: number): {
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return;
-    const url = `http://127.0.0.1:${port}/events`;
-    const es = new EventSource(url);
+    // Default to the dev-only loopback broker; `url` overrides it for a hosted
+    // demo where the stream is proxied onto the page's own origin.
+    const src = url ?? `http://127.0.0.1:${port}/events`;
+    const es = new EventSource(src);
     es.onopen = () => setConn("open");
     es.onmessage = (e) => {
       try {
@@ -39,7 +44,7 @@ export function useHudStream(port: number): {
       es.close();
       setConn("closed");
     };
-  }, [port]);
+  }, [port, url]);
 
   return { state, conn, clear };
 }

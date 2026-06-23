@@ -25,6 +25,13 @@ import { useHudStream, type ConnStatus } from "./useHudStream";
 export interface FoglampHUDProps {
   /** Broker port — must match `foglamp({ hudPort })`. Default 8517. */
   port?: number;
+  /**
+   * Full SSE endpoint to connect to (absolute URL or same-origin path like
+   * `/hud/events`). Overrides `port` and the default `http://127.0.0.1:<port>`.
+   * Use when the broker is reached through a proxy on the page's own origin —
+   * e.g. a hosted demo where the dev-only loopback default can't apply.
+   */
+  url?: string;
   /** Start expanded (otherwise starts as the pill). Default false. */
   defaultOpen?: boolean;
   /** Color theme. "system" follows the host app (its `.dark` class) / OS. Default "system". */
@@ -283,7 +290,7 @@ function useResolvedTheme(
 
 function HudApp(props: FoglampHUDProps) {
   const port = props.port ?? DEFAULT_PORT;
-  const { state, conn } = useHudStream(port);
+  const { state, conn } = useHudStream(port, props.url);
   const [mode, setMode] = useState<Mode>(
     props.defaultOpen ? "expanded" : "pill"
   );
