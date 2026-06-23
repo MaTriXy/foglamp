@@ -4,18 +4,30 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "bun run src/server.ts",
+    "start": "vite build && bun run src/server.ts",
+    "build": "vite build",
+    "serve": "bun run src/server.ts",
     "verify": "bun run src/verify.ts",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "foglamp": "workspace:*",
+    "@foglamp/ui": "workspace:*",
+    "@tabler/icons-react": "^3.41.1",
     "ai": "catalog:",
+    "foglamp": "workspace:*",
+    "motion": "^12.40.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@foglamp/config": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/bun": "catalog:",
-    "typescript": "^5"
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5",
+    "vite": "^7.0.0"
   }
 }

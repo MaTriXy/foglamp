@@ -475,27 +475,10 @@ export function FoggyWidget({
                         variant="icon"
                         className="size-9 [&_svg:not([class*='size-'])]:size-5 corner-squircle bg-[#0090FD]/10 text-[#0090FD] shadow-[inset_0_0_0_1px_rgba(0,144,253,0.14),0_2px_6px_-2px_rgba(0,144,253,0.25)] dark:bg-[#0090FD]/15 dark:shadow-(--custom-shadow) rounded-2xl"
                       >
-                        <IconPacmanFilled className="text-[#0090FD] size-6" />
+                        <IconPacmanFilled className="text-[#0090FD] size-5.5" />
                       </EmptyMedia>
-                      <EmptyTitle>Foggy</EmptyTitle>
-                      <EmptyDescription>
-                        I can dig through this project&apos;s traces, costs, and
-                        agents - or explain how Foglamp works.
-                      </EmptyDescription>
+                      <EmptyTitle>Ask Foggy!</EmptyTitle>
                     </EmptyHeader>
-                    <EmptyContent className="mt-2 gap-2">
-                      {SUGGESTIONS.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => send(s)}
-                          className="w-fit rounded-xl corner-squircle  px-3 py-2 cursor-pointer text-left text-sm hover:bg-accent flex justify-center items-center gap-2"
-                        >
-                          <IconMessageFilled className="size-3.5 text-muted-foreground/50" />
-                          {s}
-                        </button>
-                      ))}
-                    </EmptyContent>
                   </Empty>
                 </motion.div>
               ) : (
@@ -557,8 +540,31 @@ export function FoggyWidget({
             e.preventDefault();
             send(input);
           }}
-          className="relative flex items-end gap-2 p-1 pt-0"
+          className="relative flex flex-col gap-2 p-1 pt-0"
         >
+          <AnimatePresence>
+            {messages.length === 0 && (
+              <motion.div
+                key="empty"
+                className="h-full pl-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+              >
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => send(s)}
+                    className="w-fit rounded-xl corner-squircle px-2 py-1.5 cursor-pointer text-left text-sm dark:hover:bg-accent/40 hover:bg-accent/70 text-muted-foreground/50 flex justify-center items-center gap-2"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
           <textarea
             ref={inputRef}
             value={input}
@@ -571,7 +577,7 @@ export function FoggyWidget({
             }}
             rows={3}
             placeholder="Ask Foggy…"
-            className="max-h-32 flex-1 resize-none rounded-4xl corner-squircle shadow-(--custom-shadow) dark:bg-muted/30 bg-background p-4 text-sm outline-none transition-colors focus-visible:border-ring"
+            className="max-h-32 min-h-24 flex-1 resize-none rounded-4xl corner-squircle shadow-(--custom-shadow) dark:bg-muted/30 bg-white p-4 text-sm outline-none transition-colors focus-visible:border-ring"
           />
           {busy ? (
             <Button

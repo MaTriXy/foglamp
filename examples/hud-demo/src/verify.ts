@@ -3,9 +3,9 @@
 // the local HUD broker. Proves the public API path (generateText + foglamp) end
 // to end without a browser. Run: `bun run verify`.
 
-import { runDemoAgent } from "./agent";
+import { runAgent } from "./server/run";
 
-const PORT = 8517;
+const PORT = 8518;
 
 async function waitForHealth(timeoutMs = 4000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -26,7 +26,7 @@ async function waitForHealth(timeoutMs = 4000): Promise<void> {
 
 type AnyEvent = { type: string; [k: string]: unknown };
 
-function collectUntilTraceEnd(timeoutMs = 8000): Promise<AnyEvent[]> {
+function collectUntilTraceEnd(timeoutMs = 25000): Promise<AnyEvent[]> {
   return new Promise((resolve, reject) => {
     const events: AnyEvent[] = [];
     const ctrl = new AbortController();
@@ -68,7 +68,7 @@ function collectUntilTraceEnd(timeoutMs = 8000): Promise<AnyEvent[]> {
   });
 }
 
-const run = runDemoAgent();
+const run = runAgent("support");
 await waitForHealth();
 const events = await collectUntilTraceEnd();
 await run.catch(() => {});

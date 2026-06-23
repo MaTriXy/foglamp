@@ -88,7 +88,12 @@ function parseToolCatalog(json: string | undefined): string[] {
   }
 }
 
-export function reduce(state: HudState, event: HudEvent): HudState {
+/** Stream events plus a client-only "clear" action (the list's trash button). */
+export type HudAction = HudEvent | { type: "clear" };
+
+export function reduce(state: HudState, action: HudAction): HudState {
+  if (action.type === "clear") return initialState;
+  const event = action;
   const traces = state.traces.slice();
   const idx = traces.findIndex((t) => t.traceId === event.traceId);
 

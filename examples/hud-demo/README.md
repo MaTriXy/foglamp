@@ -1,65 +1,69 @@
 # Foglamp HUD — demo
 
-A floating, in-app overlay that streams your AI agent's execution **live** —
-steps, tool calls, streaming tokens, and cost — rendered in the Foglamp
-aesthetic, right on top of your web app. Dev/localhost only.
+A small **"AI Agents Console"** (React + [`@foglamp/ui`](../../packages/ui)) with the
+Foglamp HUD overlaid on it. Run individual mock agents — or hit **Run storm** to fire a
+staggered burst across all of them — and watch the HUD's bottom-center overlay stream
+every run live: the timeline, overlapping-run clustering, the trace list, and per-run
+waterfalls of steps + tool calls. No API key needed (deterministic mock models).
 
-This demo runs a scripted support-copilot agent (no API key needed) that looks
-up an order, **fails** to refund it the first time (the HUD flashes that step
-red), retries successfully, then emails a receipt — the conflict-then-recovery
-arc that makes for a good screen recording.
+One agent (`support-copilot`) does the storyboard arc: looks up an order, **fails** to
+refund it once (the HUD flashes red), retries successfully, then emails a receipt.
 
 ## Run it
 
 ```bash
-# from the repo root — build the HUD client bundle once:
+# from the repo root — build the foglamp/hud client bundle once:
 bun run --filter foglamp build
 
-# then start the demo:
+# build the demo frontend + serve it (this is the `start` script):
 bun run --filter foglamp-example-hud-demo start
 # → http://localhost:3344
 ```
 
-Open the page and click **Run agent**. The HUD is docked bottom-right.
+Open the page, then click a card's **Run** — or **Run storm** in the header. Toggle the
+theme (top-right) to see the HUD follow the app's light/dark.
+
+> The demo's broker runs on **port 8518** (not the default 8517), so it coexists with a
+> dashboard already running `foglamp({ hud: true })`.
 
 ## How it works
 
-Two pieces, exactly like you'd add to your own app:
+Two pieces, exactly what you'd add to your own app:
 
 ```ts
-// server: opt into the HUD (dev only; ignored in prod/edge/serverless)
+// server — opt into the HUD (dev only; ignored in prod/edge/serverless)
 import { foglamp } from "foglamp";
 const fog = foglamp({ hud: true });
 // ...attach fog.integration({ agentName }) to your generateText/streamText calls
 ```
 
 ```tsx
-// client: drop the overlay in anywhere
+// client — drop the overlay in anywhere
 import { FoglampHUD } from "foglamp/hud";
 
-<FoglampHUD />          // defaults: launcher closed, port 8517, system theme
+<FoglampHUD />   // defaults: pill, port 8517, system theme
 ```
 
-`foglamp({ hud: true })` starts a localhost **SSE broker** (default port `8517`);
-`<FoglampHUD />` connects to it and renders the live trace. No API key required —
-with the HUD on but no `FOGLAMP_API_KEY`, traces stream to the overlay only and
-are not sent to ingest.
+`foglamp({ hud: true })` starts a localhost **SSE broker**; `<FoglampHUD />` connects and
+renders the live traces. No `FOGLAMP_API_KEY` required — with the HUD on but no key,
+traces stream to the overlay only and are never sent to ingest.
 
-### Props
+## Layout
+
+- `src/App.tsx` — the example UI (`@foglamp/ui` cards/buttons/badges + `<FoglampHUD />`).
+- `src/agents.ts` — the agent catalog (shared by UI + server).
+- `src/server/run.ts` — the mock agent runs (`generateText` + `fog.integration(...)`).
+- `src/server.ts` — Bun server: serves the built app + `POST /api/run` / `POST /api/storm`.
+- `vite.config.ts` / `index.css` — Vite + Tailwind v4 wiring for `@foglamp/ui`.
+
+## Props
 
 | prop | default | notes |
 | --- | --- | --- |
-| `port` | `8517` | must match `foglamp({ hudPort })` |
-| `defaultOpen` | `false` | start with the panel open |
-| `theme` | `"system"` | `"light"` \| `"dark"` \| `"system"` |
-| `redact` | `false` | mask tool payloads on screen — **turn this on before recording / screen-sharing** |
-
-## Recording tips
-
-- Set `redact` if any real inputs/outputs would show on screen.
-- The failing→recovering refund is the money shot — let it play through to the
-  green "done" + cost in the footer.
-- `theme="dark"` reads well over most apps.
+| `port` | `8517` | must match `foglamp({ hudPort })` (the demo uses `8518`) |
+| `defaultOpen` | `false` | start with the panel expanded |
+| `theme` | `"system"` | `"light"` \| `"dark"` \| `"system"` (follows the host `.dark` class) |
+| `redact` | `false` | mask tool payloads on screen — **turn on before recording / screen-sharing** |
 
 ## Verify (headless)
 
@@ -67,5 +71,5 @@ are not sent to ingest.
 bun run --filter foglamp-example-hud-demo verify
 ```
 
-Runs the agent and asserts the live cascade (`lookup → refund fails → refund
-retry → email`) streams over SSE — no browser needed.
+Runs the `support-copilot` agent and asserts the live cascade (`lookup → refund fails →
+refund retry → email`) streams over SSE — no browser needed.

@@ -1015,23 +1015,62 @@ export class Collector implements Telemetry {
     // trace reaper close the failed one. Per-call `fog.integration(...)` avoids
     // the ambiguity entirely.
     this.guard(() => {
-      if (this.builders.size !== 1) {
-        if (this.builders.size > 1) {
-          this.config.onError(
-            new Error(
-              `[foglamp] onError with ${this.builders.size} traces in flight on one integration — cannot attribute the failure; the failed trace will be finalized as abandoned later. Use fog.integration(...) per call.`,
-            ),
-          );
+      const message =
+        serialize(error instanceof Error ? error.message : error, ERROR_MESSAGE_CAP) ?? "error";
+      if (this.builders.size === 1) {
+        for (const [callId, builder] of [...this.builders]) {
+          builder.error = message;
+          this.finalize(callId, builder);
         }
         return;
       }
-      const message = serialize(error instanceof Error ? error.message : error, ERROR_MESSAGE_CAP);
-      for (const [callId, builder] of [...this.builders]) {
-        builder.error = message ?? "error";
-        this.finalize(callId, builder);
+      if (this.builders.size > 1) {
+        this.config.onError(
+          new Error(
+            `[foglamp] onError with ${this.builders.size} traces in flight on one integration — cannot attribute the failure; the failed trace will be finalized as abandoned later. Use fog.integration(...) per call.`,
+          ),
+        );
+        return;
       }
+      // No trace in flight: the failure happened before the operation started
+      // (e.g. prompt or tool-output validation) — there's no span context to
+      // attribute. The ingest path is untouched (no builder → no enqueue), but
+      // in HUD mode surface a synthetic errored entry so the failure is still
+      // visible instead of silently missing.
+      if (this.config.hud) this.emitSyntheticError(message);
     });
   };
+
+  // Best-effort errored entry for the HUD when a failure can't be attributed to
+  // a trace (it fired before onStart). Carries the integration's label + the
+  // error; no steps/tools/cost.
+  private syntheticErrorSeq = 0;
+  private emitSyntheticError(message: string): void {
+    const ts = Date.now();
+    const traceId = `err-${ts}-${++this.syntheticErrorSeq}`;
+    const agentName = this.context?.agentName;
+    const traceName = this.context?.traceName;
+    const name = agentName ?? traceName ?? "errored run";
+    const span: Span = {
+      spanId: `${traceId}:root`,
+      spanType: "agent",
+      name,
+      startTime: ts,
+      endTime: ts,
+      status: "error",
+      errorMessage: message,
+    };
+    const trace: Trace = { traceId, agentName, traceName, spans: [span] };
+    this.emitHud({ type: "trace.start", ts, traceId, name, agentName, traceName });
+    this.emitHud({
+      type: "trace.end",
+      ts,
+      traceId,
+      status: "error",
+      trace,
+      totals: totalsFromSpans([span], null),
+    });
+  }
 
   // --- internals ----------------------------------------------------------
 
