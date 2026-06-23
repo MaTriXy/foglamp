@@ -29,6 +29,7 @@ import {
 } from "@tabler/icons-react";
 
 const DOCS_URL = "https://docs.foglamp.dev";
+const HUD_URL = "https://hud.foglamp.dev";
 
 function ProductsMenu() {
   return (
@@ -131,6 +132,17 @@ export function MarketingNavbar() {
                 render={<a href={DOCS_URL} target="_blank" />}
               >
                 Docs
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                className={cn(
+                  navigationMenuTriggerStyle(),
+                  "text-muted-foreground"
+                )}
+                render={<a href={HUD_URL} target="_blank" />}
+              >
+                HUD
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>

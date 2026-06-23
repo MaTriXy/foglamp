@@ -1,0 +1,152 @@
+import { useState } from "react";
+import { FoglampHUD, ModelLogo, formatModelName } from "foglamp/hud";
+import {
+  IconBoltFilled,
+  IconMoon,
+  IconPlayerPlayFilled,
+  IconSun,
+} from "@tabler/icons-react";
+
+import { Button } from "@foglamp/ui/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@foglamp/ui/components/card";
+
+import { AGENTS } from "./agents";
+
+function trigger(path: string) {
+  void fetch(path, { method: "POST" });
+}
+
+// Foglamp brand mark — three overlapping circles (lead → blue → orange). Lead is
+// theme-aware: dark in light mode, light in dark mode.
+function FoglampMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 96 48"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle
+        cx="24"
+        cy="24"
+        r="24"
+        className="fill-[#1e1e1e] dark:fill-[#EEE]"
+      />
+      <circle cx="48" cy="24" r="24" fill="#0090FD" />
+      <circle cx="72" cy="24" r="24" fill="#FF5513" />
+    </svg>
+  );
+}
+
+export default function App() {
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+  const toggleTheme = () => {
+    const next = !dark;
+    document.documentElement.classList.toggle("dark", next);
+    setDark(next);
+  };
+
+  return (
+    <div className="relative flex min-h-screen flex-col justify-center bg-background text-foreground">
+      {/* Top-center CTA into the main product. */}
+      <Button
+        variant="secondary"
+        className="absolute left-1/2 top-6 z-10 -translate-x-1/2 rounded-full"
+        render={<a href="https://foglamp.dev" target="_blank" />}
+      >
+        <div className="px-1 flex gap-2 items-center pl-0.5">
+          <FoglampMark className="h-3.5 w-auto" />
+          Go to Foglamp
+        </div>
+      </Button>
+
+      {/* Header + agents share one centered container, so they're centered
+          together (vertically + horizontally) as a single block. */}
+      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <header className="mb-4 flex items-center gap-3 px-4">
+          <div className="flex flex-1 items-center gap-2.5 ">
+            <FoglampMark className="h-4 w-auto" />
+            <span
+              className="text-lg leading-none"
+              style={{
+                fontFamily: '"Host Grotesk", system-ui, sans-serif',
+                fontWeight: 500,
+              }}
+            >
+              Foglamp HUD
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+          >
+            {dark ? <IconSun /> : <IconMoon />}
+          </Button>
+          <Button onClick={() => trigger("/api/storm")}>
+            <IconBoltFilled /> Run storm
+          </Button>
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {AGENTS.map((agent) => (
+            <Card key={agent.id} className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="font-normal text-sm">
+                  {agent.name}
+                </CardTitle>
+                <CardDescription>{agent.blurb}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ModelLogo
+                    provider={agent.provider}
+                    modelId={agent.model}
+                    size={14}
+                    className="rounded-[3px]"
+                  />
+                  {formatModelName(agent.model)}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => trigger(`/api/run?agent=${agent.id}`)}
+                >
+                  <IconPlayerPlayFilled /> Run
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+
+        <p className="mt-10 text-center text-xs text-muted-foreground">
+          In your own app this is two lines:{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono mx-1 text-primary">
+            foglamp(&#123; hud: true &#125;)
+          </code>{" "}
+          on the server and{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono mx-1 text-primary">
+            &lt;FoglampHUD /&gt;
+          </code>{" "}
+          in the client.
+        </p>
+      </div>
+
+      {/* Connect to the broker through this server's own origin (proxied at
+          /hud/events) so it works both locally and on the hosted demo. */}
+      <FoglampHUD url="/hud/events" />
+    </div>
+  );
+}

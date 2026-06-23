@@ -68,6 +68,20 @@ export interface FoglampConfig {
   debug?: boolean;
   /** Called for transport/handler errors. Telemetry never throws into your app. */
   onError?: (error: unknown) => void;
+  /**
+   * Stream live agent execution to a local Foglamp HUD overlay (`foglamp/hud`).
+   * Dev/localhost only — ignored in production, on edge, and on serverless
+   * runtimes. Also enableable via `FOGLAMP_HUD=1`. Works without an API key:
+   * with HUD on but no `apiKey`, traces stream to the HUD but aren't sent to
+   * ingest. Default false.
+   */
+  hud?: boolean;
+  /**
+   * Port for the in-process HUD broker (a localhost-only Server-Sent-Events
+   * server the `<FoglampHUD/>` component connects to). Also `FOGLAMP_HUD_PORT`.
+   * Default 8517.
+   */
+  hudPort?: number;
 }
 
 
@@ -116,7 +130,18 @@ type IntegrationContextExtras = {
 
 /** Fully-resolved config used internally (no optionals). */
 export interface ResolvedConfig {
+  /** Ingest is configured (apiKey + fetch): traces are POSTed to the endpoint. */
   enabled: boolean;
+  /**
+   * The collector should build traces at all — true when ingest is enabled OR
+   * the local HUD is on. Gates the lifecycle handlers; `enabled` alone still
+   * gates the transport, so HUD-only (no key) builds and streams without POSTing.
+   */
+  active: boolean;
+  /** Stream live execution to the local HUD broker. Dev/Node only. */
+  hud: boolean;
+  /** Localhost port for the HUD SSE broker. */
+  hudPort: number;
   apiKey: string | undefined;
   endpoint: string;
   flushIntervalMs: number;

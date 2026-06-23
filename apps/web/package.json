@@ -15,6 +15,7 @@
     "@foglamp/auth": "workspace:*",
     "@foglamp/env": "workspace:*",
     "@foglamp/ui": "workspace:*",
+    "foglamp": "workspace:*",
     "@number-flow/react": "^0.6.0",
     "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-form": "^1.28.0",

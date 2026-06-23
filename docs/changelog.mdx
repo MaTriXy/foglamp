@@ -3,6 +3,20 @@ title: Changelog
 description: "What's new in Foglamp."
 ---
 
+<Update label="June 23, 2026">
+
+## New features
+
+**Live HUD overlay.** Drop `<FoglampHUD />` from `foglamp/hud` into any
+client component and pair it with `foglamp({ hud: true })` on the server
+to watch your agents run live — steps, tool calls, tokens, and cost
+streaming on top of your app as you develop, rendered in the Foglamp
+aesthetic. It's dev/localhost only, needs no API key, and adds nothing
+to your production bundle (the broker is code-split and lazy-loaded).
+The whole thing is two lines. See [Live HUD](/sdk/hud).
+
+</Update>
+
 <Update label="June 21, 2026">
 
 ## New features

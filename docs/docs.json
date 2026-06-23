@@ -40,7 +40,8 @@
               "sdk/overview",
               "sdk/configuration",
               "sdk/runtimes",
-              "sdk/wrap"
+              "sdk/wrap",
+              "sdk/hud"
             ]
           }
         ]

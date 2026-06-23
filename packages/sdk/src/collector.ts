@@ -18,6 +18,71 @@ import type {
 } from "./types";
 import { mapUsage } from "./usage";
 import type { Metadata, Span, Trace } from "./wire";
+import { totalsFromSpans, type HudEvent } from "./hud/events";
+
+// --- Local HUD streaming (dev only) ---------------------------------------
+//
+// When `config.hud` is on, lifecycle events are mirrored to a localhost SSE
+// broker that `<FoglampHUD/>` subscribes to. The broker module is imported
+// *lazily* and memoized at module scope so (a) `node:http` is never pulled into
+// the edge/browser bundle of the core package, and (b) collectors created per
+// `integration()`/`run()` all share one broker. Events emitted before the
+// dynamic import settles are buffered, then flushed in order. Call sites guard
+// with `if (this.config.hud)` so non-HUD users build no event objects at all.
+type HudRelayModule = typeof import("./hud/relay");
+let hudModule: HudRelayModule | null = null;
+let hudLoading: Promise<void> | null = null;
+const hudPreBuffer: HudEvent[] = [];
+
+// Live token estimate while a step streams: text length is a cheap proxy
+// (rescaled to exact tokens at step end). Throttled per trace so a fast stream
+// doesn't flood the HUD. Only the older-v7 `onChunk` path produces these; v7
+// canary reports no chunks, so tokens simply land at step.end instead.
+const CHARS_PER_TOKEN = 4;
+const HUD_TOKEN_THROTTLE_MS = 80;
+const hudTokenThrottle = new WeakMap<TraceBuilder, number>();
+
+/**
+ * Start the HUD broker eagerly (at `foglamp()` construction) so the overlay can
+ * connect before the first trace runs. No-op unless the HUD is enabled; the
+ * dynamic import keeps the local SSE server off the edge/browser path.
+ */
+export function prewarmHud(config: ResolvedConfig): void {
+  if (!config.hud || hudModule) return;
+  if (!hudLoading) {
+    hudLoading = import("./hud/relay")
+      .then((mod) => {
+        hudModule = mod;
+        mod.ensureBroker(config.hudPort, config.onError);
+        for (const buffered of hudPreBuffer.splice(0)) {
+          mod.relay(config.hudPort, config.onError, buffered);
+        }
+      })
+      .catch((error) => config.onError(error));
+  }
+}
+
+function emitHudEvent(config: ResolvedConfig, event: HudEvent): void {
+  try {
+    if (hudModule) {
+      hudModule.relay(config.hudPort, config.onError, event);
+      return;
+    }
+    hudPreBuffer.push(event);
+    if (!hudLoading) {
+      hudLoading = import("./hud/relay")
+        .then((mod) => {
+          hudModule = mod;
+          for (const buffered of hudPreBuffer.splice(0)) {
+            mod.relay(config.hudPort, config.onError, buffered);
+          }
+        })
+        .catch((error) => config.onError(error));
+    }
+  } catch (error) {
+    config.onError(error);
+  }
+}
 
 // Some Telemetry hooks exist only in older SDK versions inside our broad peer
 // range (`^4 || ^5 || ^6 || ^7.0.0-beta.1`) but were dropped from the current
@@ -159,6 +224,9 @@ interface ToolEndView {
 }
 
 interface TraceBuilder {
+  /** The top-level call id (trace id). Needed to label HUD events from stream
+   *  handlers where the chunk carries no callId. */
+  callId: string;
   startTime: number;
   endTime: number;
   context: IntegrationContext;
@@ -361,7 +429,11 @@ export class Collector implements Telemetry {
       );
       const now = Date.now();
       this.reapAbandoned(now);
+      const toolCatalog = recordInputs
+        ? toolCatalogJson(e.tools, this.config.maxPayloadChars)
+        : undefined;
       this.builders.set(e.callId, {
+        callId: e.callId,
         startTime: now,
         endTime: now,
         context,
@@ -371,7 +443,7 @@ export class Collector implements Telemetry {
         provider: e.provider,
         modelId: e.modelId,
         rootInput: recordInputs ? serialize(e.messages, this.config.maxPayloadChars) : undefined,
-        toolCatalog: recordInputs ? toolCatalogJson(e.tools, this.config.maxPayloadChars) : undefined,
+        toolCatalog,
         finalOutput: undefined,
         error: undefined,
         spans: [],
@@ -391,6 +463,23 @@ export class Collector implements Telemetry {
         modelCallStart: new Map(),
         modelCallMs: new Map(),
       });
+
+      if (this.config.hud) {
+        this.emitHud({
+          type: "trace.start",
+          ts: now,
+          traceId: e.callId,
+          name: context.traceName ?? context.agentName ?? e.operationId ?? "agent",
+          agentName: context.agentName,
+          traceName: context.traceName,
+          workflowName: context.workflowName,
+          workflowRunId: context.workflowRunId,
+          sessionId: context.sessionId,
+          provider: e.provider,
+          model: e.modelId,
+          toolCatalog,
+        });
+      }
     });
   };
 
@@ -405,6 +494,17 @@ export class Collector implements Telemetry {
       if (builder.recordInputs) {
         const input = serialize(e.messages, this.config.maxPayloadChars);
         if (input) builder.stepInput.set(e.stepNumber, input);
+      }
+
+      if (this.config.hud) {
+        this.emitHud({
+          type: "step.start",
+          ts: Date.now(),
+          traceId: e.callId,
+          stepNumber: e.stepNumber,
+          provider: builder.provider,
+          model: builder.modelId,
+        });
       }
     });
   };
@@ -456,6 +556,15 @@ export class Collector implements Telemetry {
         if (builder.ttft.has(chunk.stepNumber)) return;
         const start = builder.stepStart.get(chunk.stepNumber) ?? builder.startTime;
         builder.ttft.set(chunk.stepNumber, Math.max(0, Date.now() - start));
+        if (this.config.hud) {
+          this.emitHud({
+            type: "step.firstToken",
+            ts: Date.now(),
+            traceId: chunk.callId,
+            stepNumber: chunk.stepNumber,
+            ttftMs: builder.ttft.get(chunk.stepNumber),
+          });
+        }
         return;
       }
 
@@ -522,6 +631,23 @@ export class Collector implements Telemetry {
         samples.push([offsetMs, cumLen]);
       } else {
         last[1] = cumLen;
+      }
+
+      if (this.config.hud) {
+        const nowTs = Date.now();
+        if (nowTs - (hudTokenThrottle.get(builder) ?? 0) >= HUD_TOKEN_THROTTLE_MS) {
+          hudTokenThrottle.set(builder, nowTs);
+          const reasoningLen = builder.reasoningTextLen.get(step) ?? 0;
+          this.emitHud({
+            type: "step.tokens",
+            ts: nowTs,
+            traceId: builder.callId,
+            stepNumber: step,
+            outputTokens: Math.round((builder.chunkTextLen.get(step) ?? 0) / CHARS_PER_TOKEN),
+            reasoningTokens:
+              reasoningLen > 0 ? Math.round(reasoningLen / CHARS_PER_TOKEN) : undefined,
+          });
+        }
       }
     });
   };
@@ -656,6 +782,21 @@ export class Collector implements Telemetry {
       metadata,
     });
     if (now > builder.endTime) builder.endTime = now;
+
+    if (this.config.hud) {
+      this.emitHud({
+        type: "step.end",
+        ts: now,
+        traceId: e.callId,
+        stepNumber: e.stepNumber,
+        status: e.finishReason === "error" ? "error" : "ok",
+        usage,
+        ttftMs,
+        durationMs: Math.max(0, now - start),
+        outputTps: perf?.outputTokensPerSecond,
+        modelCallMs,
+      });
+    }
   }
 
   // onStepEnd: the v7 beta/canary successor to onStepFinish. The event is a
@@ -774,7 +915,21 @@ export class Collector implements Telemetry {
       if (!e.callId) return;
       const builder = this.builders.get(e.callId);
       const id = e.toolCall?.toolCallId;
-      if (builder && id) builder.toolStart.set(id, Date.now());
+      if (!builder || !id) return;
+      builder.toolStart.set(id, Date.now());
+
+      if (this.config.hud) {
+        this.emitHud({
+          type: "tool.start",
+          ts: Date.now(),
+          traceId: e.callId,
+          toolCallId: id,
+          toolName: e.toolCall?.toolName ?? "tool",
+          input: builder.recordInputs
+            ? serialize(e.toolCall?.input, this.config.maxPayloadChars)
+            : undefined,
+        });
+      }
     });
   };
 
@@ -808,6 +963,22 @@ export class Collector implements Telemetry {
           : undefined,
       });
       if (now > builder.endTime) builder.endTime = now;
+
+      if (this.config.hud) {
+        this.emitHud({
+          type: "tool.end",
+          ts: now,
+          traceId: e.callId,
+          toolCallId: id,
+          toolName: e.toolCall?.toolName ?? "tool",
+          status: isError ? "error" : "ok",
+          output: builder.recordOutputs
+            ? serialize(isError ? e.toolOutput?.error : e.toolOutput?.output, this.config.maxPayloadChars)
+            : undefined,
+          errorMessage: isError ? serialize(e.toolOutput?.error, ERROR_MESSAGE_CAP) : undefined,
+          durationMs: Math.max(0, now - start),
+        });
+      }
     });
   };
 
@@ -849,23 +1020,62 @@ export class Collector implements Telemetry {
     // trace reaper close the failed one. Per-call `fog.integration(...)` avoids
     // the ambiguity entirely.
     this.guard(() => {
-      if (this.builders.size !== 1) {
-        if (this.builders.size > 1) {
-          this.config.onError(
-            new Error(
-              `[foglamp] onError with ${this.builders.size} traces in flight on one integration — cannot attribute the failure; the failed trace will be finalized as abandoned later. Use fog.integration(...) per call.`,
-            ),
-          );
+      const message =
+        serialize(error instanceof Error ? error.message : error, ERROR_MESSAGE_CAP) ?? "error";
+      if (this.builders.size === 1) {
+        for (const [callId, builder] of [...this.builders]) {
+          builder.error = message;
+          this.finalize(callId, builder);
         }
         return;
       }
-      const message = serialize(error instanceof Error ? error.message : error, ERROR_MESSAGE_CAP);
-      for (const [callId, builder] of [...this.builders]) {
-        builder.error = message ?? "error";
-        this.finalize(callId, builder);
+      if (this.builders.size > 1) {
+        this.config.onError(
+          new Error(
+            `[foglamp] onError with ${this.builders.size} traces in flight on one integration — cannot attribute the failure; the failed trace will be finalized as abandoned later. Use fog.integration(...) per call.`,
+          ),
+        );
+        return;
       }
+      // No trace in flight: the failure happened before the operation started
+      // (e.g. prompt or tool-output validation) — there's no span context to
+      // attribute. The ingest path is untouched (no builder → no enqueue), but
+      // in HUD mode surface a synthetic errored entry so the failure is still
+      // visible instead of silently missing.
+      if (this.config.hud) this.emitSyntheticError(message);
     });
   };
+
+  // Best-effort errored entry for the HUD when a failure can't be attributed to
+  // a trace (it fired before onStart). Carries the integration's label + the
+  // error; no steps/tools/cost.
+  private syntheticErrorSeq = 0;
+  private emitSyntheticError(message: string): void {
+    const ts = Date.now();
+    const traceId = `err-${ts}-${++this.syntheticErrorSeq}`;
+    const agentName = this.context?.agentName;
+    const traceName = this.context?.traceName;
+    const name = agentName ?? traceName ?? "errored run";
+    const span: Span = {
+      spanId: `${traceId}:root`,
+      spanType: "agent",
+      name,
+      startTime: ts,
+      endTime: ts,
+      status: "error",
+      errorMessage: message,
+    };
+    const trace: Trace = { traceId, agentName, traceName, spans: [span] };
+    this.emitHud({ type: "trace.start", ts, traceId, name, agentName, traceName });
+    this.emitHud({
+      type: "trace.end",
+      ts,
+      traceId,
+      status: "error",
+      trace,
+      totals: totalsFromSpans([span], null),
+    });
+  }
 
   // --- internals ----------------------------------------------------------
 
@@ -886,12 +1096,20 @@ export class Collector implements Telemetry {
   }
 
   private guard(fn: () => void): void {
-    if (!this.config.enabled) return;
+    // `active` (not `enabled`): build traces when ingest is configured OR the
+    // local HUD is on. The transport still gates on `enabled`, so a HUD-only run
+    // (no API key) streams locally without POSTing.
+    if (!this.config.active) return;
     try {
       fn();
     } catch (error) {
       this.config.onError(error);
     }
+  }
+
+  /** Mirror a lifecycle event to the local HUD broker. Never throws. */
+  private emitHud(event: HudEvent): void {
+    emitHudEvent(this.config, event);
   }
 
   private stepOutput(e: StepEndView): string | undefined {
@@ -1001,5 +1219,17 @@ export class Collector implements Telemetry {
       spans,
     };
     this.transport.enqueue(trace);
+
+    if (this.config.hud) {
+      // Cost is priced server-side in Phase 2 (lazy @foglamp/cost); null for now.
+      this.emitHud({
+        type: "trace.end",
+        ts: Date.now(),
+        traceId: callId,
+        status: builder.error ? "error" : "ok",
+        trace,
+        totals: totalsFromSpans(spans, null),
+      });
+    }
   }
 }

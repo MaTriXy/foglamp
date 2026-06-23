@@ -2,13 +2,20 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
   // Entry points: the v7 native-telemetry path (root), the v4+ wrapping path
-  // (`foglamp/wrap`), and the `foglamp` CLI bin (`npx foglamp login`). Output
-  // paths mirror the entry keys; cli.ts carries a shebang that tsdown preserves
-  // and marks executable.
+  // (`foglamp/wrap`), the `foglamp` CLI bin (`npx foglamp login`), and the React
+  // HUD overlay (`foglamp/hud`). Output paths mirror the entry keys; cli.ts
+  // carries a shebang that tsdown preserves and marks executable.
+  //
+  // The HUD's *server* code (broker/relay/pricing, with `node:http` +
+  // @foglamp/cost) is NOT an entry — it's reached only via the lazy
+  // `import("./hud/relay")` in the collector, so rolldown code-splits it into
+  // its own chunk that never loads on the edge/browser core path. The `hud`
+  // entry here is the *client* component only.
   entry: {
     index: "./src/index.ts",
     "wrap/index": "./src/wrap/index.ts",
     cli: "./src/cli.ts",
+    "hud/index": "./src/hud/react/index.tsx",
   },
   format: "esm",
   outDir: "./dist",
@@ -18,8 +25,12 @@ export default defineConfig({
   // the server's `bun --hot` dev process → ENOENT). A single-entry build
   // overwrites in place, so cleaning buys nothing here.
   clean: false,
-  // The published entry (src/index.ts) intentionally has no workspace runtime
-  // deps — wire types are mirrored locally in src/wire.ts (see contract-
-  // conformance.ts). `ai` stays a peer dep; nothing else is bundled.
-  external: ["ai", "@vercel/functions"],
+  // The published `.` entry intentionally has no workspace runtime deps — wire
+  // types are mirrored locally in src/wire.ts (see contract-conformance.ts).
+  // `ai` stays a peer dep. React (used only by the `hud` entry) is externalized
+  // so it's never bundled and resolves to the host app's single copy — otherwise
+  // a second React instance would break hooks. The HUD has no other runtime deps:
+  // the pill↔panel morph rides a vendored ~60-line rAF spring (no `motion`), so
+  // dropping `<FoglampHUD/>` in needs nothing beyond React.
+  external: ["ai", "@vercel/functions", "react", "react-dom", "react/jsx-runtime"],
 });

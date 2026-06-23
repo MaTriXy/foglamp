@@ -193,7 +193,30 @@ before adding flush plumbing:
   (`foglamp({ waitUntil: ctx.waitUntil })`), or `await fog.flush()` before each
   handler returns.
 
-## 5. Hand off
+## 5. Optional — live HUD (dev only)
+
+If the app has a **React UI** and a local dev server, offer to wire up the live
+HUD: a dev-only floating overlay that streams runs (steps, tool calls, tokens,
+cost) on top of the app as the user develops — a great first-run "wow". It needs
+**no API key** and is a no-op in production / on edge / serverless, so it's safe
+to leave in. Two lines:
+
+- **Server**: pass `hud: true` to the existing `foglamp({ ... })` call.
+- **Client**: render `<FoglampHUD />` from `foglamp/hud` once near the root of
+  the client app (e.g. the root layout).
+
+```tsx
+import { FoglampHUD } from "foglamp/hud";
+// …near the app root, e.g. in the root layout:
+<FoglampHUD />
+```
+
+The route/handler that constructs `foglamp({ hud: true })` must run on the
+**Node runtime** (not edge). It needs nothing beyond `foglamp` + React. Skip
+this step entirely if there's no React frontend. Full reference:
+[Live HUD](/sdk/hud).
+
+## 6. Hand off
 
 A trace only exists once a real model call runs — and that's the user's job,
 not yours. **Do not write smoke tests, test scripts, demo endpoints, or
@@ -201,7 +224,8 @@ synthetic "first trace" calls** — they add code the user has to delete and
 burn real model tokens. Once the build/typecheck passes, finish by telling the
 user **exactly how to trigger their own instrumented flows** — which command to
 run, which page to hit, which job to kick off — so they can run the app and
-watch the first traces appear in the dashboard (Overview / Traces).
+watch the first traces appear in the dashboard (Overview / Traces) — and stream
+live in the HUD, if they enabled it.
 
 See the [SDK reference](/sdk/overview) and [data model](/concepts/data-model)
 for every option.

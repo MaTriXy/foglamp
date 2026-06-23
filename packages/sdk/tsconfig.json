@@ -4,6 +4,10 @@
     "composite": true,
     "outDir": "dist",
     "baseUrl": ".",
+    // The `foglamp/hud` entry is React + DOM; the rest of the package is
+    // framework-free. DOM types are additive — core modules just don't use them.
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
       "@/*": ["./src/*"]
     }
