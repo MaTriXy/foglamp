@@ -77,7 +77,7 @@ const ids = AGENTS.map((a) => a.id);
 function heartbeat() {
   const id = ids[Math.floor(Math.random() * ids.length)]!;
   runAgent(id).catch(() => {});
-  setTimeout(heartbeat, 9_000 + Math.floor(Math.random() * 9_000)); // 9–18s, jittered
+  setTimeout(heartbeat, 50_000 + Math.floor(Math.random() * 20_000)); // ~1min, jittered
 }
 if (process.env.HUD_DEMO_HEARTBEAT !== "0") setTimeout(heartbeat, 3_000);
 

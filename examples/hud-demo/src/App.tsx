@@ -1,20 +1,7 @@
 import { useState } from "react";
 import { FoglampHUD, ModelLogo, formatModelName } from "foglamp/hud";
-import {
-  IconBoltFilled,
-  IconChartBar,
-  IconCode,
-  IconDownload,
-  IconList,
-  IconMail,
-  IconMessage,
-  IconMoon,
-  IconPlayerPlayFilled,
-  IconSearch,
-  IconSun,
-} from "@tabler/icons-react";
+import { IconBoltFilled, IconMoon, IconPlayerPlayFilled, IconSun } from "@tabler/icons-react";
 
-import { Badge } from "@foglamp/ui/components/badge";
 import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
@@ -24,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
-import { Separator } from "@foglamp/ui/components/separator";
 
 import { AGENTS } from "./agents";
 
@@ -32,16 +18,16 @@ function trigger(path: string) {
   void fetch(path, { method: "POST" });
 }
 
-// Tool-call glyph by name convention (mirrors the HUD's tree icons).
-function toolIcon(name: string): typeof IconSearch {
-  const n = name.toLowerCase();
-  if (/(search|find|query|lookup)/.test(n)) return IconSearch;
-  if (/(list|tables|files)/.test(n)) return IconList;
-  if (/(get|fetch|read|load)/.test(n)) return IconDownload;
-  if (/(send|email|mail|notify)/.test(n)) return IconMail;
-  if (/(chart|plot|graph|report)/.test(n)) return IconChartBar;
-  if (/(comment|reply|message|post)/.test(n)) return IconMessage;
-  return IconCode;
+// Foglamp brand mark — three overlapping circles (lead → blue → orange). Lead is
+// theme-aware: dark in light mode, light in dark mode.
+function FoglampMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 96 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" className="fill-[#1e1e1e] dark:fill-[#EEE]" />
+      <circle cx="48" cy="24" r="24" fill="#0090FD" />
+      <circle cx="72" cy="24" r="24" fill="#FF5513" />
+    </svg>
+  );
 }
 
 export default function App() {
@@ -55,14 +41,17 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-full bg-background text-foreground">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-9 pb-0 pt-16">
-          <div className="flex-1">
-            <h1 className="text-base font-semibold leading-tight">Acme AI Console</h1>
-            <p className="text-sm text-muted-foreground">
-              A stand-in app — the Foglamp HUD streams every run live.
-            </p>
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header className="bg-background/80 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-12 pb-0 pt-12">
+          <div className="flex flex-1 items-center gap-2.5">
+            <FoglampMark className="h-5 w-auto" />
+            <span
+              className="text-lg leading-none"
+              style={{ fontFamily: '"Host Grotesk", system-ui, sans-serif', fontWeight: 600 }}
+            >
+              Foglamp HUD
+            </span>
           </div>
           <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
             {dark ? <IconSun /> : <IconMoon />}
@@ -73,7 +62,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {AGENTS.map((agent) => (
             <Card key={agent.id} className="flex flex-col">
@@ -86,25 +75,10 @@ export default function App() {
                   <ModelLogo
                     provider={agent.provider}
                     modelId={agent.model}
-                    size={16}
+                    size={14}
                     className="rounded-[3px]"
                   />
                   {formatModelName(agent.model)}
-                </div>
-                <Separator className="my-3" />
-                <div className="flex flex-wrap gap-1.5">
-                  {agent.tools.map((tool) => {
-                    const ToolIcon = toolIcon(tool);
-                    return (
-                      <Badge
-                        key={tool}
-                        variant="secondary"
-                        className="gap-1 font-mono text-[11px] font-normal"
-                      >
-                        <ToolIcon className="size-3" /> {tool}
-                      </Badge>
-                    );
-                  })}
                 </div>
               </CardContent>
               <CardFooter>
