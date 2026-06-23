@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -44,6 +45,11 @@ type Mode = "pill" | "expanded";
 type StatusKind = "" | "run" | "err";
 
 const DEFAULT_PORT = 8517;
+// The timeline's auto-follow scroll must run synchronously after the DOM grows
+// (before paint) so the scroll position and the wider track commit together — an
+// async useEffect leaves a one-frame gap where the grid lines jump. Fall back to
+// useEffect on the server to avoid the SSR layout-effect warning.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 // Shell size springs — pill↔expanded is fast + snappy; list↔detail a touch
 // softer. Driven by the vendored micro-spring below (no motion dependency).
 // Views themselves just cross-fade (CSS, see .fl-mode).
@@ -506,8 +512,9 @@ function TraceTimeline({
 
   // Start at the right (latest); keep sticking there only while `following`
   // (set false when the user scrolls back to a past period — see onChartScroll).
+  // Layout-effect so the scroll re-pins atomically with the track growth.
   const didInit = useRef(false);
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const max = el.scrollWidth - el.clientWidth;
@@ -662,6 +669,8 @@ function TraceList({
     const c = chartRef.current;
     const l = listRef.current;
     if (!c || !l) return;
+    // List is newest-first: at the top = newest = still following.
+    following.current = l.scrollTop < 24;
     const cMax = c.scrollWidth - c.clientWidth;
     const lMax = l.scrollHeight - l.clientHeight;
     if (cMax <= 1 || lMax <= 1) return;
@@ -746,14 +755,20 @@ function TraceList({
                     )}
                   </span>
                 </div>
-                {errs > 0 && (
-                  <span
-                    className="fl-err-badge"
-                    title={`${errs} error${errs === 1 ? "" : "s"}`}
-                  >
-                    <WarnIcon />
-                    {errs}
+                {t.status === "running" ? (
+                  <span className="fl-list-loading" title="Running">
+                    <Diamond status="run" />
                   </span>
+                ) : (
+                  errs > 0 && (
+                    <span
+                      className="fl-err-badge"
+                      title={`${errs} error${errs === 1 ? "" : "s"}`}
+                    >
+                      <WarnIcon />
+                      {errs}
+                    </span>
+                  )
                 )}
                 <span className="fl-list-meta">
                   <span>{formatCost(t.totals?.costUsd)}</span>

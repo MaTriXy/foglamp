@@ -22,6 +22,7 @@ export const HUD_CSS = /* css */ `
   --fl-err-bg: oklch(0.95 0.04 16);
   --fl-warn: oklch(0.72 0.15 70);
   --fl-warn-bg: oklch(0.95 0.05 85);
+  --fl-loading: #0090fd; /* blue — live/running indicator (the loading diamond) */
   --fl-brand-lead: #1e1e1e;
   --fl-ring: 0 0 0 1px rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.06), 0 2px 4px 0 rgba(0,0,0,0.04);
   --fl-shadow: 0 12px 30px -10px rgba(0,0,0,0.42), 0 2px 6px -2px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.08);
@@ -53,6 +54,7 @@ export const HUD_CSS = /* css */ `
   --fl-err-bg: oklch(0.30 0.06 16);
   --fl-warn: oklch(0.8 0.13 78);
   --fl-warn-bg: oklch(0.33 0.06 75);
+  --fl-loading: #38a8ff; /* blue — live/running indicator (brighter for dark) */
   --fl-brand-lead: #ededed;
   --fl-ring: 0 0 0 1px rgba(255,255,255,0.08), 0 1px 2px -1px rgba(0,0,0,0.4);
   --fl-shadow: 0 12px 30px -10px rgba(0,0,0,0.78), 0 2px 6px -2px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.10);
@@ -101,7 +103,7 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 
 /* ---- Diamond status (loading-ui): eight pixels, comet-chase via spin-pixel ---- */
 .fl-status { flex: none; display: inline-flex; color: var(--fl-muted); }
-.fl-status.run { color: var(--fl-ok); }
+.fl-status.run { color: var(--fl-loading); }
 .fl-status.err { color: var(--fl-err); }
 .fl-diamond { width: 12px; height: 12px; display: block; }
 .fl-diamond rect { fill: currentColor; }
@@ -153,10 +155,10 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-tl-track { position: relative; height: 24px; }
 .fl-tl-axis { position: absolute; left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-50%); background: var(--fl-border); }
 /* Vertical 15s grid + the time captions below (rightmost = now). */
-.fl-tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-0.5px); background: var(--fl-sep); transition: left 0.25s linear; }
+.fl-tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; transform: translateX(-0.5px); background: var(--fl-sep); }
 .fl-tl-grid.now { background: var(--fl-border); }
 .fl-tl-axislabels { position: relative; height: 13px; margin-top: 6px; }
-.fl-tl-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 9.5px; line-height: 1; color: var(--fl-muted); white-space: nowrap; font-variant-numeric: tabular-nums; transition: left 0.25s linear; }
+.fl-tl-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 9.5px; line-height: 1; color: var(--fl-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fl-tl-tick.now { color: var(--fl-fg); font-weight: 500; }
 .fl-tl-bar {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -210,6 +212,8 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 /* Red warning badge after the agent name when the run had errors. */
 .fl-err-badge { display: inline-flex; align-items: center; gap: 2px; flex: none; color: var(--fl-err); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .fl-err-badge .fl-glyph { width: 13px; height: 13px; }
+/* Running indicator in a list row — the blue loading diamond, in the err slot. */
+.fl-list-loading { flex: none; display: inline-flex; align-items: center; }
 .fl-list-sub { display: inline-flex; align-items: center; gap: 5px; color: var(--fl-muted); font-size: 11.5px; min-width: 0; overflow: hidden; }
 .fl-list-model { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .fl-list-tools { flex: none; white-space: nowrap; }
