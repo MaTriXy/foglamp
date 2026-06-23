@@ -59,12 +59,14 @@ export default function App() {
     <div className="relative flex min-h-screen flex-col justify-center bg-background text-foreground">
       {/* Top-center CTA into the main product. */}
       <Button
-        variant="outline"
+        variant="secondary"
         className="absolute left-1/2 top-6 z-10 -translate-x-1/2 rounded-full"
-        render={<a href="https://foglamp.dev" />}
+        render={<a href="https://foglamp.dev" target="_blank" />}
       >
-        <FoglampMark className="h-3.5 w-auto" />
-        Go to Foglamp
+        <div className="px-1 flex gap-2 items-center pl-0.5">
+          <FoglampMark className="h-3.5 w-auto" />
+          Go to Foglamp
+        </div>
       </Button>
 
       {/* Header + agents share one centered container, so they're centered
@@ -131,11 +133,11 @@ export default function App() {
 
         <p className="mt-10 text-center text-xs text-muted-foreground">
           In your own app this is two lines:{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono mx-1 text-primary">
             foglamp(&#123; hud: true &#125;)
           </code>{" "}
           on the server and{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono mx-1 text-primary">
             &lt;FoglampHUD /&gt;
           </code>{" "}
           in the client.

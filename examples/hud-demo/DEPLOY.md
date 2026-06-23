@@ -26,10 +26,13 @@ PROJECT=foglamp-prod
 REGION=us-central1
 REPO=us-central1-docker.pkg.dev/foglamp-prod/foglamp
 
-# Build + push the image (run from the repo root — build context is the monorepo)
+# Build + push the image (run from the repo root — build context is the monorepo).
+# Cloud Run runs linux/amd64 — on an Apple Silicon / arm64 machine you MUST
+# cross-build for amd64 (buildx + QEMU) or Cloud Run rejects the image with
+# "container failed to start and listen on PORT". CI (amd64 runners) is native.
 gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-docker build --target hud-demo -t "$REPO/hud-demo:latest" .
-docker push "$REPO/hud-demo:latest"
+docker buildx build --platform linux/amd64 --target hud-demo \
+  -t "$REPO/hud-demo:latest" --push .
 
 # Create the Cloud Run service
 gcloud run deploy foglamp-hud \
@@ -59,8 +62,8 @@ Image-only updates carry over scaling/env from the live revision (same pattern a
 `deploy-gcp.yml`):
 
 ```bash
-docker build --target hud-demo -t "$REPO/hud-demo:latest" .
-docker push "$REPO/hud-demo:latest"
+docker buildx build --platform linux/amd64 --target hud-demo \
+  -t "$REPO/hud-demo:latest" --push .
 gcloud run deploy foglamp-hud --project foglamp-prod --region us-central1 \
   --image "$REPO/hud-demo:latest"
 ```
