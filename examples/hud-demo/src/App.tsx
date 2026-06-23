@@ -44,7 +44,9 @@ export default function App() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-12 pb-0 pt-12">
-          <div className="flex flex-1 items-center gap-2.5">
+          {/* Left spacer balances the right-hand actions so the brand sits dead-center. */}
+          <div className="flex-1" />
+          <div className="flex items-center gap-2.5">
             <FoglampMark className="h-5 w-auto" />
             <span
               className="text-lg leading-none"
@@ -53,12 +55,14 @@ export default function App() {
               Foglamp HUD
             </span>
           </div>
-          <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-            {dark ? <IconSun /> : <IconMoon />}
-          </Button>
-          <Button onClick={() => trigger("/api/storm")}>
-            <IconBoltFilled /> Run storm
-          </Button>
+          <div className="flex flex-1 items-center justify-end gap-3">
+            <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+              {dark ? <IconSun /> : <IconMoon />}
+            </Button>
+            <Button onClick={() => trigger("/api/storm")}>
+              <IconBoltFilled /> Run storm
+            </Button>
+          </div>
         </div>
       </header>
 
