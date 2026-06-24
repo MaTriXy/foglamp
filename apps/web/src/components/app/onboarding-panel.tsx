@@ -1,13 +1,5 @@
 "use client";
 
-import {
-  IconBoltFilled,
-  IconBookFilled,
-  IconClipboardCheckFilled,
-  IconExternalLink,
-} from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BorderBeam } from "border-beam";
 import { Button } from "@foglamp/ui/components/button";
 import {
   Card,
@@ -16,6 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@foglamp/ui/components/card";
+import {
+  IconBookFilled,
+  IconClipboardCheckFilled,
+  IconExternalLink,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BorderBeam } from "border-beam";
 import { useEffect, useRef, useState } from "react";
 
 import { CopyIcon } from "@/components/app/copy-icon";
@@ -30,9 +29,6 @@ export function OnboardingPanel() {
   const { projectId } = useProject();
   const qc = useQueryClient();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
-  // Brighten the beam while the copy button is hovered/focused, to draw the eye
-  // to the primary action. Drives the BorderBeam `strength` prop below.
-  const [copyActive, setCopyActive] = useState(false);
   const { copied, markCopied } = useCopied(2000);
   const mintedRef = useRef(false);
 
@@ -99,7 +95,7 @@ export function OnboardingPanel() {
       <BorderBeam
         size="pulse-inner"
         colorVariant="colorful"
-        strength={copyActive ? 1 : 0.6}
+        strength={0.6}
         borderRadius={16}
       >
         {/* The beam shapes its ring with clip-path: inset(round) — always a
@@ -121,10 +117,6 @@ export function OnboardingPanel() {
                   size="sm"
                   variant="default"
                   onClick={copy}
-                  onMouseEnter={() => setCopyActive(true)}
-                  onMouseLeave={() => setCopyActive(false)}
-                  onFocus={() => setCopyActive(true)}
-                  onBlur={() => setCopyActive(false)}
                   aria-label="Copy prompt"
                 >
                   <CopyIcon
