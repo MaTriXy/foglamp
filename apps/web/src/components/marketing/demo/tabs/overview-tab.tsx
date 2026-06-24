@@ -502,7 +502,7 @@ export function OverviewTab() {
             <BreakdownRow
               key={c.name}
               renderIcon={(cls) => (
-                <CustomerAvatar customerId={c.name} className={cls} />
+                <CustomerAvatar customerId={c.name} filled className={cls} />
               )}
               title={c.name}
               value={formatCost(c.cost, 3)}

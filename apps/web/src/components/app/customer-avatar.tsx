@@ -1,6 +1,6 @@
 "use client";
 
-import { IconUserSquareRounded } from "@tabler/icons-react";
+import { IconUser, IconUserFilled } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { agentColor } from "@/components/app/agent-icon";
@@ -9,19 +9,22 @@ import { cn } from "@/lib/utils";
 /**
  * A customer's avatar: their `imageUrl` when present, else a user glyph tinted
  * with a reproducible color derived from the customer id (same hashing as
- * `AgentIcon`, so a customer always gets the same color). The image renders as a
- * plain `<img>` (no Next image optimizer) so customer-supplied URLs are never
- * fetched server-side; a broken URL falls back to the tinted glyph.
+ * `AgentIcon`, so a customer always gets the same color). `filled` opts into the
+ * solid glyph (matching `AgentIcon`'s treatment). The image renders as a plain
+ * `<img>` (no Next image optimizer) so customer-supplied URLs are never fetched
+ * server-side; a broken URL falls back to the tinted glyph.
  */
 export function CustomerAvatar({
   customerId,
   customerName,
   imageUrl,
+  filled = false,
   className,
 }: {
   customerId: string;
   customerName?: string | null;
   imageUrl?: string | null;
+  filled?: boolean;
   className?: string;
 }) {
   const [broken, setBroken] = useState(false);
@@ -38,8 +41,9 @@ export function CustomerAvatar({
       />
     );
   }
+  const Icon = filled ? IconUserFilled : IconUser;
   return (
-    <IconUserSquareRounded
+    <Icon
       className={cn("size-4 shrink-0", className)}
       style={{ color: agentColor(customerId) }}
     />

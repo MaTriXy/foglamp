@@ -17,6 +17,7 @@ export async function getCustomerList(
     projectId: string;
     from: Date;
     to: Date;
+    includeUnidentified?: boolean;
     limit?: number;
   },
 ) {
@@ -25,11 +26,14 @@ export async function getCustomerList(
     projectId: input.projectId,
     from: toClickHouseDateTime(input.from),
     to: toClickHouseDateTime(input.to),
+    includeUnidentified: input.includeUnidentified,
     limit: input.limit,
   });
   return {
     customers: rows.map((r) => ({
-      customerId: r.customer_id,
+      // '' is the untagged bucket — surfaced as null so the UI can label it
+      // "Not identified".
+      customerId: r.customer_id || null,
       customerName: r.customer_name || null,
       customerImageUrl: r.customer_image_url || null,
       spanCount: num(r.span_count),

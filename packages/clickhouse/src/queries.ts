@@ -420,6 +420,9 @@ export type CustomerListRow = {
  * and joins the small `customers` dimension table (FINAL, scoped to the project
  * so the merge is cheap) for the display name/image. Default sort is cost desc:
  * the card wants the top spenders. Time-windowed via HAVING on first/last-seen.
+ * With `includeUnidentified`, the empty-`customer_id` bucket (untagged traces) is
+ * kept too, so the caller can surface a "Not identified" row; by default it's
+ * excluded (e.g. Foggy lists real customers only).
  */
 export function listCustomers(
 	client: ClickHouseClient,
@@ -427,11 +430,14 @@ export function listCustomers(
 		projectId: string;
 		from?: string;
 		to?: string;
+		/** Keep the empty-customer_id bucket (untagged traces). Default false. */
+		includeUnidentified?: boolean;
 		limit?: number;
 		offset?: number;
 	},
 ): Promise<CustomerListRow[]> {
-	const having: string[] = ["customer_id != ''"];
+	const having: string[] = [];
+	if (!params.includeUnidentified) having.push("customer_id != ''");
 	if (params.from !== undefined)
 		having.push("last_seen >= {from:DateTime64(3)}");
 	if (params.to !== undefined) having.push("first_seen < {to:DateTime64(3)}");
@@ -463,7 +469,7 @@ export function listCustomers(
        FROM trace_summary
        WHERE project_id = {projectId:String}
        GROUP BY customer_id
-       HAVING ${having.join(" AND ")}
+       ${having.length ? `HAVING ${having.join(" AND ")}` : ""}
      ) AS r
      LEFT JOIN (
        SELECT customer_id, customer_name, customer_image_url

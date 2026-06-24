@@ -265,6 +265,7 @@ export function TraceDetailClient({ traceId }: { traceId: string }) {
 								customerId={ctx.customer.id}
 								customerName={ctx.customer.name}
 								imageUrl={ctx.customer.imageUrl}
+								filled
 								className="size-3.5 shrink-0"
 							/>
 							<span className="truncate">

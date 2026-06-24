@@ -8,6 +8,7 @@ import {
   IconCoinFilled,
   IconGaugeFilled,
   IconSitemap,
+  IconUserFilled,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -387,7 +388,11 @@ export function OverviewClient() {
   });
   // Top customers by cost for the "Customers" card (server default sort is cost desc).
   const customers = useQuery({
-    ...trpc.customers.list.queryOptions({ ...args, limit: 100 }),
+    ...trpc.customers.list.queryOptions({
+      ...args,
+      limit: 100,
+      includeUnidentified: true,
+    }),
     enabled,
   });
   // Range-independent probe: empty == this project has never received a trace,
@@ -1100,19 +1105,30 @@ export function OverviewClient() {
                 <div className="divide-y divide-border/40 pb-6">
                   {customerRows.map((c) => (
                     <BreakdownRow
-                      key={c.customerId}
-                      renderIcon={(cls) => (
-                        <CustomerAvatar
-                          customerId={c.customerId}
-                          customerName={c.customerName}
-                          imageUrl={c.customerImageUrl}
-                          className={cls}
-                        />
-                      )}
-                      title={c.customerName ?? c.customerId}
+                      key={c.customerId ?? "~unidentified"}
+                      renderIcon={(cls) =>
+                        c.customerId ? (
+                          <CustomerAvatar
+                            customerId={c.customerId}
+                            customerName={c.customerName}
+                            imageUrl={c.customerImageUrl}
+                            filled
+                            className={cls}
+                          />
+                        ) : (
+                          <IconUserFilled
+                            className={cn(cls, "text-muted-foreground/60")}
+                          />
+                        )
+                      }
+                      title={c.customerName ?? c.customerId ?? "Not identified"}
                       value={formatCost(c.totalCost, 3)}
                       fraction={(c.totalCost ?? 0) / maxCustomerCost}
-                      color={agentColor(c.customerId)}
+                      color={
+                        c.customerId
+                          ? agentColor(c.customerId)
+                          : "var(--muted-foreground)"
+                      }
                       metrics={`${formatCount(c.spanCount)} req · ${formatCount(c.errorCount)} err`}
                     />
                   ))}

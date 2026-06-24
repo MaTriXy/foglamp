@@ -12,6 +12,7 @@ export const customersRouter = router({
         projectId: z.string(),
         from: z.coerce.date().optional(),
         to: z.coerce.date().optional(),
+        includeUnidentified: z.boolean().optional(),
         limit: z.number().int().min(1).max(200).optional(),
       }),
     )
@@ -21,6 +22,7 @@ export const customersRouter = router({
         projectId: input.projectId,
         from,
         to,
+        includeUnidentified: input.includeUnidentified,
         limit: input.limit,
       });
     }),

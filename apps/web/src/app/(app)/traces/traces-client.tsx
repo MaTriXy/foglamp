@@ -436,6 +436,7 @@ export function TracesClient() {
                                       customerId={t.customerId}
                                       customerName={t.customerName}
                                       imageUrl={t.customerImageUrl}
+                                      filled
                                       className="size-3 shrink-0"
                                     />
                                     <span className="truncate">
