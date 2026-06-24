@@ -980,7 +980,7 @@ export function OverviewClient() {
                       color={
                         modelBrandColor(null, m.modelId) ?? "var(--chart-2)"
                       }
-                      metrics={`${formatCount(m.spanCount)} req · ${formatTokens(m.totalTokens)}`}
+                      metrics={`${formatCount(m.spanCount)} req · ${formatTokens(m.totalTokens)} tok`}
                     />
                   ))}
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconUser } from "@tabler/icons-react";
+import { IconUserSquareRounded } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { agentColor } from "@/components/app/agent-icon";
@@ -39,7 +39,7 @@ export function CustomerAvatar({
     );
   }
   return (
-    <IconUser
+    <IconUserSquareRounded
       className={cn("size-4 shrink-0", className)}
       style={{ color: agentColor(customerId) }}
     />
