@@ -1,4 +1,5 @@
 import {
+  getCustomerDisplays,
   getTraceSpans,
   listTraces,
   type SortDir,
@@ -69,6 +70,12 @@ export async function getTraceList(
     traceListSummary(ch, filters),
   ]);
   const s = summaryRows[0];
+  // Decorate the page's traces with customer display fields (name/avatar): the
+  // rows carry only customer_id, so resolve the distinct ids against the
+  // customers dimension in one lookup and map them back.
+  const customerIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))];
+  const dims = await getCustomerDisplays(ch, { projectId: input.projectId, customerIds });
+  const customerById = new Map(dims.map((d) => [d.customer_id, d]));
   return {
     // 20/40/60/80th percentile thresholds; finite values only.
     costQuantiles: finite(s?.cost_q),
@@ -86,6 +93,9 @@ export async function getTraceList(
       workflowName: r.workflow_name || null,
       workflowRunId: r.workflow_run_id || null,
       sessionId: r.session_id || null,
+      customerId: r.customer_id || null,
+      customerName: customerById.get(r.customer_id)?.customer_name || null,
+      customerImageUrl: customerById.get(r.customer_id)?.customer_image_url || null,
       startTime: r.trace_start,
       endTime: r.trace_end,
       durationMs: num(r.duration_ms),
@@ -220,12 +230,23 @@ export async function getTraceDetail(
               s.rate_limit_tokens_reset_ms === null ? null : num(s.rate_limit_tokens_reset_ms),
           },
   }));
+  const customerId = firstNonEmpty((r) => r.customer_id);
+  const customerDim = customerId
+    ? (await getCustomerDisplays(ch, { projectId: input.projectId, customerIds: [customerId] }))[0]
+    : undefined;
   return {
     traceId: input.traceId,
     agentName: firstNonEmpty((r) => r.agent_name),
     workflowName: firstNonEmpty((r) => r.workflow_name),
     workflowRunId: firstNonEmpty((r) => r.workflow_run_id),
     sessionId: firstNonEmpty((r) => r.session_id),
+    customer: customerId
+      ? {
+          id: customerId,
+          name: customerDim?.customer_name || null,
+          imageUrl: customerDim?.customer_image_url || null,
+        }
+      : null,
     spans,
   };
 }

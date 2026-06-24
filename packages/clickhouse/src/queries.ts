@@ -23,6 +23,7 @@ export type TraceListRow = {
 	workflow_name: string;
 	workflow_run_id: string;
 	session_id: string;
+	customer_id: string;
 	trace_start: string;
 	trace_end: string;
 	duration_ms: number;
@@ -101,6 +102,7 @@ export function listTraces(
        any(workflow_name) AS workflow_name,
        any(workflow_run_id) AS workflow_run_id,
        any(session_id) AS session_id,
+       any(customer_id) AS customer_id,
        min(trace_summary.trace_start) AS trace_start,
        max(trace_summary.trace_end) AS trace_end,
        dateDiff('millisecond', min(trace_summary.trace_start), max(trace_summary.trace_end)) AS duration_ms,
@@ -480,6 +482,32 @@ export function listCustomers(
 	);
 }
 
+export type CustomerDisplayRow = {
+	customer_id: string;
+	customer_name: string;
+	customer_image_url: string;
+};
+
+/**
+ * Resolve display fields (name, image) for a set of customer ids from the
+ * `customers` dimension (latest-write-wins via FINAL). Used to decorate trace
+ * rows — which carry only `customer_id` — with a friendly name/avatar. Returns
+ * [] for an empty id set.
+ */
+export function getCustomerDisplays(
+	client: ClickHouseClient,
+	params: { projectId: string; customerIds: string[] },
+): Promise<CustomerDisplayRow[]> {
+	if (params.customerIds.length === 0) return Promise.resolve([]);
+	return rows<CustomerDisplayRow>(
+		client,
+		`SELECT customer_id, customer_name, customer_image_url
+     FROM customers FINAL
+     WHERE project_id = {projectId:String} AND customer_id IN {ids:Array(String)}`,
+		{ projectId: params.projectId, ids: params.customerIds },
+	);
+}
+
 export type SessionTurnRow = {
 	trace_id: string;
 	name: string;
@@ -593,6 +621,7 @@ export type SpanDetailRow = {
 	workflow_name: string;
 	workflow_run_id: string;
 	session_id: string;
+	customer_id: string;
 };
 
 // Hard cap on spans returned for one trace. Each row can carry ~MB-scale
@@ -626,7 +655,7 @@ export function getTraceSpans(
        response_time_ms, effective_output_tps, effective_total_tps, output_tps, input_tps,
        chunk_jitter_min, chunk_jitter_p10, chunk_jitter_median,
        chunk_jitter_avg, chunk_jitter_p90, chunk_jitter_max,
-       agent_name, workflow_name, workflow_run_id, session_id
+       agent_name, workflow_name, workflow_run_id, session_id, customer_id
      FROM spans FINAL
      WHERE project_id = {projectId:String} AND trace_id = {traceId:String}
      ORDER BY start_time ASC, span_id ASC
@@ -1516,6 +1545,7 @@ export function listTracesByWorkflowRun(
        any(workflow_name) AS workflow_name,
        any(workflow_run_id) AS workflow_run_id,
        any(session_id) AS session_id,
+       any(customer_id) AS customer_id,
        min(trace_summary.trace_start) AS trace_start,
        max(trace_summary.trace_end) AS trace_end,
        dateDiff('millisecond', min(trace_summary.trace_start), max(trace_summary.trace_end)) AS duration_ms,

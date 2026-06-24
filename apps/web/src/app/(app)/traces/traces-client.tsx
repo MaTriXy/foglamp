@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { AgentIcon } from "@/components/app/agent-icon";
+import { CustomerAvatar } from "@/components/app/customer-avatar";
 import { ModelLogo, formatModelName } from "@/components/model-logo";
 import {
   ClearFiltersButton,
@@ -425,6 +426,22 @@ export function TracesClient() {
                                       {t.workflowName}
                                     </span>
                                   </Link>
+                                )}
+                                {t.customerId && (
+                                  <span
+                                    title="Customer"
+                                    className="inline-flex min-w-0 shrink items-center gap-1"
+                                  >
+                                    <CustomerAvatar
+                                      customerId={t.customerId}
+                                      customerName={t.customerName}
+                                      imageUrl={t.customerImageUrl}
+                                      className="size-3 shrink-0"
+                                    />
+                                    <span className="truncate">
+                                      {t.customerName ?? t.customerId}
+                                    </span>
+                                  </span>
                                 )}
                               </div>
                             </div>

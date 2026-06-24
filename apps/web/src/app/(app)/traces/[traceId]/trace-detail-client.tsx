@@ -36,6 +36,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AgentIcon } from "@/components/app/agent-icon";
+import { CustomerAvatar } from "@/components/app/customer-avatar";
 import { useShikiHtml } from "@/components/app/code-block";
 import { CopyButton } from "@/components/app/copy-button";
 import { useDelayedLoading } from "@/components/app/data-table";
@@ -251,9 +252,26 @@ export function TraceDetailClient({ traceId }: { traceId: string }) {
 				titleTrailing={<CopyButton value={traceId} title="Copy trace ID" />}
 			/>
 
-			{/* Context chips: link back to the owning session / workflow / agent. */}
-			{(ctx?.sessionId || ctx?.workflowName || ctx?.agentName) && (
+			{/* Context chips: link back to the owning session / workflow / agent,
+			    plus the end-customer this trace served (no page, so not a link). */}
+			{(ctx?.sessionId ||
+				ctx?.workflowName ||
+				ctx?.agentName ||
+				ctx?.customer) && (
 				<div className="-mt-1 flex flex-wrap items-center gap-2 text-xs">
+					{ctx.customer && (
+						<span className="inline-flex max-w-xs items-center gap-[5px] rounded-full bg-card px-2.5 pl-2 py-1 text-muted-foreground shadow-(--custom-shadow)">
+							<CustomerAvatar
+								customerId={ctx.customer.id}
+								customerName={ctx.customer.name}
+								imageUrl={ctx.customer.imageUrl}
+								className="size-3.5 shrink-0"
+							/>
+							<span className="truncate">
+								{ctx.customer.name ?? ctx.customer.id}
+							</span>
+						</span>
+					)}
 					{ctx.sessionId && (
 						<ContextChip
 							href={`/sessions/${encodeURIComponent(ctx.sessionId)}`}
