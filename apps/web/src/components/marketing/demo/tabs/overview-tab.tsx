@@ -457,7 +457,7 @@ export function OverviewTab() {
                 <ModelLogo modelId={m.name} className={cn(cls, "size-3")} />
               )}
               title={m.name}
-              value={formatCost(m.cost)}
+              value={formatCost(m.cost, 3)}
               fraction={m.fraction}
               color={m.color}
               metrics={m.metrics}
@@ -472,7 +472,7 @@ export function OverviewTab() {
               onClick={() => openDetail({ type: "agent", id: a.name })}
               renderIcon={(cls) => <AgentIcon name={a.name} className={cls} />}
               title={a.name}
-              value={formatCost(a.cost)}
+              value={formatCost(a.cost, 3)}
               fraction={a.fraction}
               color={a.color}
               metrics={a.metrics}
@@ -489,7 +489,7 @@ export function OverviewTab() {
                 <IconSitemap className={cn(cls, "text-emerald-500")} />
               )}
               title={w.name}
-              value={formatCost(w.cost)}
+              value={formatCost(w.cost, 3)}
               fraction={w.fraction}
               color={w.color}
               metrics={w.metrics}
@@ -505,7 +505,7 @@ export function OverviewTab() {
                 <CustomerAvatar customerId={c.name} className={cls} />
               )}
               title={c.name}
-              value={formatCost(c.cost)}
+              value={formatCost(c.cost, 3)}
               fraction={c.fraction}
               color={c.color}
               metrics={c.metrics}

@@ -25,8 +25,13 @@ The whole thing is two lines. See [Live HUD](/sdk/hud).
 (`fog.integration({ customer: { id, name?, imageUrl? } })`) to attribute its
 spend to the end-customer it serves. A new **Customers** card on the
 [Overview](/dashboard/overview) ranks your top customers by cost, with their
-avatar and name. Only `id` is required and the field is fully optional — see the
+avatar and name. Foggy can answer per-customer cost questions too. Only `id` is
+required and the field is fully optional — see the
 [data model](/concepts/data-model#customer).
+
+Self-hosters: deploy ingest before upgrading the SDK, since older ingest
+rejects the new `customer` field (and run migrations to create the customer
+rollup tables).
 
 </Update>
 

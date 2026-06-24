@@ -975,12 +975,12 @@ export function OverviewClient() {
                         />
                       )}
                       title={shortModel(m.modelId)}
-                      value={formatCost(m.totalCost)}
+                      value={formatCost(m.totalCost, 3)}
                       fraction={(m.totalCost ?? 0) / maxModelCost}
                       color={
                         modelBrandColor(null, m.modelId) ?? "var(--chart-2)"
                       }
-                      metrics={`${formatCount(m.spanCount)} req · ${formatTokens(m.totalTokens)} · p95 ${formatDuration(m.latencyMs.p95)}`}
+                      metrics={`${formatCount(m.spanCount)} req · ${formatTokens(m.totalTokens)}`}
                     />
                   ))}
                 </div>
@@ -1020,10 +1020,10 @@ export function OverviewClient() {
                         <AgentIcon name={a.agentName} className={cls} />
                       )}
                       title={a.agentName}
-                      value={formatCost(a.totalCost)}
+                      value={formatCost(a.totalCost, 3)}
                       fraction={(a.totalCost ?? 0) / maxAgentCost}
                       color={agentColor(a.agentName)}
-                      metrics={`${formatCount(a.spanCount)} req · ${formatCount(a.errorCount)} err · p95 ${formatDuration(a.latencyMs.p95)}`}
+                      metrics={`${formatCount(a.spanCount)} req · ${formatCount(a.errorCount)} err`}
                     />
                   ))}
                 </div>
@@ -1065,10 +1065,10 @@ export function OverviewClient() {
                         <IconSitemap className={cn(cls, "text-emerald-500")} />
                       )}
                       title={w.workflowName ?? "Ungrouped"}
-                      value={formatCost(w.totalCost)}
+                      value={formatCost(w.totalCost, 3)}
                       fraction={(w.totalCost ?? 0) / maxWorkflowCost}
                       color="var(--color-emerald-500)"
-                      metrics={`${formatCount(w.runCount)} runs · ${formatCount(w.spanCount)} req · ${formatCount(w.errorCount)} err`}
+                      metrics={`${formatCount(w.runCount)} runs · ${formatCount(w.errorCount)} err`}
                     />
                   ))}
                 </div>
@@ -1110,7 +1110,7 @@ export function OverviewClient() {
                         />
                       )}
                       title={c.customerName ?? c.customerId}
-                      value={formatCost(c.totalCost)}
+                      value={formatCost(c.totalCost, 3)}
                       fraction={(c.totalCost ?? 0) / maxCustomerCost}
                       color={agentColor(c.customerId)}
                       metrics={`${formatCount(c.spanCount)} req · ${formatCount(c.errorCount)} err`}
