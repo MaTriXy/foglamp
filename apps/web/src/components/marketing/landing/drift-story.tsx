@@ -146,6 +146,19 @@ export function DriftStory() {
   return (
     <section className="mx-auto w-full max-w-7xl px-5 sm:px-8">
       <div className="relative isolate overflow-hidden rounded-[64px] corner-squircle bg-card dark:bg-card/50 shadow-(--custom-shadow) px-2 py-3 sm:px-12 sm:py-24">
+        {/* Subtle film-grain texture over the card. feTurbulence fills the
+            filter region with noise, grayscale strips its color, and
+            mix-blend-screen lets only the light specks ride on top. */}
+        <figure
+          aria-hidden
+          className="absolute inset-0 -z-10 pointer-events-none opacity-10 mix-blend-screen filter-[url('#noise-bg-fx')_grayscale(100%)]"
+        >
+          <svg className="size-full">
+            <filter id="noise-bg-fx">
+              <feTurbulence baseFrequency="0.8" />
+            </filter>
+          </svg>
+        </figure>
         <div className="relative z-10 mx-auto grid max-w-5xl items-center gap-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-20">
           {/* Left: the drift timeline. No row gap — each row owns its full height
               so the rail segments stay contiguous and read as one line. */}

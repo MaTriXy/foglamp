@@ -74,7 +74,20 @@ function BrazilFlag({ className }: { className?: string }) {
 
 export function MarketingFooter() {
   return (
-    <footer className="bg-card/50 dark:shadow-(--custom-shadow)">
+    <footer className="relative isolate bg-card/50 dark:shadow-(--custom-shadow)">
+      {/* Subtle film-grain texture over the footer. feTurbulence fills the
+          filter region with noise, grayscale strips its color, and
+          mix-blend-screen lets only the light specks ride on top. */}
+      <figure
+        aria-hidden
+        className="absolute inset-0 -z-10 pointer-events-none opacity-10 mix-blend-screen filter-[url('#noise-footer-fx')_grayscale(100%)]"
+      >
+        <svg className="size-full">
+          <filter id="noise-footer-fx">
+            <feTurbulence baseFrequency="0.8" />
+          </filter>
+        </svg>
+      </figure>
       <div className="mx-auto max-w-7xl px-5 py-16 pb-12 sm:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.5fr_1fr]">
           <div className="flex flex-col gap-4">
