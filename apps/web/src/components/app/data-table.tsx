@@ -441,7 +441,7 @@ export function ClearFiltersButton({
             className="h-8 text-muted-foreground rounded-2xl corner-squircle"
           >
             <IconX className="size-3.5" />
-            Clear filters
+            Clear
           </Button>
         </motion.div>
       )}
