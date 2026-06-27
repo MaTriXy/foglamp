@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Host_Grotesk, Inter } from "next/font/google";
+import { Geist_Mono, Host_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 
 import Providers from "@/components/providers";
@@ -7,7 +8,20 @@ import { SITE_URL } from "@/lib/links";
 import { cn } from "@foglamp/ui/lib/utils";
 import "../index.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// Self-hosted Inter from the canonical source (github.com/rsms/inter), not
+// Google Fonts. Google serves an older, feature-stripped build; this is the
+// real InterVariable (weight 100–900 + the `opsz` optical-size axis) with all
+// OpenType character variants intact. Update by dropping new .woff2 files from
+// an rsms/inter release into ./fonts.
+const inter = localFont({
+  src: [
+    { path: "./fonts/InterVariable.woff2", style: "normal" },
+    { path: "./fonts/InterVariable-Italic.woff2", style: "italic" },
+  ],
+  variable: "--font-sans",
+  display: "swap",
+  weight: "100 900",
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
