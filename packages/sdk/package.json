@@ -1,6 +1,6 @@
 {
   "name": "foglamp",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Two-line observability for the Vercel AI SDK — costs, latency, tokens, and traces.",
   "license": "MIT",
   "type": "module",
@@ -42,8 +42,12 @@
     "react-dom": "^18 || ^19"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@foglamp/config": "workspace:*",
