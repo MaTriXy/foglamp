@@ -422,7 +422,9 @@ export type CustomerListRow = {
  * `trace_summary` grouped by `customer_id` — the same shape as `listSessions` —
  * and joins the small `customers` dimension table (FINAL, scoped to the project
  * so the merge is cheap) for the display name/image. Default sort is cost desc:
- * the card wants the top spenders. Time-windowed via HAVING on first/last-seen.
+ * the card wants the top spenders. Time-windowed per trace (a trace counts when
+ * its `trace_start` falls in [from, to), matching `listTraces`), so the sums
+ * reflect only in-range activity — not the customer's all-time totals.
  * With `includeUnidentified`, the empty-`customer_id` bucket (untagged traces) is
  * kept too, so the caller can surface a "Not identified" row; by default it's
  * excluded (e.g. Foggy lists real customers only).
@@ -439,11 +441,14 @@ export function listCustomers(
 		offset?: number;
 	},
 ): Promise<CustomerListRow[]> {
+	// customer_id and trace_start are per-trace rollups (any()/min()), so the
+	// window and the untagged-bucket filter live in a HAVING over the per-trace
+	// aggregate, mirroring listTraces.
 	const having: string[] = [];
 	if (!params.includeUnidentified) having.push("customer_id != ''");
 	if (params.from !== undefined)
-		having.push("last_seen >= {from:DateTime64(3)}");
-	if (params.to !== undefined) having.push("first_seen < {to:DateTime64(3)}");
+		having.push("trace_start >= {from:DateTime64(3)}");
+	if (params.to !== undefined) having.push("trace_start < {to:DateTime64(3)}");
 	return rows<CustomerListRow>(
 		client,
 		`SELECT
@@ -467,12 +472,26 @@ export function listCustomers(
          sum(total_cost) AS total_cost,
          sum(priced_span_count) AS priced_span_count,
          sum(total_tokens) AS total_tokens,
-         min(trace_summary.trace_start) AS first_seen,
-         max(trace_summary.trace_end) AS last_seen
-       FROM trace_summary
-       WHERE project_id = {projectId:String}
+         min(trace_start) AS first_seen,
+         max(trace_end) AS last_seen
+       FROM (
+         SELECT
+           trace_id,
+           any(customer_id) AS customer_id,
+           sum(span_count) AS span_count,
+           sum(llm_span_count) AS llm_span_count,
+           sum(error_count) AS error_count,
+           sum(total_cost) AS total_cost,
+           sum(priced_span_count) AS priced_span_count,
+           sum(total_tokens) AS total_tokens,
+           min(trace_summary.trace_start) AS trace_start,
+           max(trace_summary.trace_end) AS trace_end
+         FROM trace_summary
+         WHERE project_id = {projectId:String}
+         GROUP BY trace_id
+         ${having.length ? `HAVING ${having.join(" AND ")}` : ""}
+       )
        GROUP BY customer_id
-       ${having.length ? `HAVING ${having.join(" AND ")}` : ""}
      ) AS r
      LEFT JOIN (
        SELECT customer_id, customer_name, customer_image_url

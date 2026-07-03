@@ -146,6 +146,29 @@ describe("wrap", () => {
     expect(trace.workflowRunId).toBe("run-1");
   });
 
+  test("the customer object flows onto the enqueued trace", async () => {
+    const { fake } = makeFakeAi();
+    const { fetchImpl, traces } = makeCapture();
+    const fog = wrap(fake, { ...OPTS, fetch: fetchImpl });
+
+    const bound = fog.with({
+      agentName: "retriever",
+      customer: { id: "cust_1", name: "Acme", imageUrl: "https://x/a.png" },
+    });
+    await (bound.generateText as (a: unknown) => Promise<unknown>)({
+      model: "gpt-4o-mini",
+      prompt: "hi",
+    });
+    await fog.flush();
+
+    const trace = traces()[0]!;
+    expect(trace.customer).toEqual({
+      id: "cust_1",
+      name: "Acme",
+      imageUrl: "https://x/a.png",
+    });
+  });
+
   test("ToolLoopAgent: traces generate(), wraps tools, defaults agentName from id", async () => {
     const { fake } = makeFakeAi();
     const { fetchImpl, traces } = makeCapture();

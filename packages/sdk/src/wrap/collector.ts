@@ -552,6 +552,7 @@ export class WrapCollector {
       workflowName: ctx.workflowName,
       workflowRunId: ctx.workflowRunId,
       sessionId: ctx.sessionId,
+      customer: ctx.customer,
       metadata: coerceMetadata(ctx.metadata),
       spans,
     };
