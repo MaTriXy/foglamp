@@ -14,7 +14,7 @@ export async function generateMetadata({
   if (!data) return { title: { absolute: "Scan not found • Foglamp Scan" } };
   return {
     title: { absolute: `${data.project.name} • Foglamp Scan` },
-    description: `A living map of how ${data.project.name} uses AI. Scanned by Foglamp.`,
+    description: `A living map of ${data.project.name}. Scanned by Foglamp.`,
     // Unlisted: viewable by link, but not indexed.
     robots: { index: false, follow: false },
   };
