@@ -516,6 +516,12 @@ function TraceTimeline({
   // integer scrollLeft steps — the two never agree and the chart "dances" ±1px.
   // Fixed px + wall-clock-anchored grid lines hold everything still; only the
   // scroll advances to follow `now`.
+  // While the session has no traces this component renders null, so on the
+  // first run of this effect the scroll element may not exist yet. `hasTraces`
+  // re-fires it on the empty→populated flip (the commit that mounts the
+  // element); without that dep vw stays 0 and every tick/label/marker lands at
+  // left: 0 in a pile.
+  const hasTraces = traces.length > 0;
   const [vw, setVw] = useState(0);
   useIsoLayoutEffect(() => {
     const el = scrollRef.current;
@@ -525,7 +531,7 @@ function TraceTimeline({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [scrollRef]);
+  }, [scrollRef, hasTraces]);
   const pxPerMs = vw > 0 ? vw / WINDOW_MS : 0;
   const trackW = totalMs * pxPerMs;
   const x = (t: number) => (t - windowStart) * pxPerMs; // px from the track's left

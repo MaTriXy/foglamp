@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@foglamp/ui/components/button";
-import { Kbd } from "@foglamp/ui/components/kbd";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -19,16 +18,9 @@ import { useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { GITHUB_URL } from "@/lib/links";
 
+import { IconCaptureFilled, IconMatrix } from "@tabler/icons-react";
 import { GithubLogo } from "./github-logo";
 import { Logo } from "./logo";
-import {
-  IconArrowBigRightFilled,
-  IconChevronRight,
-  IconChevronRightFilled,
-  IconCircleChevronRightFilled,
-  IconDirectionArrowsFilled,
-  IconZoomScanFilled,
-} from "@tabler/icons-react";
 
 const DOCS_URL = "https://docs.foglamp.dev";
 
@@ -39,13 +31,13 @@ const PRODUCT_ITEMS = [
     href: "/scan" as const,
     name: "Scan",
     pitch: "Turn your repo into a shareable map",
-    Icon: IconZoomScanFilled,
+    Icon: IconCaptureFilled,
   },
   {
     href: "/hud" as const,
     name: "HUD",
     pitch: "Watch your agents while you build",
-    Icon: IconDirectionArrowsFilled,
+    Icon: IconMatrix,
   },
 ] as const;
 

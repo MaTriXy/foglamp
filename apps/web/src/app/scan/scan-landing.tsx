@@ -2,12 +2,7 @@
 
 import type { ScanData } from "@foglamp/contracts/scan";
 import { Button } from "@foglamp/ui/components/button";
-import {
-  IconCaptureFilled,
-  IconRouteScan,
-  IconSitemapFilled,
-  IconZoomScanFilled,
-} from "@tabler/icons-react";
+import { IconCaptureFilled } from "@tabler/icons-react";
 import { type MotionProps, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 

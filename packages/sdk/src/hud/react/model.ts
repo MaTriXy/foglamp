@@ -199,7 +199,9 @@ export function reduce(state: HudState, action: HudAction): HudState {
   const without = traces.filter((t) => t.traceId !== event.traceId);
   return {
     traces: [trace, ...without].slice(0, MAX_TRACES),
-    sessionCount: state.sessionCount,
+    // A lazily-minted stub is still a run seen this session — count it, or the
+    // header says "Waiting for a run…" above a populated list.
+    sessionCount: idx >= 0 ? state.sessionCount : state.sessionCount + 1,
   };
 }
 
