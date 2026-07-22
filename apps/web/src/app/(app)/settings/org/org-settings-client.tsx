@@ -24,6 +24,11 @@ import {
 import { Field, FieldLabel } from "@foglamp/ui/components/field";
 import { Input } from "@foglamp/ui/components/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@foglamp/ui/components/input-group";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -90,10 +95,10 @@ const TAB_IDS = [
   "general",
   "members",
   "invitations",
+  "provider-keys",
   "projects",
   "billing",
   "usage",
-  "provider-keys",
 ] as const;
 type TabId = (typeof TAB_IDS)[number];
 
@@ -101,20 +106,30 @@ function isTabId(v: string | null): v is TabId {
   return !!v && (TAB_IDS as readonly string[]).includes(v);
 }
 
-const TABS: { id: TabId; label: string; icon: ComponentType<{ className?: string }> }[] = [
+const TABS: {
+  id: TabId;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+}[] = [
   { id: "general", label: "General", icon: IconSettingsFilled },
   { id: "members", label: "Members", icon: IconUserFilled },
   { id: "invitations", label: "Invitations", icon: IconMailFilled },
+  { id: "provider-keys", label: "Provider Keys", icon: IconLockFilled },
   { id: "projects", label: "Projects", icon: IconFolderFilled },
   { id: "billing", label: "Billing", icon: IconCreditCardFilled },
   { id: "usage", label: "Usage", icon: IconChartPieFilled },
-  { id: "provider-keys", label: "Provider Keys", icon: IconLockFilled },
 ];
 
 // Button-row tab bar with one shared background pill: the active button hosts
 // a layoutId span, so selecting another tab slides the pill over to it instead
 // of it popping in and out.
-function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
+function TabBar({
+  tab,
+  onChange,
+}: {
+  tab: TabId;
+  onChange: (t: TabId) => void;
+}) {
   return (
     <div role="tablist" className="flex w-fit flex-wrap items-center gap-1">
       {TABS.map(({ id, label, icon: Icon }) => {
@@ -168,7 +183,9 @@ export function OrgSettingsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const [tab, setTab] = useState<TabId>(isTabId(tabParam) ? tabParam : "general");
+  const [tab, setTab] = useState<TabId>(
+    isTabId(tabParam) ? tabParam : "general"
+  );
   // Follow later URL changes too (e.g. an in-app link while already here).
   useEffect(() => {
     if (isTabId(tabParam)) setTab(tabParam);
@@ -295,88 +312,99 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle>Organization</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-4 mt-2">
           <Field>
             <FieldLabel>Name</FieldLabel>
-            <div className="flex items-center gap-2">
-              <Input
+            <InputGroup className="max-w-sm">
+              <InputGroupInput
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="max-w-sm"
               />
-              <Button
-                size="sm"
-                disabled={!name.trim() || name === orgName}
-                onClick={save}
-              >
-                Save
-              </Button>
-            </div>
+              {/* Save inside the input, styled like the API-key dialog's copy
+                  button (ghost, rounded-sm, h-7 against the pr-1 addon). */}
+              <InputGroupAddon align="inline-end" className="pr-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mr-1 h-7 rounded-sm"
+                  disabled={!name.trim() || name === orgName}
+                  onClick={save}
+                >
+                  Save
+                </Button>
+              </InputGroupAddon>
+            </InputGroup>
           </Field>
         </CardContent>
       </Card>
 
       {project && (
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Project</CardTitle>
             <CardDescription>
               Settings for the current project, {project.name}.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4 sm:flex-row">
+          <CardContent className="flex flex-col gap-4 sm:flex-row mt-2">
             <Field className="flex-1">
               <FieldLabel>Name</FieldLabel>
-              <div className="flex items-center gap-2">
-                <Input
+              <InputGroup>
+                <InputGroupInput
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  className="flex-1"
                 />
-                <Button
-                  size="sm"
-                  disabled={
-                    updateProject.isPending ||
-                    !projectName.trim() ||
-                    projectName.trim() === project.name
-                  }
-                  onClick={saveName}
-                >
-                  Save
-                </Button>
-              </div>
+                <InputGroupAddon align="inline-end" className="pr-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mr-1 h-7 rounded-sm"
+                    disabled={
+                      updateProject.isPending ||
+                      !projectName.trim() ||
+                      projectName.trim() === project.name
+                    }
+                    onClick={saveName}
+                  >
+                    Save
+                  </Button>
+                </InputGroupAddon>
+              </InputGroup>
             </Field>
 
             <Field className="flex-1">
               <FieldLabel>Project URL</FieldLabel>
-              <div className="flex items-center gap-2">
-                <Input
+              <InputGroup>
+                <InputGroupInput
                   placeholder="example.com"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1"
                 />
-                <Button
-                  size="sm"
-                  disabled={
-                    updateProject.isPending ||
-                    url.trim() === (project.url ?? "")
-                  }
-                  onClick={saveUrl}
-                >
-                  Save
-                </Button>
-              </div>
+                <InputGroupAddon align="inline-end" className="pr-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mr-1 h-7 rounded-sm"
+                    disabled={
+                      updateProject.isPending ||
+                      url.trim() === (project.url ?? "")
+                    }
+                    onClick={saveUrl}
+                  >
+                    Save
+                  </Button>
+                </InputGroupAddon>
+              </InputGroup>
             </Field>
           </CardContent>
         </Card>
       )}
 
-      <Card className="border-destructive/40">
+      <Card className="border-destructive/40" size="sm">
         <CardHeader>
           <CardTitle className="text-destructive">Danger zone</CardTitle>
           <CardDescription>
@@ -389,6 +417,7 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
               size="sm"
               onClick={() => setDeleteOpen(true)}
             >
+              <IconTrashFilled />
               Delete organization
             </Button>
           </CardAction>
@@ -481,7 +510,7 @@ function MembersTab({ orgId }: { orgId: string }) {
   };
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>Members</CardTitle>
       </CardHeader>
@@ -611,7 +640,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   };
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>Invitations</CardTitle>
         <CardDescription>
@@ -749,7 +778,7 @@ function ProjectsTab({ orgId }: { orgId: string }) {
   );
 
   return (
-    <Card className="pb-3">
+    <Card className="data-[size=sm]:pb-3" size="sm">
       <CardHeader>
         <CardTitle>Projects</CardTitle>
         <CardDescription>
@@ -760,7 +789,7 @@ function ProjectsTab({ orgId }: { orgId: string }) {
         {orgProjects.map((p) => (
           <div
             key={p.id}
-            className="flex items-center justify-between gap-3 border-b border-border/50 py-3 last:border-b-0 px-1.5"
+            className="flex items-center justify-between gap-3 border-b border-border/50 py-3 last:border-b-0 px-1 pr-2"
           >
             <div className="flex items-center gap-3">
               <ProjectIcon url={p.url} name={p.name} />
@@ -768,7 +797,7 @@ function ProjectsTab({ orgId }: { orgId: string }) {
             </div>
             <Button
               size="icon-sm"
-              variant="ghost"
+              variant="ghost-destructive"
               onClick={() => {
                 setDeleteTarget({ id: p.id, name: p.name });
                 setConfirm("");
@@ -826,14 +855,16 @@ function ProjectsTab({ orgId }: { orgId: string }) {
 
 // Pro plan headline limits, icons matched to the marketing pricing page
 // (apps/web/src/app/(marketing)/pricing/page.tsx). Keep both in sync.
-const PRO_LIMITS: { label: string; icon: ComponentType<{ className?: string }> }[] =
-  [
-    { label: "1M spans / month", icon: IconTimelineEventFilled },
-    { label: "14-day retention", icon: IconClockFilled },
-    { label: "5 projects", icon: IconFolderFilled },
-    { label: "10 alerts", icon: IconAlertTriangleFilled },
-    { label: "20 evals", icon: IconGaugeFilled },
-  ];
+const PRO_LIMITS: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+}[] = [
+  { label: "1M spans / month", icon: IconTimelineEventFilled },
+  { label: "14-day retention", icon: IconClockFilled },
+  { label: "5 projects", icon: IconFolderFilled },
+  { label: "10 alerts", icon: IconAlertTriangleFilled },
+  { label: "20 evals", icon: IconGaugeFilled },
+];
 
 function BillingTab({ orgId }: { orgId: string }) {
   const usage = useQuery({
@@ -876,7 +907,7 @@ function BillingTab({ orgId }: { orgId: string }) {
   const plan = usage.data.plan;
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>Billing</CardTitle>
         <CardDescription>
@@ -894,7 +925,10 @@ function BillingTab({ orgId }: { orgId: string }) {
             </p>
             <div className="flex flex-col gap-2.5">
               {PRO_LIMITS.map((l) => (
-                <div key={l.label} className="flex items-center gap-2.5 text-sm">
+                <div
+                  key={l.label}
+                  className="flex items-center gap-2.5 text-sm"
+                >
                   <l.icon className="size-4 shrink-0 text-muted-foreground/70" />
                   {l.label}
                 </div>
@@ -982,7 +1016,7 @@ function UsageTab({ orgId }: { orgId: string }) {
   const d = usage.data;
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>Usage</CardTitle>
         <CardDescription>
@@ -991,7 +1025,7 @@ function UsageTab({ orgId }: { orgId: string }) {
             : "Current billing period"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6 mt-2">
+      <CardContent className="gap-x-6 mt-3 pb-3 grid grid-cols-4">
         {d ? (
           <>
             <UsageBar
@@ -1009,22 +1043,22 @@ function UsageTab({ orgId }: { orgId: string }) {
               limit={d.projects.limit}
             />
             <UsageBar
-              label="Alerts"
-              icon={IconAlertTriangleFilled}
-              iconClassName="text-yellow-500"
-              used={d.alerts.used}
-              limit={d.alerts.limit}
-            />
-            <UsageBar
               label="Evals"
               icon={IconGaugeFilled}
               iconClassName="text-fuchsia-500"
               used={d.evals.used}
               limit={d.evals.limit}
             />
+            <UsageBar
+              label="Alerts"
+              icon={IconAlertTriangleFilled}
+              iconClassName="text-yellow-500"
+              used={d.alerts.used}
+              limit={d.alerts.limit}
+            />
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Loading usage…</p>
+          <p className="text-sm text-muted-foreground my-1.5">Loading usage…</p>
         )}
       </CardContent>
     </Card>
