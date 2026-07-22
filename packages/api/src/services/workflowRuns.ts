@@ -182,6 +182,9 @@ export async function getWorkflowRunSummary(
 		totalTokens: num(s?.total_tokens),
 		traceCount: num(s?.trace_count),
 		durationMs: quantiles(s?.duration_quantiles),
+		// 20/40/60/80th percentile thresholds for the runs-table heat cells.
+		costQuantiles: finite(s?.cost_q),
+		durationQuantiles: finite(s?.dur_q),
 	};
 }
 

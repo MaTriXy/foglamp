@@ -811,6 +811,10 @@ export type WorkflowRunSummaryRow = {
 	trace_count: string;
 	/** [p50, p95, p99] run duration in milliseconds. */
 	duration_quantiles: number[];
+	/** 20/40/60/80th-percentile cost thresholds, priced runs only. */
+	cost_q: number[];
+	/** 20/40/60/80th-percentile run-duration thresholds in milliseconds. */
+	dur_q: number[];
 };
 
 /**
@@ -841,7 +845,9 @@ export function workflowRunSummary(
        sum(t.total_cost) AS total_cost,
        sum(t.total_tokens) AS total_tokens,
        sum(t.trace_count) AS trace_count,
-       quantiles(0.5, 0.95, 0.99)(t.duration_ms) AS duration_quantiles
+       quantiles(0.5, 0.95, 0.99)(t.duration_ms) AS duration_quantiles,
+       quantilesIf(0.2, 0.4, 0.6, 0.8)(t.total_cost, t.total_cost > 0) AS cost_q,
+       quantiles(0.2, 0.4, 0.6, 0.8)(t.duration_ms) AS dur_q
      FROM (
        SELECT
          any(workflow_name) AS workflow_name,

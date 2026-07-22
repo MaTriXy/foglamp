@@ -51,7 +51,7 @@ export function FoggyMessage({ message }: { message: UIMessage }) {
           return isUser ? (
             <div
               key={key}
-              className="max-w-[85%] whitespace-pre-wrap rounded-3xl corner-squircle dark:bg-muted bg-muted-foreground/10 px-3 py-2 text-sm text-primary"
+              className="max-w-[85%] whitespace-pre-wrap rounded-3xl corner-squircle dark:bg-muted bg-muted-foreground/8 px-3 py-2 text-sm text-primary"
             >
               {part.text}
             </div>

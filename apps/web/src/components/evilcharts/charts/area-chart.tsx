@@ -339,6 +339,14 @@ export function Area({
   // class so <BufferDash> can find this area's stroke path and toggle the dash.
   const bufferActive = enableBufferLine !== undefined;
   const bufferClass = `evil-buffer-${id}`;
+  // An objectBoundingBox gradient paints nothing when the referencing path's
+  // bounding box has zero height — which is exactly what a flat series' stroke
+  // path is — so single-color series stroke with the color directly.
+  const strokeColorsCount = getColorsCount(config[dataKey] ?? {});
+  const strokePaint =
+    strokeColorsCount === 1
+      ? `var(--color-${dataKey}-0)`
+      : `url(#${id}-colors-${dataKey})`;
   const areaClassName =
     [areaProps?.className, bufferActive ? bufferClass : null]
       .filter(Boolean)
@@ -353,7 +361,7 @@ export function Area({
         fillOpacity={opacity.fill}
         strokeOpacity={opacity.stroke}
         fill={getFillPattern(variant, showUnselected, id)}
-        stroke={`url(#${id}-colors-${dataKey})`}
+        stroke={strokePaint}
         stackId={isStacked ? STACK_ID : undefined}
         dot={dot}
         activeDot={activeDot}

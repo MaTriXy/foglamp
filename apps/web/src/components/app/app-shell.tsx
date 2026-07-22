@@ -267,7 +267,7 @@ function ShellBody({ children }: { children: React.ReactNode }) {
   const [foggyOpen, setFoggyOpen] = useState(false);
 
   return (
-    <SidebarProvider className="relative h-svh min-h-0 overflow-hidden">
+    <SidebarProvider className="group/shell relative h-svh min-h-0 overflow-hidden">
       <Sidebar variant="inset">
         <SidebarHeader>
           <ProjectSwitcher />
@@ -349,6 +349,13 @@ function ShellBody({ children }: { children: React.ReactNode }) {
             <ProjectGate>{children}</ProjectGate>
           </div>
         </main>
+        {/* Lights up this surface's right edge while the Foggy panel's resize
+            handle is hovered or dragged (tracked via :has() on the shell), so
+            the resize affordance reads as the inset's own border. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 rounded-3xl corner-squircle border-r border-border/80 opacity-0 transition-opacity duration-200 group-has-[[data-foggy-resize]:hover]/shell:opacity-100 group-has-[[data-foggy-resize][data-resizing]]/shell:opacity-100"
+        />
       </SidebarInset>
 
       {/* In-app AI assistant launcher, carved into the inset's top-right

@@ -45,6 +45,7 @@ import {
   Toolbar,
   useTableSort,
 } from "@/components/app/data-table";
+import { HeatCell } from "@/components/app/heat-cell";
 import { useDelayedLoading } from "@/components/app/hooks";
 import { navItem } from "@/components/app/nav";
 import {
@@ -96,7 +97,8 @@ const volumeConfig = {
 } satisfies ChartConfig;
 
 const latencyConfig = {
-  p50: { label: "p50", colors: themed("var(--chart-2)") },
+  // neutral-800 on light, neutral-200 on dark — matches the Overview latency chart
+  p50: { label: "p50", colors: { light: ["#262626"], dark: ["#e5e5e5"] } },
   p95: { label: "p95", colors: themed("#0090FD") },
   p99: { label: "p99", colors: themed("#FF5513") },
 } satisfies ChartConfig;
@@ -257,6 +259,10 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
   }));
 
   const stats = summary.data;
+  // Global 20/40/60/80th-percentile thresholds for the heat-tinted cells,
+  // computed server-side over the whole filtered window (not just this page).
+  const costQuantiles = stats?.costQuantiles ?? [];
+  const durationQuantiles = stats?.durationQuantiles ?? [];
   // Total runs for pagination: the errored subset when the table is filtered.
   const totalRuns = errorsOnly
     ? (stats?.erroredRunCount ?? 0)
@@ -353,6 +359,11 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                     selectedDataKey={volumeSelected}
                     onSelectionChange={setVolumeSelected}
                     className="h-[220px] w-full"
+                    chartProps={{
+                      // left: 2 (vs Recharts' default 5) tucks the auto-width
+                      // y-axis labels closer to the card content edge.
+                      margin: { top: 5, right: 5, bottom: 5, left: 2 },
+                    }}
                   >
                     <AreaChart.Grid />
                     <AreaChart.XAxis
@@ -363,10 +374,8 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                       tick={edgeTick}
                     />
                     <AreaChart.YAxis
-                      width={30}
                       allowDecimals={false}
                       tickFormatter={(v) => formatCount(Number(v))}
-                      dx={-4}
                     />
                     <AreaChart.Tooltip
                       labelFormatter={(v) => formatBucketFull(String(v))}
@@ -407,6 +416,11 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                     selectedDataKey={latencySelected}
                     onSelectionChange={setLatencySelected}
                     className="h-[220px] w-full"
+                    chartProps={{
+                      // left: 2 (vs Recharts' default 5) tucks the auto-width
+                      // y-axis labels closer to the card content edge.
+                      margin: { top: 5, right: 5, bottom: 5, left: 2 },
+                    }}
                   >
                     <AreaChart.Grid />
                     <AreaChart.XAxis
@@ -417,9 +431,7 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                       tick={edgeTick}
                     />
                     <AreaChart.YAxis
-                      width={58}
                       tickFormatter={(v) => formatDuration(Number(v))}
-                      dx={-4}
                     />
                     <AreaChart.Tooltip
                       labelFormatter={(v) => formatBucketFull(String(v))}
@@ -592,12 +604,21 @@ export function WorkflowDetailClient({ nameParam }: { nameParam: string }) {
                         <TableCell className="text-right tabular-nums">
                           {formatCount(r.traceCount)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
+                        <HeatCell
+                          value={r.durationMs}
+                          thresholds={durationQuantiles}
+                          metric="duration"
+                        >
                           {formatDuration(r.durationMs)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
+                        </HeatCell>
+                        <HeatCell
+                          value={r.totalCost}
+                          thresholds={costQuantiles}
+                          metric="cost"
+                          bold
+                        >
                           {formatCost(r.totalCost)}
-                        </TableCell>
+                        </HeatCell>
                         <TableCell className="text-right text-muted-foreground">
                           <RelativeTime value={r.startTime} />
                         </TableCell>

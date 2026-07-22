@@ -161,10 +161,11 @@ export function SettingsClient() {
                         <div className="flex min-w-0 flex-1 items-center overflow-x-auto px-2.5">
                           <AnimatedApiKey from={keyName} value={revealedKey} />
                         </div>
-                        <InputGroupAddon align="inline-end">
+                        <InputGroupAddon align="inline-end" className="pr-1">
                           <Button
                             size="icon-sm"
                             variant="ghost"
+                            className="mr-1 rounded-sm size-7"
                             onClick={() => {
                               void navigator.clipboard.writeText(revealedKey);
                               markCopied();

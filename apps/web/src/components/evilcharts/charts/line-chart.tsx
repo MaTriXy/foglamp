@@ -310,6 +310,15 @@ export function Line({
   const isAnimatedDashed = strokeVariant === "animated-dashed";
   const isDashed = strokeVariant === "dashed" || isAnimatedDashed;
 
+  // An objectBoundingBox gradient paints nothing when the referencing path's
+  // bounding box has zero height — which is exactly what a flat series' stroke
+  // path is — so single-color series stroke with the color directly.
+  const strokeColorsCount = getColorsCount(config[dataKey] ?? {});
+  const strokePaint =
+    strokeColorsCount === 1
+      ? `var(--color-${dataKey}-0)`
+      : `url(#${id}-colors-${dataKey})`;
+
   return (
     <>
       <g key={dataKey}>
@@ -334,7 +343,7 @@ export function Line({
           dataKey={dataKey}
           connectNulls={connectNulls}
           strokeOpacity={opacity.stroke}
-          stroke={`url(#${id}-colors-${dataKey})`}
+          stroke={strokePaint}
           filter={glowing ? `url(#${id}-glow-${dataKey})` : undefined}
           dot={dot}
           activeDot={activeDot}

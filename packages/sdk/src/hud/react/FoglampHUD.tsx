@@ -294,12 +294,37 @@ function useResolvedTheme(
   return resolved;
 }
 
+// sessionStorage flag: "1" = the user hid the HUD for this browser session.
+const HIDE_KEY = "foglamp-hud-hidden";
+
 function HudApp(props: FoglampHUDProps) {
   const port = props.port ?? DEFAULT_PORT;
   const { state, conn } = useHudStream(port, props.url);
   const [mode, setMode] = useState<Mode>(
     props.defaultOpen ? "expanded" : "pill"
   );
+  // Hidden-for-session: seeded from sessionStorage so the choice survives
+  // reloads (but not a new tab/session). Guarded — storage can throw in
+  // sandboxed iframes.
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return sessionStorage.getItem(HIDE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  // The red "hide for this session?" confirmation: null → hidden, "open" →
+  // showing, "closing" → playing its exit animation before unmounting (the
+  // reverse of the entrance wipe; see .fl-hide-alert.closing).
+  const [hideAlert, setHideAlert] = useState<"open" | "closing" | null>(null);
+  const confirmHide = () => {
+    try {
+      sessionStorage.setItem(HIDE_KEY, "1");
+    } catch {
+      // Storage unavailable — still hide for this page's lifetime.
+    }
+    setHidden(true);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Slide direction for the list↔detail transition: +1 forward (into a run),
   // -1 back (to the list), 0 for pill ↔ expanded (fade only).
@@ -338,6 +363,7 @@ function HudApp(props: FoglampHUDProps) {
   };
   const collapse = () => {
     setDirection(0);
+    setHideAlert(null); // don't leave the alert floating over the pill
     setMode("pill");
   };
 
@@ -359,28 +385,81 @@ function HudApp(props: FoglampHUDProps) {
   const viewKey =
     mode === "pill" ? "pill" : selected ? `detail:${selected.traceId}` : "list";
 
+  if (hidden) return null;
+
   return (
-    <Morph dataMode={mode} viewKey={viewKey} direction={direction}>
-      {mode === "pill" ? (
-        <Pill count={state.sessionCount} status={pillStatus} onExpand={expand} />
-      ) : selected ? (
-        <TraceDetail
-          trace={selected}
-          redact={props.redact ?? false}
-          onBack={back}
-          onCollapse={collapse}
-        />
-      ) : (
-        <TraceList
-          traces={traces}
-          sessionCount={state.sessionCount}
-          conn={conn}
-          status={pillStatus}
-          onSelect={select}
-          onCollapse={collapse}
+    <>
+      {hideAlert && (
+        <HideAlert
+          closing={hideAlert === "closing"}
+          onConfirm={confirmHide}
+          onCancel={() => setHideAlert("closing")}
+          onClosed={() => setHideAlert(null)}
         />
       )}
-    </Morph>
+      <Morph dataMode={mode} viewKey={viewKey} direction={direction}>
+        {mode === "pill" ? (
+          <Pill count={state.sessionCount} status={pillStatus} onExpand={expand} />
+        ) : selected ? (
+          <TraceDetail
+            trace={selected}
+            redact={props.redact ?? false}
+            onBack={back}
+            onCollapse={collapse}
+          />
+        ) : (
+          <TraceList
+            traces={traces}
+            sessionCount={state.sessionCount}
+            conn={conn}
+            status={pillStatus}
+            onSelect={select}
+            onCollapse={collapse}
+            onHideRequest={() =>
+              setHideAlert((v) => (v === "open" ? "closing" : "open"))
+            }
+          />
+        )}
+      </Morph>
+    </>
+  );
+}
+
+/** Red confirmation bar shown above the window before hiding the HUD for the
+ * rest of the browser session (see HIDE_KEY). While `closing`, it plays the
+ * entrance animation in reverse and reports `onClosed` when it finishes so the
+ * owner can unmount it. */
+function HideAlert({
+  closing,
+  onConfirm,
+  onCancel,
+  onClosed,
+}: {
+  closing: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onClosed: () => void;
+}) {
+  return (
+    <div
+      className={`fl-hide-alert ${closing ? "closing" : ""}`}
+      role="alertdialog"
+      aria-label="Hide Foglamp HUD"
+      // Only the exit animation runs while `closing` (it overrides the pulse),
+      // so any animationend in that state means the exit finished.
+      onAnimationEnd={() => {
+        if (closing) onClosed();
+      }}
+    >
+      <WarnIcon />
+      <span className="fl-hide-alert-text">Hide the HUD for this session?</span>
+      <button type="button" className="fl-hide-btn" onClick={onCancel}>
+        Keep
+      </button>
+      <button type="button" className="fl-hide-btn confirm" onClick={onConfirm}>
+        Hide
+      </button>
+    </div>
   );
 }
 
@@ -664,6 +743,7 @@ function TraceList({
   status,
   onSelect,
   onCollapse,
+  onHideRequest,
 }: {
   traces: HudTrace[];
   sessionCount: number;
@@ -671,6 +751,7 @@ function TraceList({
   status: StatusKind;
   onSelect: (id: string) => void;
   onCollapse: () => void;
+  onHideRequest: () => void;
 }) {
   // The chart and the list scroll independently (a previous chart↔list sync fed
   // back into itself every tick and made the list jitter up/down). Live-follow
@@ -700,6 +781,14 @@ function TraceList({
           </span>
         </div>
         <Diamond status={status} />
+        <button
+          type="button"
+          className="fl-icon-btn"
+          onClick={onHideRequest}
+          aria-label="Hide HUD for this session"
+        >
+          <EyeOffIcon />
+        </button>
         <button
           type="button"
           className="fl-icon-btn"
@@ -1202,6 +1291,25 @@ function ChevronRight() {
       aria-hidden="true"
     >
       <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <path d="m2 2 20 20" />
     </svg>
   );
 }

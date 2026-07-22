@@ -291,6 +291,36 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
 .fl-listening span { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--fl-ok); animation: fl-ping 1.9s cubic-bezier(0,0,0.2,1) infinite; }
 .fl-listening span:nth-child(2) { animation-delay: 0.95s; }
 
+/* ---- Hide-for-session confirmation — a red alert bar above the window ---- */
+.fl-hide-alert {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px; padding: 9px 12px;
+  border-radius: 14px;
+  background: var(--fl-err-bg); color: var(--fl-err);
+  border: 2px solid var(--fl-err);
+  box-shadow: var(--fl-shadow);
+  font-size: 12.5px; font-weight: 500;
+  animation:
+    fl-alert-in 0.28s cubic-bezier(0.22,1,0.36,1),
+    fl-alert-pulse 1.8s ease-in-out 0.3s infinite;
+}
+.fl-hide-alert .fl-glyph { width: 15px; height: 15px; flex: none; }
+.fl-hide-alert-text { flex: 1; min-width: 0; white-space: nowrap; }
+.fl-hide-btn { flex: none; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--fl-err); transition: background 0.12s ease; }
+.fl-hide-btn:hover { background: color-mix(in oklab, var(--fl-err) 14%, transparent); }
+.fl-hide-btn.confirm { background: var(--fl-err); color: var(--fl-bg); }
+.fl-hide-btn.confirm:hover { background: color-mix(in oklab, var(--fl-err) 85%, black); }
+/* Exit: the entrance wipe in reverse. Overrides the pulse (single animation
+   list), and \`forwards\` holds the faded-out end state until React unmounts it
+   on animationend. */
+.fl-hide-alert.closing {
+  animation: fl-alert-out 0.28s cubic-bezier(0.22,1,0.36,1) forwards;
+  pointer-events: none;
+}
+@keyframes fl-alert-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes fl-alert-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes fl-alert-pulse { 0%, 100% { border-color: var(--fl-err); } 50% { border-color: color-mix(in oklab, var(--fl-err) 45%, transparent); } }
+
 @keyframes fl-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes fl-flash { 0% { background: var(--fl-err-bg); } 35% { background: var(--fl-err); } 100% { background: var(--fl-err-bg); } }
 @keyframes fl-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(3.6); opacity: 0; } }
@@ -299,7 +329,9 @@ button { font: inherit; border: none; background: none; cursor: pointer; color: 
   .fl-status.run .fl-px, .fl-tl-bar.run, .fl-wf-bar.run, .fl-listening span { animation: none; }
   .fl-status.run .fl-px { opacity: 1; }
   .fl-shell { transition: none; }
-  .fl-mode, .fl-row-item { animation: none; }
+  .fl-mode, .fl-row-item, .fl-hide-alert { animation: none; }
+  /* No exit animation → no animationend to unmount on; just vanish. */
+  .fl-hide-alert.closing { display: none; }
   .fl-row-detail { transition: none; }
 }
 `;
