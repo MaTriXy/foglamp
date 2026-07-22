@@ -28,20 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@foglamp/ui/components/select";
-import { IconTrash, IconTrashFilled } from "@tabler/icons-react";
+import { IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import {
-  NoProject,
-  PageHeader,
-  TableSkeleton,
-} from "@/components/app/page-parts";
+import { NoProject, TableSkeleton } from "@/components/app/page-parts";
 import { useProject } from "@/components/app/project-context";
 import { ModelLogo } from "@/components/model-logo";
 import { trpc } from "@/utils/trpc";
-import { ProviderKeysHeader } from "./header";
 
 type Provider = "google" | "openai" | "anthropic";
 const PROVIDER_LABELS: Record<Provider, string> = {
@@ -53,7 +48,8 @@ const PROVIDER_LABELS: Record<Provider, string> = {
 const ADDABLE: Provider[] = ["google", "openai", "anthropic"];
 const ALL_PROVIDERS: Provider[] = ["google", "openai", "anthropic"];
 
-export function ProviderKeysClient() {
+/** Provider keys management, rendered as a tab of the Settings page. */
+export function ProviderKeysTab() {
   const { projectId } = useProject();
   const qc = useQueryClient();
   const [provider, setProvider] = useState<Provider>("google");
@@ -90,12 +86,7 @@ export function ProviderKeysClient() {
   );
 
   if (!projectId) {
-    return (
-      <>
-        <PageHeader title="Provider Keys" />
-        <NoProject />
-      </>
-    );
+    return <NoProject />;
   }
 
   const configured = keys.data?.secretsConfigured ?? false;
@@ -103,8 +94,6 @@ export function ProviderKeysClient() {
 
   return (
     <>
-      <ProviderKeysHeader />
-
       <Card>
         <CardHeader>
           <CardTitle>Add or replace a key</CardTitle>

@@ -296,7 +296,7 @@ export function EvalSettingsFields({
           {needsKey && (
             <p className="text-sm text-destructive">
               No {judgeProvider} key saved.{" "}
-              <Link href="/settings/provider-keys" className="underline">
+              <Link href="/settings/org?tab=provider-keys" className="underline">
                 Add one
               </Link>{" "}
               to enable this judge.

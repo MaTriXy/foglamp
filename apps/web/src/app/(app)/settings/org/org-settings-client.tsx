@@ -39,15 +39,23 @@ import {
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangleFilled,
+  IconChartPieFilled,
   IconClockFilled,
+  IconCreditCardFilled,
   IconFolderFilled,
   IconGaugeFilled,
+  IconLockFilled,
+  IconMailFilled,
+  IconSettingsFilled,
   IconStack2Filled,
   IconTimelineEventFilled,
   IconTrash,
   IconTrashFilled,
+  IconUserFilled,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Route } from "next";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type ComponentType, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -58,6 +66,7 @@ import { authClient } from "@/lib/auth-client";
 import { formatCount } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
 import { OrgSettingsHeader } from "./header";
+import { ProviderKeysTab } from "./provider-keys-tab";
 
 type Member = {
   id: string;
@@ -80,10 +89,43 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// Tab ids double as the `?tab=` deep-link values (e.g. the New Eval dialog
+// links straight to provider-keys).
+const TAB_IDS = [
+  "general",
+  "members",
+  "invitations",
+  "projects",
+  "billing",
+  "usage",
+  "provider-keys",
+] as const;
+type TabId = (typeof TAB_IDS)[number];
+
+function isTabId(v: string | null): v is TabId {
+  return !!v && (TAB_IDS as readonly string[]).includes(v);
+}
+
 export function OrgSettingsClient() {
   const { project } = useProject();
   const orgId = project?.orgId;
   const orgName = project?.orgName ?? "";
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [tab, setTab] = useState<TabId>(isTabId(tabParam) ? tabParam : "general");
+  // Follow later URL changes too (e.g. an in-app link while already here).
+  useEffect(() => {
+    if (isTabId(tabParam)) setTab(tabParam);
+  }, [tabParam]);
+
+  function onTabChange(value: string) {
+    const next = isTabId(value) ? value : "general";
+    setTab(next);
+    // Keep the URL shareable/refreshable without adding history entries.
+    router.replace(`/settings/org?tab=${next}` as Route, { scroll: false });
+  }
 
   if (!orgId) {
     return (
@@ -96,15 +138,37 @@ export function OrgSettingsClient() {
 
   return (
     <>
-      <OrgSettingsHeader description={orgName} />
-      <Tabs defaultValue="general" className="gap-6">
+      <OrgSettingsHeader />
+      <Tabs value={tab} onValueChange={onTabChange} className="gap-6">
         <TabsList variant="line">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="invitations">Invitations</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
+          <TabsTrigger value="general">
+            <IconSettingsFilled className="size-3.5" />
+            General
+          </TabsTrigger>
+          <TabsTrigger value="members">
+            <IconUserFilled className="size-3.5" />
+            Members
+          </TabsTrigger>
+          <TabsTrigger value="invitations">
+            <IconMailFilled className="size-3.5" />
+            Invitations
+          </TabsTrigger>
+          <TabsTrigger value="projects">
+            <IconFolderFilled className="size-3.5" />
+            Projects
+          </TabsTrigger>
+          <TabsTrigger value="billing">
+            <IconCreditCardFilled className="size-3.5" />
+            Billing
+          </TabsTrigger>
+          <TabsTrigger value="usage">
+            <IconChartPieFilled className="size-3.5" />
+            Usage
+          </TabsTrigger>
+          <TabsTrigger value="provider-keys">
+            <IconLockFilled className="size-3.5" />
+            Provider Keys
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralTab orgId={orgId} orgName={orgName} />
@@ -123,6 +187,9 @@ export function OrgSettingsClient() {
         </TabsContent>
         <TabsContent value="usage">
           <UsageTab orgId={orgId} />
+        </TabsContent>
+        <TabsContent value="provider-keys">
+          <ProviderKeysTab />
         </TabsContent>
       </Tabs>
     </>

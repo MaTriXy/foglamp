@@ -10,8 +10,6 @@ import {
   IconGhostFilled,
   IconKey,
   IconKeyFilled,
-  IconLock,
-  IconLockFilled,
   IconMessage2,
   IconMessage2Filled,
   IconMichelinStar,
@@ -100,13 +98,6 @@ export const account: NavItem[] = [
     label: "API Keys",
     icon: IconKey,
     activeIcon: IconKeyFilled,
-    iconClassName: "dark:text-neutral-500 text-neutral-400",
-  },
-  {
-    href: "/settings/provider-keys",
-    label: "Provider Keys",
-    icon: IconLock,
-    activeIcon: IconLockFilled,
     iconClassName: "dark:text-neutral-500 text-neutral-400",
   },
   {
