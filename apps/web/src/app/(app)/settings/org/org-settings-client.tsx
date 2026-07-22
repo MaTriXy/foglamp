@@ -350,11 +350,11 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
             <CardDescription>
               Settings for{" "}
               {project.url && (
-                <span className="inline-flex items-center align-middle">
+                <span className="inline-flex items-center align-middle mx-1">
                   <ProjectIcon
                     url={project.url}
                     name={project.name}
-                    size="sm"
+                    size="xs"
                   />
                 </span>
               )}{" "}

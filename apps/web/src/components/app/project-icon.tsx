@@ -46,12 +46,14 @@ export function ProjectIcon({
 }: {
 	url: string | null | undefined;
 	name?: string | null | undefined;
-	size?: "sm" | "md";
+	size?: "xs" | "sm" | "md";
 }) {
 	const box =
 		size === "md"
 			? "size-6 rounded-lg corner-squircle shadow-(--custom-shadow)"
-			: "size-5 rounded-lg corner-squircle";
+			: size === "sm"
+				? "size-5 rounded-lg corner-squircle"
+				: "size-4 rounded-md corner-squircle";
 	if (url) {
 		return (
 			// eslint-disable-next-line @next/next/no-img-element -- external favicon service, no optimization wanted
@@ -67,7 +69,11 @@ export function ProjectIcon({
 		<div
 			className={`flex aspect-square items-center justify-center bg-primary/10 text-primary ${box}`}
 		>
-			<PlaceholderIcon className={size === "md" ? "size-4" : "size-3"} />
+			<PlaceholderIcon
+				className={
+					size === "md" ? "size-4" : size === "sm" ? "size-3" : "size-2.5"
+				}
+			/>
 		</div>
 	);
 }
