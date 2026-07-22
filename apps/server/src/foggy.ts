@@ -5,13 +5,14 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { foglamp } from "foglamp";
 import type { Context } from "hono";
 
 import { ch } from "@foglamp/api/clickhouse";
 import { requireProjectAccess } from "@foglamp/api/services/access";
 import { db } from "@foglamp/db";
+import { foggyThread } from "@foglamp/db/schema/foggy";
 import { organization } from "@foglamp/db/schema/organization";
 import { env } from "@foglamp/env/server";
 
@@ -138,6 +139,20 @@ function systemPrompt(
   ].join("\n");
 }
 
+// History list title: the first user message's text, on one line, truncated.
+function threadTitle(messages: UIMessage[]): string {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    for (const part of m.parts) {
+      if (part.type === "text" && part.text.trim()) {
+        const text = part.text.trim().replace(/\s+/g, " ");
+        return text.length > 80 ? `${text.slice(0, 79)}…` : text;
+      }
+    }
+  }
+  return "New chat";
+}
+
 export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
   const session = c.get("session");
   const userId = session?.user?.id;
@@ -231,5 +246,104 @@ export async function handleFoggy(c: Context<AppEnv>): Promise<Response> {
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  const log = c.get("log");
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    // Persist the whole conversation after each exchange (including aborted
+    // ones — whatever streamed is worth keeping). Requires a client-minted
+    // threadId; without one there's no stable identity to store under.
+    onEnd: async ({ messages: updated }) => {
+      if (!threadId) return;
+      try {
+        await db
+          .insert(foggyThread)
+          .values({
+            id: threadId,
+            userId,
+            projectId,
+            title: threadTitle(updated),
+            messages: updated,
+          })
+          .onConflictDoUpdate({
+            target: foggyThread.id,
+            // Guard the update the same way reads are guarded: a colliding id
+            // from another user/project must not overwrite that thread.
+            setWhere: and(
+              eq(foggyThread.userId, userId),
+              eq(foggyThread.projectId, projectId),
+            ),
+            set: {
+              messages: updated,
+              updatedAt: new Date(),
+            },
+          });
+      } catch (err) {
+        // History is best-effort; never fail the live response over it.
+        log.error(err instanceof Error ? err : new Error(String(err)));
+      }
+    },
+  });
+}
+
+// GET /foggy/threads?projectId=… — the signed-in user's chat history for a
+// project, newest first. Returns list metadata only (no message bodies).
+export async function handleFoggyThreadList(
+  c: Context<AppEnv>,
+): Promise<Response> {
+  const userId = c.get("session")?.user?.id;
+  if (!userId) return c.json({ error: "Not authenticated" }, 401);
+
+  const projectId = c.req.query("projectId");
+  if (!projectId) return c.json({ error: "Missing projectId" }, 400);
+  try {
+    await requireProjectAccess(db, userId, projectId);
+  } catch {
+    return c.json({ error: "Project not found or not accessible" }, 403);
+  }
+
+  const threads = await db
+    .select({
+      id: foggyThread.id,
+      title: foggyThread.title,
+      updatedAt: foggyThread.updatedAt,
+    })
+    .from(foggyThread)
+    .where(
+      and(eq(foggyThread.userId, userId), eq(foggyThread.projectId, projectId)),
+    )
+    .orderBy(desc(foggyThread.updatedAt))
+    .limit(50);
+
+  return c.json({ threads });
+}
+
+// GET /foggy/threads/:id — one thread's full message list, for resuming it.
+export async function handleFoggyThreadGet(
+  c: Context<AppEnv>,
+): Promise<Response> {
+  const userId = c.get("session")?.user?.id;
+  if (!userId) return c.json({ error: "Not authenticated" }, 401);
+
+  const id = c.req.param("id");
+  if (!id) return c.json({ error: "Missing thread id" }, 400);
+  const row = await db
+    .select({
+      id: foggyThread.id,
+      projectId: foggyThread.projectId,
+      messages: foggyThread.messages,
+    })
+    .from(foggyThread)
+    .where(and(eq(foggyThread.id, id), eq(foggyThread.userId, userId)))
+    .limit(1);
+  const thread = row[0];
+  if (!thread) return c.json({ error: "Thread not found" }, 404);
+  // The user owns the thread, but re-check project access in case they've
+  // since been removed from the org.
+  try {
+    await requireProjectAccess(db, userId, thread.projectId);
+  } catch {
+    return c.json({ error: "Thread not found" }, 404);
+  }
+
+  return c.json({ id: thread.id, messages: thread.messages });
 }

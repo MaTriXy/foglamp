@@ -1,11 +1,12 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconAlertHexagonFilled,
   IconArrowUp,
+  IconHistory,
   IconMessageFilled,
   IconPacmanFilled,
   IconPlus,
@@ -16,6 +17,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { env } from "@foglamp/env/web";
 import { Button } from "@foglamp/ui/components/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@foglamp/ui/components/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -52,7 +59,10 @@ const SUGGESTIONS = [
 
 // Width of the chat panel when open. The inset (a flex sibling, flex-1) gives up
 // exactly this much room, so the chat reads as carved out of the same canvas.
+// The user can drag the panel's left edge to resize within these bounds.
 const PANEL_WIDTH = 384;
+const MIN_PANEL_WIDTH = 320;
+const MAX_PANEL_WIDTH = 640;
 
 // Shared layoutId-driven morph for the Foggy icon + label. The launcher's
 // "Ask Foggy" button and the open panel's header render the same icon/label
@@ -237,11 +247,57 @@ export function FoggyWidget({
   // Whether the message list is scrolled away from the top — gates the top fade.
   const [scrolled, setScrolled] = useState(false);
 
+  // User-adjustable panel width, driven by dragging the left edge. While a
+  // drag is live we suppress the width tween so the panel tracks the pointer
+  // 1:1 instead of easing toward it.
+  const [panelWidth, setPanelWidth] = useState(PANEL_WIDTH);
+  const [resizing, setResizing] = useState(false);
+
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    setResizing(true);
+    // The pointer leaves the thin handle immediately while dragging, so pin
+    // the resize cursor (and disable text selection) globally until release.
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    function onMove(ev: PointerEvent) {
+      setPanelWidth(
+        Math.min(
+          MAX_PANEL_WIDTH,
+          Math.max(MIN_PANEL_WIDTH, startWidth + (startX - ev.clientX))
+        )
+      );
+    }
+    function onUp() {
+      setResizing(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
   // A stable id for the current conversation, sent to the server so each chat
   // becomes its own foglamp session. Regenerated on "new chat" (below) and on a
   // project switch (the parent keys this component by projectId, remounting it).
   // Not rendered to the DOM, so generating it during render is hydration-safe.
   const [threadId, setThreadId] = useState(() => crypto.randomUUID());
+
+  // Messages to seed the chat with when the threadId changes — set when the
+  // user resumes a conversation from history. useChat only reads this while
+  // (re)creating its internal Chat, which happens exactly on an `id` change,
+  // so pairing setSeedMessages + setThreadId swaps in the loaded thread.
+  const [seedMessages, setSeedMessages] = useState<UIMessage[]>([]);
+
+  // Past conversations for the history dropdown, fetched each time it opens.
+  const [threads, setThreads] = useState<
+    { id: string; title: string; updatedAt: string }[]
+  >([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
 
   // The page and the selected time range both change as the user navigates and
   // adjusts the range picker, but we don't want to rebuild the transport (and
@@ -286,15 +342,13 @@ export function FoggyWidget({
     [projectId, threadId]
   );
 
-  const {
-    messages,
-    sendMessage,
-    setMessages,
-    status,
-    error,
-    stop,
-    regenerate,
-  } = useChat({
+  const { messages, sendMessage, status, error, stop, regenerate } = useChat({
+    // The id ties useChat to the conversation: changing it makes useChat build
+    // a fresh internal Chat from the current transport + seed messages.
+    // (Without it, useChat keeps the first transport forever and "new chat" /
+    // "resume thread" would silently keep posting under the old threadId.)
+    id: threadId,
+    messages: seedMessages,
     transport,
   });
   const busy = status === "submitted" || status === "streaming";
@@ -302,10 +356,53 @@ export function FoggyWidget({
   // Reset to a fresh conversation — new threadId → new foglamp session.
   function newChat() {
     if (busy) void stop();
-    setMessages([]);
     setInput("");
     setScrolled(false);
+    setSeedMessages([]);
     setThreadId(crypto.randomUUID());
+  }
+
+  // Fetch the history list; called when the dropdown opens. Server scopes to
+  // the signed-in user + this project and orders newest first.
+  async function loadThreads() {
+    setThreadsLoading(true);
+    try {
+      const res = await fetch(
+        `${env.NEXT_PUBLIC_SERVER_URL}/foggy/threads?projectId=${encodeURIComponent(projectId)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        threads?: { id: string; title: string; updatedAt: string }[];
+      };
+      setThreads(data.threads ?? []);
+    } catch {
+      // Leave the previous list; the dropdown just shows what it has.
+    } finally {
+      setThreadsLoading(false);
+    }
+  }
+
+  // Resume a past conversation: load its messages, then swap the chat over to
+  // that thread. Further replies upsert the same row server-side.
+  async function openThread(id: string) {
+    if (id === threadId) return;
+    try {
+      const res = await fetch(
+        `${env.NEXT_PUBLIC_SERVER_URL}/foggy/threads/${encodeURIComponent(id)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { messages?: UIMessage[] };
+      if (!Array.isArray(data.messages)) return;
+      if (busy) void stop();
+      setInput("");
+      setScrolled(false);
+      setSeedMessages(data.messages);
+      setThreadId(id);
+    } catch {
+      // Loading failed — keep the current conversation untouched.
+    }
   }
 
   // Show the shimmer while we're waiting for (or tool-calling toward) a reply —
@@ -365,15 +462,36 @@ export function FoggyWidget({
       // Flat on the canvas (bg-sidebar) to the right of the inset; animating the
       // width makes the flex-1 inset shrink/grow smoothly to make room.
       initial={false}
-      animate={{ width: open ? PANEL_WIDTH : 0 }}
-      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-      className="relative h-svh shrink-0 overflow-hidden"
+      animate={{ width: open ? panelWidth : 0 }}
+      transition={
+        resizing
+          ? { duration: 0 }
+          : { duration: 0.25, ease: [0.32, 0.72, 0, 1] }
+      }
+      // No overflow-hidden here: the provider clips at the viewport, and the
+      // resize handle needs to hang past this edge to cover the canvas gap.
+      className="relative h-svh shrink-0"
       aria-hidden={!open}
     >
+      {/* Drag the left edge to resize. Shows the col-resize cursor on hover.
+          Hangs 8px left of the panel to span the canvas gap up to the inset's
+          edge. The visual affordance is the inset's right edge lighting up —
+          the app shell watches these data attributes via :has() to drive it. */}
+      {open && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panel"
+          data-foggy-resize=""
+          data-resizing={resizing || undefined}
+          onPointerDown={startResize}
+          className="absolute inset-y-0 -left-2 z-20 w-4 cursor-col-resize"
+        />
+      )}
       {/* Fixed-width inner so content doesn't reflow while the panel animates. */}
       <div
         className="flex h-full flex-col py-2 pr-2"
-        style={{ width: PANEL_WIDTH }}
+        style={{ width: panelWidth }}
       >
         <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
           {/* The icon + label + kbd share their layoutId with the launcher
@@ -401,6 +519,44 @@ export function FoggyWidget({
             </div>
           )}
           <div className="flex items-center gap-1">
+            {open && (
+              <DropdownMenu
+                onOpenChange={(o) => {
+                  if (o) void loadThreads();
+                }}
+              >
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="History"
+                      title="History"
+                    >
+                      <IconHistory className="size-4" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-64">
+                  {threads.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      {threadsLoading ? "Loading…" : "No conversations yet"}
+                    </div>
+                  ) : (
+                    threads.map((t) => (
+                      <DropdownMenuItem
+                        key={t.id}
+                        onClick={() => void openThread(t.id)}
+                        className={cn(t.id === threadId && "bg-accent/50")}
+                      >
+                        <span className="truncate">{t.title}</span>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <AnimatePresence initial={false}>
               {messages.length > 0 && (
                 <motion.div

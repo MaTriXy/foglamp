@@ -18,7 +18,11 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 
 import { evlog, type AppEnv } from "./evlog";
-import { handleFoggy } from "./foggy";
+import {
+  handleFoggy,
+  handleFoggyThreadGet,
+  handleFoggyThreadList,
+} from "./foggy";
 import { pruneFoggyRateLimits } from "./foggyRateLimit";
 import {
   handleScanClaim,
@@ -96,6 +100,9 @@ app.post(
   }),
   handleFoggy,
 );
+// Foggy chat history: list a project's threads, and load one to resume it.
+app.get("/foggy/threads", handleFoggyThreadList);
+app.get("/foggy/threads/:id", handleFoggyThreadGet);
 
 // Codebase scan — public, anonymous. An agent uploads its scan JSON and
 // gets back a shareable foglamp.dev/scan/<slug> URL. Rate-limited by IP inside
