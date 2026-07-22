@@ -129,7 +129,7 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
             className={cn(
               "relative h-8 cursor-pointer rounded-xl corner-squircle px-2.5 text-sm font-medium transition-colors",
               active
-                ? "text-primary"
+                ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
