@@ -324,13 +324,11 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-              {/* Save inside the input, styled like the API-key dialog's copy
-                  button (ghost, rounded-sm, h-7 against the pr-1 addon). */}
-              <InputGroupAddon align="inline-end" className="pr-1">
+              <InputGroupAddon align="inline-end" className="pr-1.25">
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="mr-1 h-7 rounded-sm"
+                  className="mr-1 h-6.5 rounded-sm dark:hover:bg-muted"
                   disabled={!name.trim() || name === orgName}
                   onClick={save}
                 >
@@ -346,8 +344,21 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
         <Card size="sm">
           <CardHeader>
             <CardTitle>Project</CardTitle>
+            {/* Same favicon the sidebar's project switcher shows, inlined
+                before the name. Only when the project has a URL — the
+                placeholder variant renders a div, invalid inside this <p>. */}
             <CardDescription>
-              Settings for the current project, {project.name}.
+              Settings for{" "}
+              {project.url && (
+                <span className="inline-flex items-center align-middle">
+                  <ProjectIcon
+                    url={project.url}
+                    name={project.name}
+                    size="sm"
+                  />
+                </span>
+              )}{" "}
+              {project.name}.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row mt-2">
@@ -358,11 +369,11 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                 />
-                <InputGroupAddon align="inline-end" className="pr-1">
+                <InputGroupAddon align="inline-end" className="pr-1.25">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="mr-1 h-7 rounded-sm"
+                    className="mr-1 h-6.5 rounded-sm dark:hover:bg-muted"
                     disabled={
                       updateProject.isPending ||
                       !projectName.trim() ||
@@ -384,11 +395,11 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                 />
-                <InputGroupAddon align="inline-end" className="pr-1">
+                <InputGroupAddon align="inline-end" className="pr-1.25">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="mr-1 h-7 rounded-sm"
+                    className="mr-1 h-6.5 rounded-sm dark:hover:bg-muted"
                     disabled={
                       updateProject.isPending ||
                       url.trim() === (project.url ?? "")
@@ -417,7 +428,7 @@ function GeneralTab({ orgId, orgName }: { orgId: string; orgName: string }) {
               size="sm"
               onClick={() => setDeleteOpen(true)}
             >
-              <IconTrashFilled />
+              <IconTrashFilled className="mb-px" />
               Delete organization
             </Button>
           </CardAction>
@@ -789,7 +800,7 @@ function ProjectsTab({ orgId }: { orgId: string }) {
         {orgProjects.map((p) => (
           <div
             key={p.id}
-            className="flex items-center justify-between gap-3 border-b border-border/50 py-3 last:border-b-0 px-1 pr-2"
+            className="flex items-center justify-between gap-3 border-b border-border/50 py-3 last:border-b-0 px-0.5 pr-2"
           >
             <div className="flex items-center gap-3">
               <ProjectIcon url={p.url} name={p.name} />
@@ -1025,7 +1036,7 @@ function UsageTab({ orgId }: { orgId: string }) {
             : "Current billing period"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="gap-x-6 mt-3 pb-3 grid grid-cols-4">
+      <CardContent className="gap-x-8 mt-3 pb-3 grid grid-cols-4">
         {d ? (
           <>
             <UsageBar
