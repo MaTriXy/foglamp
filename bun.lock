@@ -44,6 +44,7 @@
         "@ai-sdk/google": "4.0.0",
         "@foglamp/api": "workspace:*",
         "@foglamp/auth": "workspace:*",
+        "@foglamp/cost": "workspace:*",
         "@foglamp/db": "workspace:*",
         "@foglamp/env": "workspace:*",
         "@hono/trpc-server": "^0.4.0",
@@ -293,7 +294,7 @@
     },
     "packages/sdk": {
       "name": "foglamp",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "bin": {
         "foglamp": "./dist/cli.mjs",
       },

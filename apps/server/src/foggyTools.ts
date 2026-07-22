@@ -1,7 +1,17 @@
 import { tool, type ToolSet } from "ai";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+import {
+  COST_DIMENSIONS,
+  getPricingTable,
+  modelIdCandidates,
+  resolveModelPrice,
+  type CustomPrice,
+  type ModelPrice,
+} from "@foglamp/cost";
 import { db } from "@foglamp/db";
+import { customPricing } from "@foglamp/db/schema/pricing";
 import { env } from "@foglamp/env/server";
 import type { Ch } from "@foglamp/api/types";
 import { getAgentList } from "@foglamp/api/services/agents";
@@ -102,6 +112,106 @@ async function fetchDocs(full: boolean): Promise<string | null> {
   } catch {
     return cached?.text ?? null;
   }
+}
+
+// --- Model pricing (OpenRouter catalog + per-project overrides) -------------
+// Mirrors how ingest prices spans: the project's custom_pricing rules take
+// precedence per dimension, unset dimensions fall back to OpenRouter. The
+// matching here intentionally reuses the same candidate expansion
+// (modelIdCandidates) and glob semantics as apps/ingest/src/customPricing.ts.
+
+type PricingRule = { pattern: string; price: CustomPrice };
+
+function globToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
+async function loadPricingRules(projectId: string): Promise<PricingRule[]> {
+  const rows = await db
+    .select()
+    .from(customPricing)
+    .where(eq(customPricing.projectId, projectId));
+  return rows
+    .map((row) => {
+      const price: CustomPrice = {};
+      if (row.promptPrice != null) price.prompt = row.promptPrice;
+      if (row.completionPrice != null) price.completion = row.completionPrice;
+      if (row.requestPrice != null) price.request = row.requestPrice;
+      if (row.imagePrice != null) price.image = row.imagePrice;
+      if (row.webSearchPrice != null) price.webSearch = row.webSearchPrice;
+      if (row.internalReasoningPrice != null)
+        price.internalReasoning = row.internalReasoningPrice;
+      if (row.cacheReadPrice != null) price.cacheRead = row.cacheReadPrice;
+      if (row.cacheWritePrice != null) price.cacheWrite = row.cacheWritePrice;
+      return { pattern: row.modelPattern.toLowerCase(), price };
+    })
+    // Exact patterns first so they win over globs of the same model family.
+    .sort((a, b) => Number(a.pattern.includes("*")) - Number(b.pattern.includes("*")));
+}
+
+function matchPricingRule(
+  rules: PricingRule[],
+  modelId: string,
+): PricingRule | undefined {
+  if (rules.length === 0) return undefined;
+  const targets = modelIdCandidates(undefined, modelId);
+  const raw = modelId.trim().toLowerCase();
+  if (raw && !targets.includes(raw)) targets.push(raw);
+  return rules.find((rule) => {
+    const re = globToRegExp(rule.pattern);
+    return targets.some((t) => re.test(t));
+  });
+}
+
+// A bare model id with no vendor prefix ("claude-sonnet-5") produces no
+// candidates without a provider hint, which Foggy usually lacks. Fall back to
+// matching the id against the catalog keys' model part, trying the same
+// variants expandModel does (date-suffix stripped, digits dotted).
+const VERSION_SUFFIX_RE = /-(?:\d{4}-\d{2}-\d{2}|\d{8}|\d{6}|latest|preview|exp)$/;
+
+function fallbackResolveId(
+  table: Map<string, ModelPrice>,
+  modelId: string,
+): string | null {
+  const raw = modelId.trim().toLowerCase();
+  if (!raw || raw.includes("/")) return null;
+  const dateless = raw.replace(VERSION_SUFFIX_RE, "");
+  const variants = new Set([raw, dateless, dateless.replace(/(\d)-(\d)/g, "$1.$2")]);
+  for (const key of table.keys()) {
+    const modelPart = key.slice(key.indexOf("/") + 1);
+    if (variants.has(modelPart)) return key;
+  }
+  return null;
+}
+
+// Dimensions billed per token, reported per 1M tokens for readability; the
+// rest (request, image, webSearch) are billed per unit and reported as-is.
+const PER_TOKEN_DIMS = [
+  "prompt",
+  "completion",
+  "internalReasoning",
+  "cacheRead",
+  "cacheWrite",
+] as const;
+
+function formatPrice(price: ModelPrice) {
+  const perMillionTokens: Record<string, number> = {};
+  const perUnit: Record<string, number> = {};
+  for (const dim of COST_DIMENSIONS) {
+    const v = price[dim];
+    if (v == null) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) continue;
+    if ((PER_TOKEN_DIMS as readonly string[]).includes(dim)) {
+      // Per-token decimal strings are tiny (e.g. "0.0000025"); round the
+      // scaled value so float noise doesn't read as a real price digit.
+      perMillionTokens[dim] = Number((n * 1e6).toFixed(6));
+    } else {
+      perUnit[dim] = n;
+    }
+  }
+  return { perMillionTokens, perUnit };
 }
 
 export function buildFoggyTools({
@@ -268,6 +378,92 @@ export function buildFoggyTools({
       execute: async ({ from, to }) => {
         const w = resolveWindow(from, to);
         return getModelBreakdown(db, ch, userId, { projectId, ...w });
+      },
+    }),
+
+    getModelPricing: tool({
+      description:
+        "Current USD prices for LLM models, resolved exactly like this project's span costs: the live OpenRouter catalog plus the project's custom pricing overrides (which take precedence per dimension). Pass model ids to price specific models (e.g. 'openai/gpt-4o', 'claude-sonnet-5'), and/or search to find catalog models by substring. Token dimensions come back per 1M tokens; request/image/webSearch are per unit. Use for 'what does X cost', comparing models, or what-if math (e.g. re-pricing a trace's tokens under a cheaper model — combine with getTrace/breakdownByModel token counts).",
+      inputSchema: z.object({
+        models: z
+          .array(z.string())
+          .max(10)
+          .optional()
+          .describe(
+            "Model ids to resolve. Vendor-prefixed OpenRouter ids ('anthropic/claude-sonnet-5') are most reliable; bare ids from this project's data ('gpt-4o') are normalized the same way span pricing does it.",
+          ),
+        search: z
+          .string()
+          .optional()
+          .describe(
+            "Case-insensitive substring to search the OpenRouter catalog's model ids, e.g. 'deepseek'. Returns up to 20 matches with prompt/completion prices.",
+          ),
+      }),
+      execute: async ({ models, search }) => {
+        if (!models?.length && !search) {
+          return {
+            error:
+              "Pass models (ids to price) and/or search (substring to find catalog models).",
+          };
+        }
+        const [table, rules] = await Promise.all([
+          getPricingTable(),
+          loadPricingRules(projectId),
+        ]);
+        if (table.size === 0 && rules.length === 0) {
+          return {
+            unavailable: true,
+            note: "The OpenRouter pricing catalog is unreachable right now and this project has no custom pricing rules.",
+          };
+        }
+
+        const resolved = (models ?? []).map((m) => {
+          // Vendor-less ids: recover the full catalog id first so both the
+          // catalog lookup and the override match see the id ingest would.
+          const target = fallbackResolveId(table, m) ?? m;
+          const rule = matchPricingRule(rules, target);
+          const hit = resolveModelPrice(table, undefined, target, rule?.price);
+          if (!hit) {
+            return {
+              model: m,
+              found: false as const,
+              note: "Unknown to both the OpenRouter catalog and this project's custom pricing — spans on this model have null (unpriced) cost.",
+            };
+          }
+          return {
+            model: m,
+            found: true as const,
+            resolvedId: hit.resolvedId || m.toLowerCase(),
+            // openrouter = catalog price; custom = fully overridden by this
+            // project; mixed = catalog with some dimensions overridden.
+            source: hit.source,
+            overridePattern: rule ? untrusted(rule.pattern) : null,
+            ...formatPrice(hit.price),
+          };
+        });
+
+        let matches: { id: string; perMillionTokens: Record<string, number> }[] = [];
+        let totalMatches = 0;
+        if (search) {
+          const q = search.trim().toLowerCase();
+          // The table maps both a model's id and its canonical slug to the
+          // same ModelPrice object — dedupe by that identity.
+          const seen = new Set<ModelPrice>();
+          for (const [id, price] of table) {
+            if (!q || !id.includes(q) || seen.has(price)) continue;
+            seen.add(price);
+            totalMatches++;
+            if (matches.length >= 20) continue;
+            matches.push({ id, perMillionTokens: formatPrice(price).perMillionTokens });
+          }
+        }
+
+        return {
+          currency: "USD",
+          tokenPricesAre: "per 1M tokens",
+          ...(models?.length ? { models: resolved } : {}),
+          ...(search ? { search, totalMatches, matches } : {}),
+        };
       },
     }),
 

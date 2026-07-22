@@ -15,6 +15,7 @@
     "@ai-sdk/google": "4.0.0",
     "@foglamp/api": "workspace:*",
     "@foglamp/auth": "workspace:*",
+    "@foglamp/cost": "workspace:*",
     "@foglamp/db": "workspace:*",
     "@foglamp/env": "workspace:*",
     "@hono/trpc-server": "^0.4.0",
