@@ -30,12 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@foglamp/ui/components/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@foglamp/ui/components/tabs";
 import { cn } from "@foglamp/ui/lib/utils";
 import {
   IconAlertTriangleFilled,
@@ -54,6 +48,7 @@ import {
   IconUserFilled,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type ComponentType, useCallback, useEffect, useState } from "react";
@@ -106,6 +101,56 @@ function isTabId(v: string | null): v is TabId {
   return !!v && (TAB_IDS as readonly string[]).includes(v);
 }
 
+const TABS: { id: TabId; label: string; icon: ComponentType<{ className?: string }> }[] = [
+  { id: "general", label: "General", icon: IconSettingsFilled },
+  { id: "members", label: "Members", icon: IconUserFilled },
+  { id: "invitations", label: "Invitations", icon: IconMailFilled },
+  { id: "projects", label: "Projects", icon: IconFolderFilled },
+  { id: "billing", label: "Billing", icon: IconCreditCardFilled },
+  { id: "usage", label: "Usage", icon: IconChartPieFilled },
+  { id: "provider-keys", label: "Provider Keys", icon: IconLockFilled },
+];
+
+// Button-row tab bar with one shared background pill: the active button hosts
+// a layoutId span, so selecting another tab slides the pill over to it instead
+// of it popping in and out.
+function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void }) {
+  return (
+    <div role="tablist" className="flex w-fit flex-wrap items-center gap-1">
+      {TABS.map(({ id, label, icon: Icon }) => {
+        const active = id === tab;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(id)}
+            className={cn(
+              "relative h-8 cursor-pointer rounded-xl corner-squircle px-2.5 text-sm font-medium transition-colors",
+              active
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId="settings-tab-bg"
+                transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                className="absolute inset-0 rounded-xl corner-squircle bg-muted dark:bg-muted/50"
+              />
+            )}
+            <span className="relative flex items-center gap-1.5">
+              <Icon className="size-3.5" />
+              {label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function OrgSettingsClient() {
   const { project } = useProject();
   const orgId = project?.orgId;
@@ -139,59 +184,16 @@ export function OrgSettingsClient() {
   return (
     <>
       <OrgSettingsHeader />
-      <Tabs value={tab} onValueChange={onTabChange} className="gap-6">
-        <TabsList variant="line">
-          <TabsTrigger value="general">
-            <IconSettingsFilled className="size-3.5" />
-            General
-          </TabsTrigger>
-          <TabsTrigger value="members">
-            <IconUserFilled className="size-3.5" />
-            Members
-          </TabsTrigger>
-          <TabsTrigger value="invitations">
-            <IconMailFilled className="size-3.5" />
-            Invitations
-          </TabsTrigger>
-          <TabsTrigger value="projects">
-            <IconFolderFilled className="size-3.5" />
-            Projects
-          </TabsTrigger>
-          <TabsTrigger value="billing">
-            <IconCreditCardFilled className="size-3.5" />
-            Billing
-          </TabsTrigger>
-          <TabsTrigger value="usage">
-            <IconChartPieFilled className="size-3.5" />
-            Usage
-          </TabsTrigger>
-          <TabsTrigger value="provider-keys">
-            <IconLockFilled className="size-3.5" />
-            Provider Keys
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="general">
-          <GeneralTab orgId={orgId} orgName={orgName} />
-        </TabsContent>
-        <TabsContent value="members">
-          <MembersTab orgId={orgId} />
-        </TabsContent>
-        <TabsContent value="invitations">
-          <InvitationsTab orgId={orgId} />
-        </TabsContent>
-        <TabsContent value="projects">
-          <ProjectsTab orgId={orgId} />
-        </TabsContent>
-        <TabsContent value="billing">
-          <BillingTab orgId={orgId} />
-        </TabsContent>
-        <TabsContent value="usage">
-          <UsageTab orgId={orgId} />
-        </TabsContent>
-        <TabsContent value="provider-keys">
-          <ProviderKeysTab />
-        </TabsContent>
-      </Tabs>
+      <div className="flex flex-col gap-6">
+        <TabBar tab={tab} onChange={onTabChange} />
+        {tab === "general" && <GeneralTab orgId={orgId} orgName={orgName} />}
+        {tab === "members" && <MembersTab orgId={orgId} />}
+        {tab === "invitations" && <InvitationsTab orgId={orgId} />}
+        {tab === "projects" && <ProjectsTab orgId={orgId} />}
+        {tab === "billing" && <BillingTab orgId={orgId} />}
+        {tab === "usage" && <UsageTab orgId={orgId} />}
+        {tab === "provider-keys" && <ProviderKeysTab />}
+      </div>
     </>
   );
 }
