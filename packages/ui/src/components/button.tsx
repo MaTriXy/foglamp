@@ -10,18 +10,18 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-neutral-800 dark:bg-neutral-200 shadow-[var(--custom-shadow-primary)] text-primary-foreground hover:bg-primary/80 dark:hover:bg-primary/90",
+          "bg-neutral-800 dark:bg-neutral-200 shadow-[var(--custom-shadow-primary)] text-primary-foreground hover:bg-primary/80 dark:hover:bg-primary/90 [&_svg]:text-neutral-300 dark:[&_svg]:text-neutral-700",
         outline:
-          "shadow-(--custom-outline-shadow) bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-card dark:hover:bg-muted",
+          "shadow-(--custom-outline-shadow) bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-card dark:hover:bg-muted [&_svg]:text-neutral-500 dark:[&_svg]:text-neutral-400",
         secondary:
-          "bg-secondary shadow-[var(--custom-shadow-secondary)] text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground dark:hover:bg-muted-foreground/25",
+          "bg-secondary shadow-[var(--custom-shadow-secondary)] text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground dark:hover:bg-muted-foreground/25 [&_svg]:text-neutral-500 dark:[&_svg]:text-neutral-300",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 [&_svg]:text-neutral-500 dark:[&_svg]:text-neutral-400",
         // Like `ghost` (transparent at rest), but hover tints it red — bg and
         // icon/text both shift to the destructive color. For low-emphasis
         // delete affordances that only "arm" on hover.
         "ghost-destructive":
-          "hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40",
+          "hover:bg-destructive/10 hover:text-destructive text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40",
         destructive:
           "bg-destructive/10 shadow-[var(--custom-shadow-destructive)] text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         // Underline stays rendered but transparent at rest, fading its opacity
@@ -29,11 +29,11 @@ const buttonVariants = cva(
         link: "text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground",
       },
       size: {
+        xs: "h-6 gap-[4.5px] rounded-full px-2.5 text-xs in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2 [&_svg:not([class*='size-'])]:size-[11px]",
+        sm: "h-7 gap-[5px] rounded-full px-3 in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-[9px] has-[>svg:last-child]:pr-[9px]",
         default:
-          "h-8 gap-[5px] px-3 in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-2.5 has-[>svg:last-child]:pr-2.5",
-        xs: "h-6 gap-[4px] rounded-full px-2.5 text-xs in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-1.5 has-[>svg:last-child]:pr-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-[5px] rounded-full px-3 in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2",
-        lg: "h-9 gap-1.5 px-3.5 has-[>svg:first-child]:pl-3 has-[>svg:last-child]:pr-3 [&_svg:not([class*='size-'])]:size-3.5",
+          "h-8 gap-[5.5px] px-[13px] in-data-[slot=button-group]:rounded-full has-[>svg:first-child]:pl-2.5 has-[>svg:last-child]:pr-2.5",
+        lg: "h-8.5 gap-1.5 px-[15px] has-[>svg:first-child]:pl-3 has-[>svg:last-child]:pr-3 [&_svg:not([class*='size-'])]:size-3.5",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-full in-data-[slot=button-group]:rounded-full [&_svg:not([class*='size-'])]:size-3",

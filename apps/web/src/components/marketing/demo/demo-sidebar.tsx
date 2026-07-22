@@ -124,36 +124,30 @@ export function DemoSidebar() {
             })}
           </ul>
         </div>
-
-        {/* Configs — shown for fidelity but inert (no pointer, no hover/active) */}
-        <div className="flex w-full flex-col p-2 px-2">
-          <div className="flex h-8 shrink-0 items-center px-2 text-xs font-medium text-sidebar-foreground/70">
-            Configs
-          </div>
-          <ul className="flex w-full flex-col gap-1" aria-hidden>
-            {account.map((item) => (
-              <li key={item.href}>
-                <div
-                  className={cn(BUTTON_BASE, "pointer-events-none select-none")}
-                >
-                  <NavIcon
-                    icon={item.icon}
-                    activeIcon={item.activeIcon}
-                    active={false}
-                    className={item.iconClassName}
-                  />
-                  <span className="truncate">{item.label}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
 
       {/* Footer — display-only account row */}
-      <div className="flex flex-col gap-2 p-2 px-2.5">
+      <div className="flex flex-col gap-1 p-2 px-2.5">
+        <ul className="flex w-full flex-col gap-1" aria-hidden>
+          {account.map((item) => (
+            <li key={item.href}>
+              <div
+                className={cn(BUTTON_BASE, "pointer-events-none select-none")}
+              >
+                <NavIcon
+                  icon={item.icon}
+                  activeIcon={item.activeIcon}
+                  active={false}
+                  className={item.iconClassName}
+                />
+                <span className="truncate">{item.label}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+
         <div className={cn(BUTTON_BASE, "pointer-events-none select-none")}>
-          <Avatar className="size-5">
+          <Avatar className="size-4">
             <AvatarImage src="/avatar.jpg" alt="Gustavo" />
             <AvatarFallback>G</AvatarFallback>
           </Avatar>

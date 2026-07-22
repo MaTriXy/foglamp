@@ -94,7 +94,7 @@ export function ProviderKeysTab() {
 
   return (
     <>
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle>Add or replace a key</CardTitle>
           <CardDescription>

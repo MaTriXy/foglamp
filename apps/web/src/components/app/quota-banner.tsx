@@ -35,7 +35,10 @@ export function QuotaBanner() {
           ? "Monthly span quota exceeded — new spans are being rejected."
           : `You've used ${Math.round(pct * 100)}% of your monthly span quota.`}
       </span>
-      <Link href="/settings/org" className="font-medium whitespace-nowrap underline">
+      <Link
+        href="/settings/org"
+        className="font-medium whitespace-nowrap underline"
+      >
         {over ? "Upgrade now" : "Review billing"}
       </Link>
     </div>

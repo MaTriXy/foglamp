@@ -139,52 +139,50 @@ function NavUser() {
   const image = (mounted && session?.user.image) || undefined;
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton />}>
-            <Avatar size="sm">
-              <AvatarImage src={image} alt={name} />
-              <AvatarFallback>{initials(name)}</AvatarFallback>
-            </Avatar>
-            {/* min-w-0 lets the flex child shrink so the name can truncate. */}
-            <div className="flex min-w-0 flex-1 flex-col text-left text-sm">
-              <span className="truncate font-medium">{name}</span>
-            </div>
-            <IconDotsVertical className="ml-auto size-4 opacity-20" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            side="right"
-            sideOffset={8}
-            className="min-w-(--anchor-width)"
-          >
-            <DropdownMenuLabel className="max-w-56 truncate">
-              {email}
-            </DropdownMenuLabel>
-            <ThemeSubmenu />
-            {isPlatformAdmin.data && (
-              <DropdownMenuItem render={<Link href="/platform" />}>
-                <IconChartBar />
-                Platform
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() =>
-                authClient.signOut({
-                  fetchOptions: { onSuccess: () => router.push("/login") },
-                })
-              }
-            >
-              <IconLogout />
-              Log out
+    <SidebarMenuItem>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<SidebarMenuButton />}>
+          <Avatar size="xs">
+            <AvatarImage src={image} alt={name} />
+            <AvatarFallback>{initials(name)}</AvatarFallback>
+          </Avatar>
+          {/* min-w-0 lets the flex child shrink so the name can truncate. */}
+          <div className="flex min-w-0 flex-1 flex-col text-left text-sm">
+            <span className="truncate font-medium">{name}</span>
+          </div>
+          <IconDotsVertical className="ml-auto size-4 opacity-20" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          side="right"
+          sideOffset={8}
+          className="min-w-(--anchor-width)"
+        >
+          <DropdownMenuLabel className="max-w-56 truncate">
+            {email}
+          </DropdownMenuLabel>
+          <ThemeSubmenu />
+          {isPlatformAdmin.data && (
+            <DropdownMenuItem render={<Link href="/platform" />}>
+              <IconChartBar />
+              Platform
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() =>
+              authClient.signOut({
+                fetchOptions: { onSuccess: () => router.push("/login") },
+              })
+            }
+          >
+            <IconLogout />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </SidebarMenuItem>
   );
 }
 
@@ -299,37 +297,31 @@ function ShellBody({ children }: { children: React.ReactNode }) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Configs</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {account.map((item) => {
-                  const active = isActive(pathname, item.href);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        isActive={active}
-                        render={<Link href={item.href} />}
-                      >
-                        <NavIcon
-                          icon={item.icon}
-                          activeIcon={item.activeIcon}
-                          active={active}
-                          className={item.iconClassName}
-                        />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>
-          <NavUser />
+          <SidebarMenu>
+            {account.map((item) => {
+              const active = isActive(pathname, item.href);
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    isActive={active}
+                    render={<Link href={item.href} />}
+                  >
+                    <NavIcon
+                      icon={item.icon}
+                      activeIcon={item.activeIcon}
+                      active={active}
+                      className={item.iconClassName}
+                    />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+            <NavUser />
+          </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
 

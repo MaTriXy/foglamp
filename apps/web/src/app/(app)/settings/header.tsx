@@ -6,7 +6,8 @@ import { RouteHeader } from "@/components/app/route-header";
 export function ApiKeysHeader({ actions }: { actions?: React.ReactNode }) {
   return (
     <RouteHeader
-      href="/settings" noIcon
+      href="/settings"
+      noIcon
       title="API Keys"
       description="Manage your keys."
       actions={actions}
