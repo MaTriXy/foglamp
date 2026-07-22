@@ -142,10 +142,14 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
                 layoutId="settings-tab-bg"
                 initial={false}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-                className="absolute inset-0 rounded-xl corner-squircle bg-muted dark:bg-muted/50"
+                className="absolute inset-0 z-0 rounded-xl corner-squircle bg-muted dark:bg-muted/50"
               />
             )}
-            <span className="relative flex items-center gap-1.5">
+            {/* z-10: the sliding pill lives in the *destination* button and its
+                transform stacks it above sibling buttons' content — without a
+                z-index it paints over the outgoing tab's label mid-flight,
+                blanking the text for a couple of frames. */}
+            <span className="relative z-10 flex items-center gap-1.5">
               <Icon className="size-3.5" />
               {label}
             </span>
