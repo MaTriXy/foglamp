@@ -127,15 +127,20 @@ function TabBar({ tab, onChange }: { tab: TabId; onChange: (t: TabId) => void })
             aria-selected={active}
             onClick={() => onChange(id)}
             className={cn(
-              "relative h-8 cursor-pointer rounded-xl corner-squircle px-2.5 text-sm font-medium transition-colors",
+              // No transition-colors: the pill leaves a deselected button
+              // instantly (its layoutId node remounts on the new button), so a
+              // trailing color fade reads as a flick — snap the text with it.
+              // Hover still eases via its own scoped transition below.
+              "relative h-8 cursor-pointer rounded-xl corner-squircle px-2.5 text-sm font-medium",
               active
                 ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:transition-colors"
             )}
           >
             {active && (
               <motion.span
                 layoutId="settings-tab-bg"
+                initial={false}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                 className="absolute inset-0 rounded-xl corner-squircle bg-muted dark:bg-muted/50"
               />
